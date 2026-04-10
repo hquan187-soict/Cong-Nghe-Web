@@ -1,13 +1,14 @@
-import './App.css'
+import { ThemeProvider } from './context/ThemeContext'
+import { LangProvider } from './context/LangContext'
+import AppRouter from './AppRouter'
 
 function App() {
-
   return (
-    <>
-      <h1 className="text-3xl font-bold underline text-center">
-        Hello world!
-      </h1>
-    </>
+    <ThemeProvider>
+      <LangProvider>
+        <AppRouter />
+      </LangProvider>
+    </ThemeProvider>
   )
 }
 
