@@ -1,12 +1,30 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import connectDB from './lib/db.js';
+
+//test import
+import "./models/User.js";
+import "./models/Conversation.js";
+import "./models/Message.js";
+import "./models/Call.js";
 
 dotenv.config();
 
-const app = express();
-
+const app = express();  
 const PORT = process.env.PORT || 3000;
 
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+app.use(express.json());
+
+app.get('/', (req, res) => {
+  res.send('API is running');
 });
+
+const startServer = async () => {
+  await connectDB();
+
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+};
+
+startServer();
