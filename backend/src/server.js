@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import connectDB from './lib/db.js';
+import authRoutes from './routes/auth.routes.js';
 
 //test import
 import "./models/User.js";
@@ -18,6 +19,8 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.send('API is running');
 });
+
+app.use('/api/auth', authRoutes);
 
 const startServer = async () => {
   await connectDB();
