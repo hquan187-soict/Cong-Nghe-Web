@@ -12,11 +12,6 @@ const axiosInstance = axios.create({
 // Request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    // You can attach a token here if you have auth
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
     return config;
   },
   (error) => {
@@ -34,10 +29,8 @@ axiosInstance.interceptors.response.use(
   (error) => {
     // Handle response error
     if (error.response) {
-      // Examples: handle 401 Unauthorized or 403 Forbidden
       if (error.response.status === 401) {
         console.error('Unauthorized, please login again.');
-        // optionally: window.location.href = '/login';
       }
     }
     return Promise.reject(error);

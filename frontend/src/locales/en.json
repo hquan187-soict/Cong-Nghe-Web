@@ -1,0 +1,38 @@
+{
+  "login": {
+    "title": "Login",
+    "email": "Email",
+    "password": "Password",
+    "emailPlaceholder": "example@email.com",
+    "passwordPlaceholder": "Enter password",
+    "submit": "Login",
+    "noAccount": "Don't have an account?",
+    "registerLink": "Register"
+  },
+  "register": {
+    "title": "Register",
+    "username": "Username",
+    "email": "Email",
+    "password": "Password",
+    "usernamePlaceholder": "Enter username",
+    "emailPlaceholder": "example@email.com",
+    "passwordPlaceholder": "Enter password",
+    "submit": "Register",
+    "hasAccount": "Already have an account?",
+    "loginLink": "Login"
+  },
+  "chat": {
+    "title": "Chat",
+    "conversations": "Conversations",
+    "conversationsPlaceholder": "[Placeholder — chat list]",
+    "messagesPlaceholder": "[Placeholder — messages will appear here]",
+    "inputPlaceholder": "Type a message...",
+    "send": "Send"
+  },
+  "toolbar": {
+    "switchToDark": "Dark",
+    "switchToLight": "Light",
+    "switchToEn": "EN",
+    "switchToVi": "VI"
+  }
+}

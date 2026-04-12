@@ -1,0 +1,38 @@
+{
+  "login": {
+    "title": "Đăng nhập",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "emailPlaceholder": "example@email.com",
+    "passwordPlaceholder": "Nhập mật khẩu",
+    "submit": "Đăng nhập",
+    "noAccount": "Chưa có tài khoản?",
+    "registerLink": "Đăng ký"
+  },
+  "register": {
+    "title": "Đăng ký",
+    "username": "Tên người dùng",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "usernamePlaceholder": "Nhập tên người dùng",
+    "emailPlaceholder": "example@email.com",
+    "passwordPlaceholder": "Nhập mật khẩu",
+    "submit": "Đăng ký",
+    "hasAccount": "Đã có tài khoản?",
+    "loginLink": "Đăng nhập"
+  },
+  "chat": {
+    "title": "Chat",
+    "conversations": "Cuộc trò chuyện",
+    "conversationsPlaceholder": "[Placeholder — danh sách chat]",
+    "messagesPlaceholder": "[Placeholder — tin nhắn sẽ hiển thị ở đây]",
+    "inputPlaceholder": "Nhập tin nhắn...",
+    "send": "Gửi"
+  },
+  "toolbar": {
+    "switchToDark": "Tối",
+    "switchToLight": "Sáng",
+    "switchToEn": "EN",
+    "switchToVi": "VI"
+  }
+}
