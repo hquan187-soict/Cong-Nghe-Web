@@ -53,11 +53,11 @@ const Demo = () => {
             <div className="space-y-6">
               <Input
                 label="Full Name"
-                placeholder="John Doe"
+                placeholder="Nguyễn Văn A"
               />
               <Input
                 label="Email Address"
-                placeholder="john@example.com"
+                placeholder="a@gmail.com"
                 value={email}
                 onChange={handleEmailChange}
                 error={error}
