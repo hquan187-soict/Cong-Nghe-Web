@@ -1,6 +1,7 @@
 {
   "login": {
     "title": "Login",
+    "subtitle": "Please enter your details to continue.",
     "email": "Email",
     "password": "Password",
     "emailPlaceholder": "example@email.com",
@@ -11,15 +12,24 @@
   },
   "register": {
     "title": "Register",
+    "subtitle": "Create a new account to get started.",
     "username": "Username",
     "email": "Email",
     "password": "Password",
     "usernamePlaceholder": "Enter username",
     "emailPlaceholder": "example@email.com",
     "passwordPlaceholder": "Enter password",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Re-enter password",
     "submit": "Register",
     "hasAccount": "Already have an account?",
     "loginLink": "Login"
+  },
+  "validation": {
+    "required": "This field is required",
+    "emailInvalid": "Invalid email address",
+    "passwordMinLength": "Password must be at least 6 characters",
+    "passwordMismatch": "Passwords do not match"
   },
   "chat": {
     "title": "Chat",
