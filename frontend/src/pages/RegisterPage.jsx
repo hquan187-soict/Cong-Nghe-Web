@@ -43,11 +43,6 @@ function RegisterPage() {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
   }
 
-  function handleBlur(field) {
-    const fieldErrors = validate(formData, t)
-    setErrors(prev => ({ ...prev, [field]: fieldErrors[field] ?? '' }))
-  }
-
   function handleSubmit(e) {
     e.preventDefault()
     const fieldErrors = validate(formData, t)
@@ -68,7 +63,6 @@ function RegisterPage() {
           placeholder={t('register.usernamePlaceholder')}
           value={formData.username}
           onChange={e => handleChange('username', e.target.value)}
-          onBlur={() => handleBlur('username')}
           error={errors.username}
         />
 
@@ -78,7 +72,6 @@ function RegisterPage() {
           placeholder={t('register.emailPlaceholder')}
           value={formData.email}
           onChange={e => handleChange('email', e.target.value)}
-          onBlur={() => handleBlur('email')}
           error={errors.email}
         />
 
@@ -88,7 +81,6 @@ function RegisterPage() {
           placeholder={t('register.passwordPlaceholder')}
           value={formData.password}
           onChange={e => handleChange('password', e.target.value)}
-          onBlur={() => handleBlur('password')}
           error={errors.password}
           icon={<Lock size={16} />}
           rightIcon={showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -101,7 +93,6 @@ function RegisterPage() {
           placeholder={t('register.confirmPasswordPlaceholder')}
           value={formData.confirmPassword}
           onChange={e => handleChange('confirmPassword', e.target.value)}
-          onBlur={() => handleBlur('confirmPassword')}
           error={errors.confirmPassword}
           icon={<Lock size={16} />}
           rightIcon={showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}

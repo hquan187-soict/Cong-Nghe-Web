@@ -34,11 +34,6 @@ function LoginPage() {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
   }
 
-  function handleBlur(field) {
-    const fieldErrors = validate(formData, t)
-    setErrors(prev => ({ ...prev, [field]: fieldErrors[field] ?? '' }))
-  }
-
   function handleSubmit(e) {
     e.preventDefault()
     const fieldErrors = validate(formData, t)
@@ -59,7 +54,7 @@ function LoginPage() {
           placeholder={t('login.emailPlaceholder')}
           value={formData.email}
           onChange={e => handleChange('email', e.target.value)}
-          onBlur={() => handleBlur('email')}
+
           error={errors.email}
         />
 
@@ -69,7 +64,6 @@ function LoginPage() {
           placeholder={t('login.passwordPlaceholder')}
           value={formData.password}
           onChange={e => handleChange('password', e.target.value)}
-          onBlur={() => handleBlur('password')}
           error={errors.password}
           icon={<Lock size={16} />}
           rightIcon={showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
