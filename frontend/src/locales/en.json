@@ -13,10 +13,10 @@
   "register": {
     "title": "Register",
     "subtitle": "Create a new account to get started.",
-    "username": "Username",
+    "fullName": "Full Name",
     "email": "Email",
     "password": "Password",
-    "usernamePlaceholder": "Enter username",
+    "fullNamePlaceholder": "Enter your full name",
     "emailPlaceholder": "example@email.com",
     "passwordPlaceholder": "Enter password",
     "confirmPassword": "Confirm Password",

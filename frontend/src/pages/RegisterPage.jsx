@@ -5,13 +5,14 @@ import { useLang } from '../context/LangContext'
 import AuthLayout from '../components/layout/AuthLayout'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
+import { authService } from '../services/auth.service'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function validate(data, t) {
   const errs = {}
-  if (!data.username.trim())
-    errs.username = t('validation.required')
+  if (!data.fullName.trim())
+    errs.fullName = t('validation.required')
 
   if (!data.email.trim())
     errs.email = t('validation.required')
@@ -33,37 +34,48 @@ function validate(data, t) {
 
 function RegisterPage() {
   const { t } = useLang()
-  const [formData, setFormData] = useState({ username: '', email: '', password: '', confirmPassword: '' })
-  const [errors, setErrors] = useState({ username: '', email: '', password: '', confirmPassword: '' })
+  const [formData, setFormData] = useState({ fullName: '', email: '', password: '', confirmPassword: '' })
+  const [errors, setErrors] = useState({ fullName: '', email: '', password: '', confirmPassword: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     const fieldErrors = validate(formData, t)
     if (Object.values(fieldErrors).some(Boolean)) {
       setErrors(fieldErrors)
       return
     }
-    console.log('Register data:', formData)
-    alert('Sẽ gọi API sau')
+    
+    setLoading(true)
+    try {
+      const { fullName, email, password } = formData
+      await authService.signup({ fullName, email, password })
+      alert('Đăng ký thành công!')
+      window.location.href = '/login'
+    } catch (error) {
+      alert(error.response?.data?.message || 'Đăng ký thất bại')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <AuthLayout title={t('register.title')} subtitle={t('register.subtitle')}>
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
         <Input
-          label={t('register.username')}
+          label={t('register.fullName') || 'Họ và tên'}
           type="text"
-          placeholder={t('register.usernamePlaceholder')}
-          value={formData.username}
-          onChange={e => handleChange('username', e.target.value)}
-          error={errors.username}
+          placeholder={t('register.fullNamePlaceholder') || 'Nhập họ và tên'}
+          value={formData.fullName}
+          onChange={e => handleChange('fullName', e.target.value)}
+          error={errors.fullName}
         />
 
         <Input
@@ -99,7 +111,7 @@ function RegisterPage() {
           onRightIconClick={() => setShowConfirm(prev => !prev)}
         />
 
-        <Button type="submit" variant="primary" className="w-full mt-1">
+        <Button type="submit" variant="primary" className="w-full mt-1" loading={loading}>
           {t('register.submit')}
         </Button>
       </form>

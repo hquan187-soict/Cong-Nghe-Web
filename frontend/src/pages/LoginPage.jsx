@@ -5,6 +5,7 @@ import { useLang } from '../context/LangContext'
 import AuthLayout from '../components/layout/AuthLayout'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
+import { authService } from '../services/auth.service'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -28,21 +29,31 @@ function LoginPage() {
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({ email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     const fieldErrors = validate(formData, t)
     if (Object.values(fieldErrors).some(Boolean)) {
       setErrors(fieldErrors)
       return
     }
-    console.log('Login data:', formData)
-    alert('Sẽ gọi API sau')
+    
+    setLoading(true)
+    try {
+      await authService.login(formData)
+      alert('Đăng nhập thành công!')
+      window.location.href = '/'
+    } catch (error) {
+      alert(error.response?.data?.message || 'Đăng nhập thất bại')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -70,7 +81,7 @@ function LoginPage() {
           onRightIconClick={() => setShowPassword(prev => !prev)}
         />
 
-        <Button type="submit" variant="primary" className="w-full mt-1">
+        <Button type="submit" variant="primary" className="w-full mt-1" loading={loading}>
           {t('login.submit')}
         </Button>
       </form>

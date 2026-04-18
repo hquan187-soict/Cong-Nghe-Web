@@ -13,10 +13,10 @@
   "register": {
     "title": "Đăng ký",
     "subtitle": "Tạo tài khoản mới để bắt đầu.",
-    "username": "Tên người dùng",
+    "fullName": "Họ và tên",
     "email": "Email",
     "password": "Mật khẩu",
-    "usernamePlaceholder": "Nhập tên người dùng",
+    "fullNamePlaceholder": "Nhập họ và tên của bạn",
     "emailPlaceholder": "example@email.com",
     "passwordPlaceholder": "Nhập mật khẩu",
     "confirmPassword": "Xác nhận mật khẩu",
