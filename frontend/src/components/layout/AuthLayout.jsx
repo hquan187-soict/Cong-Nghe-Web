@@ -1,4 +1,4 @@
-const AuthLayout = ({ children }) => {
+const AuthLayout = ({ children, title = "Welcome back", subtitle = "Please enter your details to continue." }) => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 sm:p-8 relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply blur-3xl opacity-30 animate-pulse"></div>
@@ -10,8 +10,8 @@ const AuthLayout = ({ children }) => {
           <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl mx-auto mb-4 shadow-lg shadow-indigo-500/30 flex items-center justify-center text-white">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
           </div>
-          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Welcome back</h2>
-          <p className="text-slate-500 mt-2 text-sm">Please enter your details to continue.</p>
+          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{title}</h2>
+          <p className="text-slate-500 mt-2 text-sm">{subtitle}</p>
         </div>
         {children}
       </div>

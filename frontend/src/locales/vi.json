@@ -1,6 +1,7 @@
 {
   "login": {
     "title": "Đăng nhập",
+    "subtitle": "Vui lòng nhập thông tin để tiếp tục.",
     "email": "Email",
     "password": "Mật khẩu",
     "emailPlaceholder": "example@email.com",
@@ -11,15 +12,24 @@
   },
   "register": {
     "title": "Đăng ký",
-    "username": "Tên người dùng",
+    "subtitle": "Tạo tài khoản mới để bắt đầu.",
+    "fullName": "Họ và tên",
     "email": "Email",
     "password": "Mật khẩu",
-    "usernamePlaceholder": "Nhập tên người dùng",
+    "fullNamePlaceholder": "Nhập họ và tên của bạn",
     "emailPlaceholder": "example@email.com",
     "passwordPlaceholder": "Nhập mật khẩu",
+    "confirmPassword": "Xác nhận mật khẩu",
+    "confirmPasswordPlaceholder": "Nhập lại mật khẩu",
     "submit": "Đăng ký",
     "hasAccount": "Đã có tài khoản?",
     "loginLink": "Đăng nhập"
+  },
+  "validation": {
+    "required": "Trường này không được để trống",
+    "emailInvalid": "Email không hợp lệ",
+    "passwordMinLength": "Mật khẩu phải có ít nhất 6 ký tự",
+    "passwordMismatch": "Mật khẩu xác nhận không khớp"
   },
   "chat": {
     "title": "Chat",
