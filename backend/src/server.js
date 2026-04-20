@@ -5,6 +5,7 @@ import connectDB from './lib/db.js';
 import authRoutes from './routes/auth.routes.js';
 import { globalErrorHandler } from './middleware/globalErrorHandler.js';
 import userRoutes from './routes/user.routes.js';
+import cors from 'cors';
 
 //test import
 import "./models/User.js";
@@ -18,6 +19,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use(cors({
+  origin: process.env.CLIENT_URL, 
+  credentials: true, 
+}));
 app.use(cookieParser());
 
 app.get('/', (req, res) => {
