@@ -2,6 +2,7 @@ import { useState } from "react";
 import Button from "./Button";
 import Input from "./Input";
 import Avatar from "./Avatar";
+import AuthDemo from "./AuthDemo";
 
 const Demo = () => {
   const [email, setEmail] = useState("");
@@ -104,6 +105,14 @@ const Demo = () => {
               <Avatar size="md" isOnline alt="John" />
               <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Fallback</span>
             </div>
+          </div>
+        </section>
+
+        {/* Auth Demo Section */}
+        <section className="bg-white p-8 md:p-10 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
+          <h2 className="text-2xl font-bold text-slate-800 mb-8 border-b border-slate-100 pb-4 relative z-10">Authentication</h2>
+          <div className="relative z-10">
+            <AuthDemo />
           </div>
         </section>
         
