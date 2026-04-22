@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Lock, Eye, EyeOff } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import AuthLayout from '../components/layout/AuthLayout'
@@ -34,8 +34,10 @@ function validate(data, t) {
 
 function RegisterPage() {
   const { t } = useLang()
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({ fullName: '', email: '', password: '', confirmPassword: '' })
   const [errors, setErrors] = useState({ fullName: '', email: '', password: '', confirmPassword: '' })
+  const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -43,6 +45,7 @@ function RegisterPage() {
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
+    if (serverError) setServerError('')
   }
 
   async function handleSubmit(e) {
@@ -52,15 +55,20 @@ function RegisterPage() {
       setErrors(fieldErrors)
       return
     }
-    
+
     setLoading(true)
     try {
       const { fullName, email, password } = formData
       await authService.signup({ fullName, email, password })
-      alert('Đăng ký thành công!')
-      window.location.href = '/login'
+      navigate('/login', { replace: true })
     } catch (error) {
-      alert(error.response?.data?.message || 'Đăng ký thất bại')
+      const status = error.response?.status
+      const message = error.response?.data?.message || 'Đăng ký thất bại'
+      if (status === 409) {
+        setErrors(prev => ({ ...prev, email: message }))
+      } else {
+        setServerError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -114,6 +122,12 @@ function RegisterPage() {
         <Button type="submit" variant="primary" className="w-full mt-1" loading={loading}>
           {t('register.submit')}
         </Button>
+
+        {serverError && (
+          <p className="text-rose-500 text-sm font-medium text-center animate-in fade-in slide-in-from-top-1">
+            {serverError}
+          </p>
+        )}
       </form>
 
       <p className="text-center text-sm text-slate-500 mt-6">
