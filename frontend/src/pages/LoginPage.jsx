@@ -53,6 +53,7 @@ function LoginPage() {
     try {
       const data = await authService.login(formData)
       // Lưu user vào AuthContext
+      // axios interceptor đã unwrap response.data → data = { _id, fullName, email, avatar }
       login(data)
       toast.success(t('login.success'))
       navigate('/chat', { replace: true })
