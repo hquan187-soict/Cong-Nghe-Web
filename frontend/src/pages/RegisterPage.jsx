@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Lock, Eye, EyeOff } from 'lucide-react'
 import { useLang } from '../context/LangContext'
+import { useToast } from '../context/ToastContext'
 import AuthLayout from '../components/layout/AuthLayout'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
@@ -34,6 +35,8 @@ function validate(data, t) {
 
 function RegisterPage() {
   const { t } = useLang()
+  const toast = useToast()
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({ fullName: '', email: '', password: '', confirmPassword: '' })
   const [errors, setErrors] = useState({ fullName: '', email: '', password: '', confirmPassword: '' })
   const [showPassword, setShowPassword] = useState(false)
@@ -57,10 +60,10 @@ function RegisterPage() {
     try {
       const { fullName, email, password } = formData
       await authService.signup({ fullName, email, password })
-      alert('Đăng ký thành công!')
-      window.location.href = '/login'
+      toast.success(t('register.success'))
+      navigate('/login', { replace: true })
     } catch (error) {
-      alert(error.response?.data?.message || 'Đăng ký thất bại')
+      toast.error(error.response?.data?.message || t('register.error'))
     } finally {
       setLoading(false)
     }
@@ -127,3 +130,4 @@ function RegisterPage() {
 }
 
 export default RegisterPage
+
