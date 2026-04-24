@@ -8,7 +8,9 @@
     "passwordPlaceholder": "Nhập mật khẩu",
     "submit": "Đăng nhập",
     "noAccount": "Chưa có tài khoản?",
-    "registerLink": "Đăng ký"
+    "registerLink": "Đăng ký",
+    "success": "Đăng nhập thành công!",
+    "error": "Đăng nhập thất bại"
   },
   "register": {
     "title": "Đăng ký",
@@ -23,13 +25,25 @@
     "confirmPasswordPlaceholder": "Nhập lại mật khẩu",
     "submit": "Đăng ký",
     "hasAccount": "Đã có tài khoản?",
-    "loginLink": "Đăng nhập"
+    "loginLink": "Đăng nhập",
+    "success": "Đăng ký thành công!",
+    "error": "Đăng ký thất bại"
   },
   "validation": {
     "required": "Trường này không được để trống",
     "emailInvalid": "Email không hợp lệ",
     "passwordMinLength": "Mật khẩu phải có ít nhất 6 ký tự",
     "passwordMismatch": "Mật khẩu xác nhận không khớp"
+  },
+  "profile": {
+    "title": "Trang cá nhân",
+    "fullName": "Họ và tên",
+    "email": "Email",
+    "logout": "Đăng xuất",
+    "logoutSuccess": "Đăng xuất thành công!",
+    "logoutError": "Đăng xuất thất bại, vui lòng thử lại.",
+    "backToChat": "Quay lại Chat",
+    "defaultName": "Người dùng"
   },
   "chat": {
     "title": "Chat",
@@ -46,3 +60,4 @@
     "switchToVi": "VI"
   }
 }
+
