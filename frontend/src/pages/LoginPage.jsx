@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Lock, Eye, EyeOff } from 'lucide-react'
 import { useLang } from '../context/LangContext'
+import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import AuthLayout from '../components/layout/AuthLayout'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
@@ -26,6 +28,9 @@ function validate(data, t) {
 
 function LoginPage() {
   const { t } = useLang()
+  const { login } = useAuth()
+  const toast = useToast()
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({ email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
@@ -46,11 +51,13 @@ function LoginPage() {
     
     setLoading(true)
     try {
-      await authService.login(formData)
-      alert('Đăng nhập thành công!')
-      window.location.href = '/'
+      const data = await authService.login(formData)
+      // Lưu user vào AuthContext
+      login(data)
+      toast.success(t('login.success'))
+      navigate('/chat', { replace: true })
     } catch (error) {
-      alert(error.response?.data?.message || 'Đăng nhập thất bại')
+      toast.error(error.response?.data?.message || t('login.error'))
     } finally {
       setLoading(false)
     }
@@ -97,3 +104,4 @@ function LoginPage() {
 }
 
 export default LoginPage
+
