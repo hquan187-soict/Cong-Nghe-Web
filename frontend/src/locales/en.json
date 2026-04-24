@@ -8,7 +8,9 @@
     "passwordPlaceholder": "Enter password",
     "submit": "Login",
     "noAccount": "Don't have an account?",
-    "registerLink": "Register"
+    "registerLink": "Register",
+    "success": "Login successful!",
+    "error": "Login failed"
   },
   "register": {
     "title": "Register",
@@ -23,13 +25,25 @@
     "confirmPasswordPlaceholder": "Re-enter password",
     "submit": "Register",
     "hasAccount": "Already have an account?",
-    "loginLink": "Login"
+    "loginLink": "Login",
+    "success": "Registration successful!",
+    "error": "Registration failed"
   },
   "validation": {
     "required": "This field is required",
     "emailInvalid": "Invalid email address",
     "passwordMinLength": "Password must be at least 6 characters",
     "passwordMismatch": "Passwords do not match"
+  },
+  "profile": {
+    "title": "Profile",
+    "fullName": "Full Name",
+    "email": "Email",
+    "logout": "Logout",
+    "logoutSuccess": "Logged out successfully!",
+    "logoutError": "Logout failed, please try again.",
+    "backToChat": "Back to Chat",
+    "defaultName": "User"
   },
   "chat": {
     "title": "Chat",
@@ -46,3 +60,4 @@
     "switchToVi": "VI"
   }
 }
+
