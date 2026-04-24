@@ -1,2 +1,10 @@
 .env
 node_modules
+# Added by code-review-graph
+.code-review-graph/
+.claude/skills/explore-codebase.md
+.claude/settings.json
+/.claude/skills
+backend/.env.example
+.claude/settings.json
+.claude/skills/debug-issue.md

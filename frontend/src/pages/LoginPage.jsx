@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Lock, Eye, EyeOff } from 'lucide-react'
 import { useLang } from '../context/LangContext'
+import { useAuth } from '../context/AuthContext'
 import AuthLayout from '../components/layout/AuthLayout'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
@@ -26,14 +27,18 @@ function validate(data, t) {
 
 function LoginPage() {
   const { t } = useLang()
+  const { login } = useAuth()
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({ email: '', password: '' })
+  const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
+    if (serverError) setServerError('')
   }
 
   async function handleSubmit(e) {
@@ -43,14 +48,14 @@ function LoginPage() {
       setErrors(fieldErrors)
       return
     }
-    
+
     setLoading(true)
     try {
-      await authService.login(formData)
-      alert('Đăng nhập thành công!')
-      window.location.href = '/'
+      const userData = await authService.login(formData)
+      login(userData)
+      navigate('/chat', { replace: true })
     } catch (error) {
-      alert(error.response?.data?.message || 'Đăng nhập thất bại')
+      setServerError(error.response?.data?.message || 'Đăng nhập thất bại')
     } finally {
       setLoading(false)
     }
@@ -84,6 +89,12 @@ function LoginPage() {
         <Button type="submit" variant="primary" className="w-full mt-1" loading={loading}>
           {t('login.submit')}
         </Button>
+
+        {serverError && (
+          <p className="text-rose-500 text-sm font-medium text-center animate-in fade-in slide-in-from-top-1">
+            {serverError}
+          </p>
+        )}
       </form>
 
       <p className="text-center text-sm text-slate-500 mt-6">
