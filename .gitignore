@@ -5,6 +5,5 @@ node_modules
 .claude/skills/explore-codebase.md
 .claude/settings.json
 /.claude/skills
-backend/.env.example
 .claude/settings.json
 .claude/skills/debug-issue.md
