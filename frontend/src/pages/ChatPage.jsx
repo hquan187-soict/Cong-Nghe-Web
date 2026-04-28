@@ -1,42 +1,52 @@
-import { useLang } from '../context/LangContext'
+import { useState } from 'react'
+import ChatWindow from '../components/ChatWindow'
+//thay bằng import Sidebar from '../components/Sidebar' khi có sidebar riel
+// import Sidebar from '../components/Sidebar'
+import { mockConversations, MOCK_CURRENT_USER_ID } from '../services/mockData' //xóa khi có API
+
+// Sidebar placeholder — xóa khi có component thật
+function SidebarPlaceholder({ conversations, selectedId, onSelectConversation }) {
+  return (
+    <aside className="chat-sidebar">
+      <h2 className="chat-sidebar__title">Tin nhắn</h2>
+      <ul className="conv-list">
+        {conversations.map((conv) => {
+          const other = conv.members.find((m) => m._id !== MOCK_CURRENT_USER_ID) // sxóa khi có API
+          return (
+            <li
+              key={conv._id}
+              className={`conv-list__item ${selectedId === conv._id ? 'conv-list__item--active' : ''}`}
+              onClick={() => onSelectConversation(conv._id)}
+            >
+              <div className="conv-list__avatar">
+                {other?.fullName?.[0] ?? '?'}
+              </div>
+              <div className="conv-list__info">
+                <span className="conv-list__name">{other?.fullName ?? 'Người dùng'}</span>
+                <span className="conv-list__last-msg">{conv.lastMessage?.text ?? ''}</span>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </aside>
+  )
+}
 
 function ChatPage() {
-  const { t } = useLang()
-
-  function handleSend() {
-    alert(`${t('chat.send')}`)
-  }
+  const [selectedConversationId, setSelectedConversationId] = useState(null)
 
   return (
     <div className="chat-layout">
-      {/* Sidebar danh sach cuoc tro chuyen */}
-      <aside className="chat-sidebar">
-        <h2>{t('chat.conversations')}</h2>
-        <p className="placeholder-text">{t('chat.conversationsPlaceholder')}</p>
-      </aside>
-
-      {/* Khu vuc chat chinh */}
+      {/* Cột trái — Sidebar */}
+      <SidebarPlaceholder
+        conversations={mockConversations}
+        selectedId={selectedConversationId}
+        onSelectConversation={setSelectedConversationId}
+      />
+      {/* Cột phải — ChatWindow */}
       <main className="chat-main">
-        <header className="chat-header">
-          <h2>{t('chat.title')}</h2>
-        </header>
-
-        {/* Tin nhan */}
-        <div className="chat-messages">
-          <p className="placeholder-text">{t('chat.messagesPlaceholder')}</p>
-        </div>
-
-        {/* Input gui tin */}
-        <div className="chat-input-area">
-          <input
-            type="text"
-            placeholder={t('chat.inputPlaceholder')}
-            className="chat-input"
-          />
-          <button type="button" className="btn-send" onClick={handleSend}>
-            {t('chat.send')}
-          </button>
-        </div>
+        <ChatWindow conversationId={selectedConversationId} />
       </main>
     </div>
   )
