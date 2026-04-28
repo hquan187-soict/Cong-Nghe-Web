@@ -33,12 +33,14 @@ function LoginPage() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({ email: '', password: '' })
+  const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
+    if (serverError) setServerError('')
   }
 
   async function handleSubmit(e) {
@@ -48,7 +50,7 @@ function LoginPage() {
       setErrors(fieldErrors)
       return
     }
-    
+
     setLoading(true)
     try {
       const data = await authService.login(formData)
@@ -92,6 +94,12 @@ function LoginPage() {
         <Button type="submit" variant="primary" className="w-full mt-1" loading={loading}>
           {t('login.submit')}
         </Button>
+
+        {serverError && (
+          <p className="text-rose-500 text-sm font-medium text-center animate-in fade-in slide-in-from-top-1">
+            {serverError}
+          </p>
+        )}
       </form>
 
       <p className="text-center text-sm text-slate-500 mt-6">
