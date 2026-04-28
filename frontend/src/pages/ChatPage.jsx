@@ -1,7 +1,10 @@
+import { useNavigate } from 'react-router-dom'
+import { User } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 
 function ChatPage() {
   const { t } = useLang()
+  const navigate = useNavigate()
 
   function handleSend() {
     alert(`${t('chat.send')}`)
@@ -19,6 +22,14 @@ function ChatPage() {
       <main className="chat-main">
         <header className="chat-header">
           <h2>{t('chat.title')}</h2>
+          <button
+            type="button"
+            className="btn-profile"
+            title={t('profile.title')}
+            onClick={() => navigate('/profile')}
+          >
+            <User size={20} />
+          </button>
         </header>
 
         {/* Tin nhan */}
