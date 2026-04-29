@@ -51,7 +51,22 @@
     "conversationsPlaceholder": "[Placeholder — danh sách chat]",
     "messagesPlaceholder": "[Placeholder — tin nhắn sẽ hiển thị ở đây]",
     "inputPlaceholder": "Nhập tin nhắn...",
-    "send": "Gửi"
+    "send": "Gửi",
+    "newConversation": "Cuộc trò chuyện mới",
+    "searchUser": "Tìm kiếm người dùng...",
+    "noConversations": "Chưa có cuộc trò chuyện nào",
+    "startConversation": "Bấm + để bắt đầu trò chuyện",
+    "noResults": "Không tìm thấy người dùng",
+    "searching": "Đang tìm...",
+    "creating": "Đang tạo...",
+    "searchMinChars": "Nhập ít nhất 2 ký tự để tìm",
+    "noMessage": "Chưa có tin nhắn",
+    "close": "Đóng",
+    "selectConversation": "Chọn một cuộc trò chuyện để bắt đầu",
+    "conversationCreated": "Đã tạo cuộc trò chuyện!",
+    "createError": "Không thể tạo cuộc trò chuyện",
+    "loadError": "Không thể tải danh sách trò chuyện",
+    "unknownUser": "Người dùng"
   },
   "toolbar": {
     "switchToDark": "Tối",
@@ -60,4 +75,3 @@
     "switchToVi": "VI"
   }
 }
-
