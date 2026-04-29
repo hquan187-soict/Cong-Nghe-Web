@@ -51,7 +51,22 @@
     "conversationsPlaceholder": "[Placeholder — chat list]",
     "messagesPlaceholder": "[Placeholder — messages will appear here]",
     "inputPlaceholder": "Type a message...",
-    "send": "Send"
+    "send": "Send",
+    "newConversation": "New Conversation",
+    "searchUser": "Search for a user...",
+    "noConversations": "No conversations yet",
+    "startConversation": "Press + to start a conversation",
+    "noResults": "No users found",
+    "searching": "Searching...",
+    "creating": "Creating...",
+    "searchMinChars": "Type at least 2 characters to search",
+    "noMessage": "No messages yet",
+    "close": "Close",
+    "selectConversation": "Select a conversation to get started",
+    "conversationCreated": "Conversation created!",
+    "createError": "Could not create conversation",
+    "loadError": "Could not load conversations",
+    "unknownUser": "User"
   },
   "toolbar": {
     "switchToDark": "Dark",
@@ -60,4 +75,3 @@
     "switchToVi": "VI"
   }
 }
-
