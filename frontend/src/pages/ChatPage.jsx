@@ -1,27 +1,36 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User } from 'lucide-react'
+import { User, MessageSquare } from 'lucide-react'
 import { useLang } from '../context/LangContext'
+import { useAuth } from '../context/AuthContext'
+import Sidebar from '../components/chat/Sidebar'
 
 function ChatPage() {
   const { t } = useLang()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
-  function handleSend() {
-    alert(`${t('chat.send')}`)
-  }
+  // State: conversation đang được chọn
+  const [selectedConversation, setSelectedConversation] = useState(null)
+
+  // Tìm member khác trong conversation đang chọn
+  const otherMember = selectedConversation?.members?.find(
+    (m) => m._id !== user?._id
+  )
 
   return (
     <div className="chat-layout">
-      {/* Sidebar danh sach cuoc tro chuyen */}
-      <aside className="chat-sidebar">
-        <h2>{t('chat.conversations')}</h2>
-        <p className="placeholder-text">{t('chat.conversationsPlaceholder')}</p>
-      </aside>
+      {/* Sidebar — Danh sách conversations */}
+      <Sidebar
+        selectedConversation={selectedConversation}
+        onSelectConversation={setSelectedConversation}
+      />
 
-      {/* Khu vuc chat chinh */}
+      {/* Khu vực chat chính */}
       <main className="chat-main">
+        {/* Header */}
         <header className="chat-header">
-          <h2>{t('chat.title')}</h2>
+          <h2>{selectedConversation ? (otherMember?.fullName || t('chat.title')) : t('chat.title')}</h2>
           <button
             type="button"
             className="btn-profile"
@@ -32,22 +41,32 @@ function ChatPage() {
           </button>
         </header>
 
-        {/* Tin nhan */}
-        <div className="chat-messages">
-          <p className="placeholder-text">{t('chat.messagesPlaceholder')}</p>
-        </div>
+        {selectedConversation ? (
+          <>
+            {/* Vùng tin nhắn */}
+            <div className="chat-messages">
+              <p className="placeholder-text">{t('chat.messagesPlaceholder')}</p>
+            </div>
 
-        {/* Input gui tin */}
-        <div className="chat-input-area">
-          <input
-            type="text"
-            placeholder={t('chat.inputPlaceholder')}
-            className="chat-input"
-          />
-          <button type="button" className="btn-send" onClick={handleSend}>
-            {t('chat.send')}
-          </button>
-        </div>
+            {/* Input gửi tin */}
+            <div className="chat-input-area">
+              <input
+                type="text"
+                placeholder={t('chat.inputPlaceholder')}
+                className="chat-input"
+              />
+              <button type="button" className="btn-send">
+                {t('chat.send')}
+              </button>
+            </div>
+          </>
+        ) : (
+          /* Empty state — chưa chọn conversation nào */
+          <div className="chat-empty-state">
+            <MessageSquare size={56} className="chat-empty-state__icon" />
+            <h3 className="chat-empty-state__title">{t('chat.selectConversation')}</h3>
+          </div>
+        )}
       </main>
     </div>
   )
