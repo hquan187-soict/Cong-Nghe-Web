@@ -7,6 +7,7 @@ import { globalErrorHandler } from './middleware/globalErrorHandler.js';
 import userRoutes from './routes/user.routes.js';
 import cors from 'cors';
 import conversationRoutes from "./routes/conversation.routes.js";
+import messageRoutes from "./routes/message.routes.js";
 
 //test import
 import "./models/User.js";
@@ -33,6 +34,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/messages", messageRoutes);
 
 app.use(globalErrorHandler);
 

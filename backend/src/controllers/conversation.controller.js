@@ -5,7 +5,7 @@ import User from "../models/User.js";
 export const createConversation = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
-    const { userId } = req.body;
+    const { userId, memberIds, name, avatar } = req.body;
 
     if (!currentUserId) {
       const error = new Error("Bạn chưa đăng nhập.");
@@ -13,48 +13,68 @@ export const createConversation = async (req, res, next) => {
       throw error;
     }
 
-    if (!userId) {
-      const error = new Error("userId là bắt buộc.");
+    const inputIds = Array.isArray(memberIds) ? memberIds : userId ? [userId] : [];
+    const uniqueIds = [...new Set(inputIds.map((id) => id?.toString()).filter(Boolean))];
+
+    if (uniqueIds.length === 0) {
+      const error = new Error("userId hoặc memberIds là bắt buộc.");
       error.statusCode = 400;
       throw error;
     }
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      const error = new Error("userId không hợp lệ.");
+    if (uniqueIds.includes(currentUserId.toString())) {
+      const error = new Error("Không truyền chính mình vào danh sách members.");
       error.statusCode = 400;
       throw error;
     }
 
-    if (currentUserId.toString() === userId) {
-      const error = new Error("Không thể tạo conversation với chính mình.");
+    if (uniqueIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+      const error = new Error("memberIds có userId không hợp lệ.");
       error.statusCode = 400;
       throw error;
     }
 
-    const targetUser = await User.findById(userId);
-
-    if (!targetUser) {
-      const error = new Error("Người dùng không tồn tại.");
+    const users = await User.find({ _id: { $in: uniqueIds } });
+    if (users.length !== uniqueIds.length) {
+      const error = new Error("Một hoặc nhiều người dùng không tồn tại.");
       error.statusCode = 404;
       throw error;
     }
 
-    const existingConversation = await Conversation.findOne({
-      members: { $all: [currentUserId, userId] },
-    })
-      .populate("members", "-password")
-      .populate("lastMessage");
+    const allMembers = [currentUserId, ...uniqueIds];
+    const isGroup = allMembers.length > 2;
 
-    if (existingConversation) {
-      return res.status(200).json(existingConversation);
+    if (isGroup && !name?.trim()) {
+      const error = new Error("Tên nhóm là bắt buộc.");
+      error.statusCode = 400;
+      throw error;
     }
 
-    const newConversation = await Conversation.create({
-      members: [currentUserId, userId],
+    if (!isGroup) {
+      const existingConversation = await Conversation.findOne({
+        members: { $all: allMembers },
+        isGroup: false,
+        $expr: { $eq: [{ $size: "$members" }, 2] },
+      })
+        .populate("members", "-password")
+        .populate("lastMessage");
+
+      if (existingConversation) {
+        return res.status(200).json(existingConversation);
+      }
+    }
+
+    const conversation = await Conversation.create({
+      members: allMembers,
+      isGroup,
+      name: isGroup ? name.trim() : undefined,
+      avatar: avatar || null,
+      admins: isGroup ? [currentUserId] : [],
     });
 
-    const populatedConversation = await Conversation.findById(newConversation._id)
+    const populatedConversation = await Conversation.findById(conversation._id)
       .populate("members", "-password")
+      .populate("admins", "-password")
       .populate("lastMessage");
 
     return res.status(201).json(populatedConversation);
@@ -62,6 +82,7 @@ export const createConversation = async (req, res, next) => {
     return next(error);
   }
 };
+
 
 export const getConversations = async (req, res, next) => {
   try {
@@ -77,6 +98,7 @@ export const getConversations = async (req, res, next) => {
       members: currentUserId,
     })
       .populate("members", "-password")
+      .populate("admins", "-password")
       .populate("lastMessage")
       .sort({ updatedAt: -1 });
 
