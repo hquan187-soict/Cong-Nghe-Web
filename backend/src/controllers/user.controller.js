@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import mongoose from "mongoose";
+import cloudinary from "../lib/cloudinary.js";
 
 export const searchUsers = async (req, res, next) => {
   try {
@@ -54,7 +55,7 @@ export const getUserById = async (req, res, next) => {
   }
 };
 
-export const updateProfile = async (req, res, next) => {
+export const  updateProfile = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
 
@@ -85,10 +86,12 @@ export const updateProfile = async (req, res, next) => {
       throw error;
     }
 
-    if (updateData.avatar !== undefined && typeof updateData.avatar !== "string") {
-      const error = new Error("avatar phải là chuỗi.");
-      error.statusCode = 400;
-      throw error;
+    if (updateData.avatar !== undefined) {
+      const avatarUrl = await cloudinary.uploader.upload(updateData.avatar, {
+        folder: "avatars",
+        public_id: `avatar_${currentUserId}`,
+      });
+      updateData.avatar = avatarUrl.secure_url;
     }
 
     if (updateData.email !== undefined) {
