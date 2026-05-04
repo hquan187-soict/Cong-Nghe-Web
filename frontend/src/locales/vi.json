@@ -43,7 +43,25 @@
     "logoutSuccess": "Đăng xuất thành công!",
     "logoutError": "Đăng xuất thất bại, vui lòng thử lại.",
     "backToChat": "Quay lại Chat",
-    "defaultName": "Người dùng"
+    "defaultName": "Người dùng",
+    "edit": "Chỉnh sửa",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "updateSuccess": "Cập nhật thông tin thành công!",
+    "updateError": "Cập nhật thất bại.",
+    "noChanges": "Không có thay đổi nào.",
+    "avatarUrl": "URL ảnh đại diện",
+    "avatarUrlPlaceholder": "https://example.com/avatar.jpg",
+    "fullNamePlaceholder": "Nhập họ và tên của bạn",
+    "changePassword": "Đổi mật khẩu",
+    "currentPassword": "Mật khẩu hiện tại",
+    "currentPasswordPlaceholder": "Nhập mật khẩu hiện tại",
+    "newPassword": "Mật khẩu mới",
+    "newPasswordPlaceholder": "Nhập mật khẩu mới",
+    "confirmNewPassword": "Xác nhận mật khẩu mới",
+    "confirmNewPasswordPlaceholder": "Nhập lại mật khẩu mới",
+    "passwordChangeSuccess": "Đổi mật khẩu thành công!",
+    "passwordChangeError": "Đổi mật khẩu thất bại."
   },
   "chat": {
     "title": "Chat",
@@ -51,7 +69,22 @@
     "conversationsPlaceholder": "[Placeholder — danh sách chat]",
     "messagesPlaceholder": "[Placeholder — tin nhắn sẽ hiển thị ở đây]",
     "inputPlaceholder": "Nhập tin nhắn...",
-    "send": "Gửi"
+    "send": "Gửi",
+    "newConversation": "Cuộc trò chuyện mới",
+    "searchUser": "Tìm kiếm người dùng...",
+    "noConversations": "Chưa có cuộc trò chuyện nào",
+    "startConversation": "Bấm + để bắt đầu trò chuyện",
+    "noResults": "Không tìm thấy người dùng",
+    "searching": "Đang tìm...",
+    "creating": "Đang tạo...",
+    "searchMinChars": "Nhập ít nhất 2 ký tự để tìm",
+    "noMessage": "Chưa có tin nhắn",
+    "close": "Đóng",
+    "selectConversation": "Chọn một cuộc trò chuyện để bắt đầu",
+    "conversationCreated": "Đã tạo cuộc trò chuyện!",
+    "createError": "Không thể tạo cuộc trò chuyện",
+    "loadError": "Không thể tải danh sách trò chuyện",
+    "unknownUser": "Người dùng"
   },
   "toolbar": {
     "switchToDark": "Tối",
@@ -60,4 +93,3 @@
     "switchToVi": "VI"
   }
 }
-

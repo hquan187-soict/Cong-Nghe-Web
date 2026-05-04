@@ -43,7 +43,25 @@
     "logoutSuccess": "Logged out successfully!",
     "logoutError": "Logout failed, please try again.",
     "backToChat": "Back to Chat",
-    "defaultName": "User"
+    "defaultName": "User",
+    "edit": "Edit Profile",
+    "save": "Save",
+    "cancel": "Cancel",
+    "updateSuccess": "Profile updated successfully!",
+    "updateError": "Failed to update profile.",
+    "noChanges": "No changes to save.",
+    "avatarUrl": "Avatar URL",
+    "avatarUrlPlaceholder": "https://example.com/avatar.jpg",
+    "fullNamePlaceholder": "Enter your full name",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "currentPasswordPlaceholder": "Enter your current password",
+    "newPassword": "New Password",
+    "newPasswordPlaceholder": "Enter new password",
+    "confirmNewPassword": "Confirm New Password",
+    "confirmNewPasswordPlaceholder": "Re-enter new password",
+    "passwordChangeSuccess": "Password changed successfully!",
+    "passwordChangeError": "Failed to change password."
   },
   "chat": {
     "title": "Chat",
@@ -51,7 +69,22 @@
     "conversationsPlaceholder": "[Placeholder — chat list]",
     "messagesPlaceholder": "[Placeholder — messages will appear here]",
     "inputPlaceholder": "Type a message...",
-    "send": "Send"
+    "send": "Send",
+    "newConversation": "New Conversation",
+    "searchUser": "Search for a user...",
+    "noConversations": "No conversations yet",
+    "startConversation": "Press + to start a conversation",
+    "noResults": "No users found",
+    "searching": "Searching...",
+    "creating": "Creating...",
+    "searchMinChars": "Type at least 2 characters to search",
+    "noMessage": "No messages yet",
+    "close": "Close",
+    "selectConversation": "Select a conversation to get started",
+    "conversationCreated": "Conversation created!",
+    "createError": "Could not create conversation",
+    "loadError": "Could not load conversations",
+    "unknownUser": "User"
   },
   "toolbar": {
     "switchToDark": "Dark",
@@ -60,4 +93,3 @@
     "switchToVi": "VI"
   }
 }
-

@@ -1,48 +1,59 @@
 import { useState } from 'react'
-import ChatWindow from '../components/ChatWindow'
-import { mockConversations, MOCK_CURRENT_USER_ID } from '../services/mockData'
+import { useNavigate } from 'react-router-dom'
+import { User, MessageSquare } from 'lucide-react'
+import { useLang } from '../context/LangContext'
+import { useAuth } from '../context/AuthContext'
 
-function SidebarPlaceholder({ conversations, selectedId, onSelectConversation }) {
-  return (
-    <aside className="chat-sidebar">
-      <h2 className="chat-sidebar__title">Tin nhắn</h2>
-      <ul className="conv-list">
-        {conversations.map((conv) => {
-          const other = conv.members.find((m) => m._id !== MOCK_CURRENT_USER_ID)
-          return (
-            <li
-              key={conv._id}
-              className={`conv-list__item ${selectedId === conv._id ? 'conv-list__item--active' : ''}`}
-              onClick={() => onSelectConversation(conv._id)}
-            >
-              <div className="conv-list__avatar">
-                {other?.fullName?.[0] ?? '?'}
-              </div>
-              <div className="conv-list__info">
-                <span className="conv-list__name">{other?.fullName ?? 'Người dùng'}</span>
-                <span className="conv-list__last-msg">{conv.lastMessage?.text ?? ''}</span>
-              </div>
-            </li>
-          )
-        })}
-      </ul>
-    </aside>
-  )
-}
+import Sidebar from '../components/chat/Sidebar'
+import ChatWindow from '../components/ChatWindow'
 
 function ChatPage() {
-  const [selectedConversationId, setSelectedConversationId] = useState(null)
+  const { t } = useLang()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  const [selectedConversation, setSelectedConversation] = useState(null)
+
+  const otherMember = selectedConversation?.members?.find(
+    (m) => m._id !== user?._id
+  )
 
   return (
     <div className="chat-layout">
-      <SidebarPlaceholder
-        conversations={mockConversations}
-        selectedId={selectedConversationId}
-        onSelectConversation={setSelectedConversationId}
+      {/*  Sidebar thật (nhánh W4) */}
+      <Sidebar
+        selectedConversation={selectedConversation}
+        onSelectConversation={setSelectedConversation}
       />
 
       <main className="chat-main">
-        <ChatWindow conversationId={selectedConversationId} />
+        {/*  Header có nút Profile (nhánh W4) */}
+        <header className="chat-header">
+          <h2>
+            {selectedConversation
+              ? otherMember?.fullName || t('chat.title')
+              : t('chat.title')}
+          </h2>
+          <button
+            type="button"
+            className="btn-profile"
+            title={t('profile.title')}
+            onClick={() => navigate('/profile')}
+          >
+            <User size={20} />
+          </button>
+        </header>
+
+        {selectedConversation ? (
+          <ChatWindow conversationId={selectedConversation._id} />
+        ) : (
+          <div className="chat-empty-state">
+            <MessageSquare size={56} className="chat-empty-state__icon" />
+            <h3 className="chat-empty-state__title">
+              {t('chat.selectConversation')}
+            </h3>
+          </div>
+        )}
       </main>
     </div>
   )
