@@ -12,4 +12,24 @@ export const userService = {
       params: { q: query },
     });
   },
+
+  /**
+   * Cập nhật thông tin profile của user hiện tại
+   * PUT /api/users/profile
+   * @param {Object} data - { fullName?, avatar? }
+   * Response: updated user object (không bao gồm password)
+   */
+  async updateProfile(data) {
+    return await axiosInstance.put('/api/users/profile', data);
+  },
+
+  /**
+   * Đổi mật khẩu
+   * PUT /api/users/change-password
+   * @param {Object} data - { currentPassword, newPassword }
+   * Response: { message: "..." }
+   */
+  async changePassword(data) {
+    return await axiosInstance.put('/api/users/change-password', data);
+  },
 };
