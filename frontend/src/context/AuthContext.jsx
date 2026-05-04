@@ -48,6 +48,13 @@ export function AuthProvider({ children }) {
     console.log('AuthContext: login thành công', { user: userInfo, token: mockToken })
   }, [])
 
+  // updateUser: cập nhật thông tin user (sau khi edit profile) — giữ nguyên token
+  const updateUser = useCallback((newUserData) => {
+    setUser(newUserData)
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUserData))
+    console.log('AuthContext: đã cập nhật user', newUserData)
+  }, [])
+
   //  logout: xoá state + localStorage 
   const logout = useCallback(() => {
     setUser(null)
@@ -60,7 +67,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )
