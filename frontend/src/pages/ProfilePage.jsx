@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Mail, User, Camera, Pencil, Save, X, Lock, Link, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -23,6 +23,7 @@ function ProfilePage() {
     fullName: '',
     avatar: '',
   })
+  const fileInputRef = useRef(null)
   const [formErrors, setFormErrors] = useState({})
 
   // --- Change password state ---
@@ -100,6 +101,20 @@ function ProfilePage() {
     return errors
   }
 
+  // Xử lý upload avatar (chỉ cập nhật URL)
+  const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+
+        reader.onloadend = async () => {
+            const base64Image = reader.result;
+            setFormData((prev) => ({ ...prev, avatar: base64Image }));
+        };
+    };
+
   // Gửi cập nhật profile (fullName, avatar)
   async function handleSave() {
     const errors = validateForm()
@@ -115,8 +130,9 @@ function ProfilePage() {
       if (formData.fullName.trim() !== (user?.fullName || '')) {
         payload.fullName = formData.fullName.trim()
       }
-      if (formData.avatar.trim() !== (user?.avatar || '')) {
-        payload.avatar = formData.avatar.trim()
+
+      if (formData.avatar && formData.avatar !== user?.avatar) {
+        payload.avatar = formData.avatar
       }
 
       if (Object.keys(payload).length === 0) {
@@ -212,9 +228,19 @@ function ProfilePage() {
               isOnline={true}
             />
             {isEditing && (
+              <>
+              <button onClick={() => fileInputRef.current.click()}>
               <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center cursor-pointer">
                 <Camera size={20} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </div>
+              </button>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                className="hidden" />
+              </>
             )}
           </div>
         </div>
@@ -439,22 +465,6 @@ function ProfilePage() {
                 {formErrors.fullName && (
                   <p className="mt-1 text-xs text-rose-500">{formErrors.fullName}</p>
                 )}
-              </div>
-
-              {/* Avatar URL */}
-              <div>
-                <label className="flex items-center gap-2 text-xs text-slate-500 font-medium uppercase tracking-wider mb-1.5">
-                  <Link size={14} />
-                  {t('profile.avatarUrl')}
-                </label>
-                <input
-                  type="url"
-                  name="avatar"
-                  value={formData.avatar}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-sm text-slate-800 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400"
-                  placeholder={t('profile.avatarUrlPlaceholder')}
-                />
               </div>
 
               {/* Nút Lưu + Huỷ */}
