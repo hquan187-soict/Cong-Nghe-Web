@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, X, UserPlus } from 'lucide-react'
-import { useDebounce } from '../../utils/useDebounce'
+import { useDebounce } from '../../hooks/useDebounce'
 import { userService } from '../../services/user.service'
 import { conversationService } from '../../services/conversation.service'
 import { useToast } from '../../context/ToastContext'

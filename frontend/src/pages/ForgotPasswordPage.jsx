@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { Lock, Eye, EyeOff, Mail, ShieldCheck } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { useLang } from '../context/LangContext'
-import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import AuthLayout from '../components/layout/AuthLayout'
 import Input from '../components/ui/Input'
@@ -13,8 +12,6 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function validate(data, t) {
   const errs = {}
-  if (!data.fullName.trim())
-    errs.fullName = t('validation.required')
 
   if (!data.email.trim())
     errs.email = t('validation.required')
@@ -24,37 +21,31 @@ function validate(data, t) {
   if (!data.otp.trim())
     errs.otp = t('validation.required')
 
-  if (!data.password)
-    errs.password = t('validation.required')
-  else if (data.password.length < 6)
-    errs.password = t('validation.passwordMinLength')
+  if (!data.newPassword)
+    errs.newPassword = t('validation.required')
+  else if (data.newPassword.length < 6)
+    errs.newPassword = t('validation.passwordMinLength')
 
   if (!data.confirmPassword)
     errs.confirmPassword = t('validation.required')
-  else if (data.confirmPassword !== data.password)
+  else if (data.confirmPassword !== data.newPassword)
     errs.confirmPassword = t('validation.passwordMismatch')
 
   return errs
 }
 
-function RegisterPage() {
+function ForgotPasswordPage() {
   const { t } = useLang()
-  const { user } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
 
-  // Nếu đã đăng nhập → redirect về /chat
-  if (user) {
-    return <Navigate to="/chat" replace />
-  }
   const [formData, setFormData] = useState({
-    fullName: '', email: '', otp: '', password: '', confirmPassword: ''
+    email: '', otp: '', newPassword: '', confirmPassword: ''
   })
   const [errors, setErrors] = useState({
-    fullName: '', email: '', otp: '', password: '', confirmPassword: ''
+    email: '', otp: '', newPassword: '', confirmPassword: ''
   })
-  const [serverError, setServerError] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [sendingOtp, setSendingOtp] = useState(false)
@@ -63,12 +54,11 @@ function RegisterPage() {
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
-    if (serverError) setServerError('')
   }
 
   // Gửi OTP — chỉ FE, logic gọi API sẽ thêm sau
   async function handleSendOtp() {
-    // Validate email trước khi gửi OTP
+    // Validate email trước khi gửi
     if (!formData.email.trim()) {
       setErrors(prev => ({ ...prev, email: t('validation.required') }))
       return
@@ -80,10 +70,10 @@ function RegisterPage() {
 
     setSendingOtp(true)
     try {
-      await authService.sendSignupOtp({ email: formData.email })
-      toast.success(t('register.otpSent'))
+      await authService.sendForgotPasswordOtp({ email: formData.email })
+      toast.success(t('forgotPassword.otpSent'))
 
-      // Cooldown 60 giây để tránh spam
+      // Cooldown 60 giây
       setOtpCooldown(60)
       const interval = setInterval(() => {
         setOtpCooldown(prev => {
@@ -95,7 +85,7 @@ function RegisterPage() {
         })
       }, 1000)
     } catch (error) {
-      toast.error(error.response?.data?.message || t('register.otpError'))
+      toast.error(error.response?.data?.message || t('forgotPassword.otpError'))
     } finally {
       setSendingOtp(false)
     }
@@ -111,55 +101,47 @@ function RegisterPage() {
 
     setLoading(true)
     try {
-      const { fullName, email, password, otp } = formData
-      await authService.signup({ fullName, email, password, otp })
-      toast.success(t('register.success'))
+      await authService.resetPassword({
+        email: formData.email,
+        otp: formData.otp,
+        newPassword: formData.newPassword,
+      })
+      toast.success(t('forgotPassword.success'))
       navigate('/login', { replace: true })
     } catch (error) {
-      const status = error.response?.status
-      const message = error.response?.data?.message || t('register.error')
-      if (status === 409) {
-        setErrors(prev => ({ ...prev, email: message }))
-      } else {
-        toast.error(message)
-      }
-
+      toast.error(error.response?.data?.message || t('forgotPassword.error'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <AuthLayout title={t('register.title')} subtitle={t('register.subtitle')}>
+    <AuthLayout
+      title={t('forgotPassword.title')}
+      subtitle={t('forgotPassword.subtitle')}
+    >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        {/* Email */}
         <Input
-          label={t('register.fullName') || 'Họ và tên'}
-          type="text"
-          placeholder={t('register.fullNamePlaceholder') || 'Nhập họ và tên'}
-          value={formData.fullName}
-          onChange={e => handleChange('fullName', e.target.value)}
-          error={errors.fullName}
-        />
-
-        <Input
-          label={t('register.email')}
+          label={t('forgotPassword.email')}
           type="email"
-          placeholder={t('register.emailPlaceholder')}
+          placeholder={t('forgotPassword.emailPlaceholder')}
           value={formData.email}
           onChange={e => handleChange('email', e.target.value)}
           error={errors.email}
+          icon={<Mail size={16} />}
         />
 
-        {/* OTP field — input + nút Gửi mã OTP */}
+        {/* OTP — input + nút Nhận OTP */}
         <div>
           <label className="text-sm font-semibold text-slate-700 mb-1.5 block">
-            {t('register.otpLabel')}
+            {t('forgotPassword.otpLabel')}
           </label>
           <div className="flex gap-3">
             <div className="flex-1">
               <Input
                 type="text"
-                placeholder={t('register.otpPlaceholder')}
+                placeholder={t('forgotPassword.otpPlaceholder')}
                 value={formData.otp}
                 onChange={e => handleChange('otp', e.target.value)}
                 error={errors.otp}
@@ -177,28 +159,30 @@ function RegisterPage() {
             >
               {otpCooldown > 0
                 ? `${otpCooldown}s`
-                : t('register.sendOtp')
+                : t('forgotPassword.sendOtp')
               }
             </Button>
           </div>
         </div>
 
+        {/* Mật khẩu mới */}
         <Input
-          label={t('register.password')}
-          type={showPassword ? 'text' : 'password'}
-          placeholder={t('register.passwordPlaceholder')}
-          value={formData.password}
-          onChange={e => handleChange('password', e.target.value)}
-          error={errors.password}
+          label={t('forgotPassword.newPassword')}
+          type={showNewPassword ? 'text' : 'password'}
+          placeholder={t('forgotPassword.newPasswordPlaceholder')}
+          value={formData.newPassword}
+          onChange={e => handleChange('newPassword', e.target.value)}
+          error={errors.newPassword}
           icon={<Lock size={16} />}
-          rightIcon={showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          onRightIconClick={() => setShowPassword(prev => !prev)}
+          rightIcon={showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          onRightIconClick={() => setShowNewPassword(prev => !prev)}
         />
 
+        {/* Xác nhận mật khẩu mới */}
         <Input
-          label={t('register.confirmPassword')}
+          label={t('forgotPassword.confirmPassword')}
           type={showConfirm ? 'text' : 'password'}
-          placeholder={t('register.confirmPasswordPlaceholder')}
+          placeholder={t('forgotPassword.confirmPasswordPlaceholder')}
           value={formData.confirmPassword}
           onChange={e => handleChange('confirmPassword', e.target.value)}
           error={errors.confirmPassword}
@@ -207,25 +191,24 @@ function RegisterPage() {
           onRightIconClick={() => setShowConfirm(prev => !prev)}
         />
 
+        {/* Nút Đặt lại mật khẩu */}
         <Button type="submit" variant="primary" className="w-full mt-1" isLoading={loading}>
-          {t('register.submit')}
+          {t('forgotPassword.submit')}
         </Button>
-
-        {serverError && (
-          <p className="text-rose-500 text-sm font-medium text-center animate-in fade-in slide-in-from-top-1">
-            {serverError}
-          </p>
-        )}
       </form>
 
+      {/* Quay lại Đăng nhập */}
       <p className="text-center text-sm text-slate-500 mt-6">
-        {t('register.hasAccount')}{' '}
-        <Link to="/login" className="text-indigo-600 font-semibold hover:underline">
-          {t('register.loginLink')}
+        <Link
+          to="/login"
+          className="text-indigo-600 font-semibold hover:underline inline-flex items-center gap-1"
+        >
+          <ArrowLeft size={14} />
+          {t('forgotPassword.backToLogin')}
         </Link>
       </p>
     </AuthLayout>
   )
 }
 
-export default RegisterPage
+export default ForgotPasswordPage
