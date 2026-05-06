@@ -1,8 +1,4 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-// AuthContext — quản lý trạng thái xác thực trong toàn bộ app
-// state: { user, token, isLoading }
-// actions: login(), logout()
-// Tự động restore session từ localStorage khi app khởi động
 const AuthContext = createContext()
 
 // Key lưu trong localStorage
@@ -12,9 +8,8 @@ const STORAGE_KEY_TOKEN = 'auth_token'
 export function AuthProvider({ children }) {
   const [user, setUser]           = useState(null)
   const [token, setToken]         = useState(null)
-  const [isLoading, setIsLoading] = useState(true) // true cho đến khi restore xong
+  const [isLoading, setIsLoading] = useState(true)
 
-  // useEffect: restore session từ localStorage khi mount 
   useEffect(() => {
     try {
       const savedUser  = localStorage.getItem(STORAGE_KEY_USER)
@@ -25,7 +20,6 @@ export function AuthProvider({ children }) {
         setToken(savedToken)
       }
     } catch (err) {
-      // Nếu dữ liệu bị hỏng → xoá sạch
       console.error('AuthContext: lỗi khi restore session', err)
       localStorage.removeItem(STORAGE_KEY_USER)
       localStorage.removeItem(STORAGE_KEY_TOKEN)
@@ -34,28 +28,24 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // login: nhận userInfo object, tạo mock token, lưu state + localStorage 
-  const login = useCallback((userInfo) => {
-    // Tạo mock token (giả lập JWT)
-    const mockToken = 'mock-jwt-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10)
+  const login = useCallback((userInfo, receivedToken) => {
+    const tokenToStore = receivedToken || 'mock-jwt-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10)
 
     setUser(userInfo)
-    setToken(mockToken)
+    setToken(tokenToStore)
 
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userInfo))
-    localStorage.setItem(STORAGE_KEY_TOKEN, mockToken)
+    localStorage.setItem(STORAGE_KEY_TOKEN, tokenToStore)
 
-    console.log('AuthContext: login thành công', { user: userInfo, token: mockToken })
+    console.log('AuthContext: login thành công', { user: userInfo, token: tokenToStore })
   }, [])
 
-  // updateUser: cập nhật thông tin user (sau khi edit profile) — giữ nguyên token
   const updateUser = useCallback((newUserData) => {
     setUser(newUserData)
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUserData))
     console.log('AuthContext: đã cập nhật user', newUserData)
   }, [])
 
-  //  logout: xoá state + localStorage 
   const logout = useCallback(() => {
     setUser(null)
     setToken(null)
@@ -73,7 +63,6 @@ export function AuthProvider({ children }) {
   )
 }
 
-// Hook tiện ích — dùng trong component: const { user, token, login, logout } = useAuth()
 export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) {

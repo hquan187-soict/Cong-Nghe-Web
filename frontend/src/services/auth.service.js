@@ -11,5 +11,19 @@ export const authService = {
 
   async logout() {
     return await axiosInstance.post('/api/auth/logout');
-  }
+  },
+
+  async sendSignupOtp(data) {
+    return await axiosInstance.post('/api/auth/send-otp', data);
+  },
+
+  // Gửi OTP quên mật khẩu
+  async sendForgotPasswordOtp(data) {
+    return await axiosInstance.post('/api/auth/forgot-password/send-otp', data);
+  },
+
+  // Đặt lại mật khẩu bằng OTP
+  async resetPassword(data) {
+    return await axiosInstance.post('/api/auth/reset-password', data);
+  },
 };

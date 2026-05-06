@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, MessageSquare } from 'lucide-react'
 import { useLang } from '../context/LangContext'
@@ -14,20 +14,29 @@ function ChatPage() {
 
   const [selectedConversation, setSelectedConversation] = useState(null)
 
+  const sidebarRef = useRef(null)
+
   const otherMember = selectedConversation?.members?.find(
     (m) => m._id !== user?._id
   )
 
+  const handleMessageSent = useCallback(({ conversationId, lastMessage }) => {
+    if (sidebarRef.current?.updateLastMessage) {
+      sidebarRef.current.updateLastMessage(conversationId, lastMessage)
+    }
+  }, [])
+
   return (
     <div className="chat-layout">
-      {/*  Sidebar thật (nhánh W4) */}
+      {/* Sidebar */}
       <Sidebar
+        ref={sidebarRef}
         selectedConversation={selectedConversation}
         onSelectConversation={setSelectedConversation}
       />
 
       <main className="chat-main">
-        {/*  Header có nút Profile (nhánh W4) */}
+        {/* Header */}
         <header className="chat-header">
           <h2>
             {selectedConversation
@@ -45,7 +54,10 @@ function ChatPage() {
         </header>
 
         {selectedConversation ? (
-          <ChatWindow conversationId={selectedConversation._id} />
+          <ChatWindow
+            conversationId={selectedConversation._id}
+            onMessageSent={handleMessageSent}
+          />
         ) : (
           <div className="chat-empty-state">
             <MessageSquare size={56} className="chat-empty-state__icon" />

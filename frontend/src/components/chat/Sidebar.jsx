@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { Plus, MessageCircle } from 'lucide-react'
 import { conversationService } from '../../services/conversation.service'
 import { useLang } from '../../context/LangContext'
@@ -7,13 +7,7 @@ import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
 import '../../styles/sidebar.css'
 
-/**
- * Sidebar — Danh sách conversations bên trái ChatPage
- * Props:
- *   - selectedConversation: conversation đang chọn (hoặc null)
- *   - onSelectConversation: callback(conversation) khi click chọn
- */
-function Sidebar({ selectedConversation, onSelectConversation }) {
+const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation }, ref) {
   const { t } = useLang()
   const toast = useToast()
 
@@ -21,20 +15,87 @@ function Sidebar({ selectedConversation, onSelectConversation }) {
   const [isLoading, setIsLoading] = useState(true)
   const [showSearchModal, setShowSearchModal] = useState(false)
 
+  useImperativeHandle(ref, () => ({
+    updateLastMessage(conversationId, lastMessage) {
+      setConversations((prev) => {
+        const updated = prev.map((conv) =>
+          conv._id === conversationId
+            ? {
+                ...conv,
+                lastMessage,
+                updatedAt: lastMessage.createdAt || new Date().toISOString(),
+              }
+            : conv
+        )
+        // Sắp xếp conversation
+        updated.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+        return updated
+      })
+    },
+  }), [])
+
   // Fetch conversations khi mount
   useEffect(() => {
     let cancelled = false
+
+    // DEV ONLY: mock conversations để preview UI khi chưa có BE
+    const MOCK_NOW = new Date()
+    const ago = (minutes) => new Date(MOCK_NOW - minutes * 60 * 1000).toISOString()
+    //dữ liệu giả lập
+    const MOCK_CONVERSATIONS = [
+      {
+        _id: 'mock_conv_001',
+        members: [
+          { _id: 'mock_user_001', fullName: 'Bạn', avatar: null },
+          { _id: 'mock_user_alice', fullName: 'Alice Nguyễn', avatar: null },
+        ],
+        lastMessage: { text: 'Oke bạn nhé! Hẹn gặp lại 😊', createdAt: ago(2) },
+        updatedAt: ago(2),
+      },
+      {
+        _id: 'mock_conv_002',
+        members: [
+          { _id: 'mock_user_001', fullName: 'Bạn', avatar: null },
+          { _id: 'mock_user_bob', fullName: 'Bob Trần', avatar: null },
+        ],
+        lastMessage: { text: 'Lorem ipsum dolor sit amet consectetur...', createdAt: ago(15) },
+        updatedAt: ago(15),
+      },
+      {
+        _id: 'mock_conv_003',
+        members: [
+          { _id: 'mock_user_001', fullName: 'Bạn', avatar: null },
+          { _id: 'mock_user_charlie', fullName: 'Charlie Lê', avatar: null },
+        ],
+        lastMessage: { text: 'OK', createdAt: ago(60) },
+        updatedAt: ago(60),
+      },
+      {
+        _id: 'mock_conv_004',
+        members: [
+          { _id: 'mock_user_001', fullName: 'Bạn', avatar: null },
+          { _id: 'mock_user_diana', fullName: 'Diana Phạm', avatar: null },
+        ],
+        lastMessage: { text: 'Cảm ơn bạn nhiều lắm!', createdAt: ago(120) },
+        updatedAt: ago(120),
+      },
+    ]
 
     async function fetchConversations() {
       setIsLoading(true)
       try {
         const data = await conversationService.getConversations()
         if (!cancelled) {
-          setConversations(Array.isArray(data) ? data : [])
+          const list = Array.isArray(data) ? data : []
+          // DEV ONLY: nếu API trả rỗng → thêm mock để preview UI
+          setConversations(list.length === 0 && import.meta.env.DEV ? MOCK_CONVERSATIONS : list)
         }
       } catch (err) {
         console.error('Fetch conversations error:', err)
-        if (!cancelled) {
+        // DEV ONLY: nếu API lỗi (BE chưa chạy) → thêm mock để preview UI
+        if (!cancelled && import.meta.env.DEV) {
+          setConversations(MOCK_CONVERSATIONS)
+        } else if (!cancelled) {
           toast.error(t('chat.loadError'))
         }
       } finally {
@@ -45,6 +106,7 @@ function Sidebar({ selectedConversation, onSelectConversation }) {
     fetchConversations()
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // Callback khi tạo conversation mới từ SearchUserModal
   const handleConversationCreated = useCallback((newConversation) => {
@@ -127,6 +189,6 @@ function Sidebar({ selectedConversation, onSelectConversation }) {
       />
     </aside>
   )
-}
+})
 
 export default Sidebar

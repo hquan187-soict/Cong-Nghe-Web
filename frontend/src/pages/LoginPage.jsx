@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Lock, Eye, EyeOff } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
@@ -28,9 +28,14 @@ function validate(data, t) {
 
 function LoginPage() {
   const { t } = useLang()
-  const { login } = useAuth()
+  const { user, login } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
+
+  // Nếu đã đăng nhập → redirect về /chat
+  if (user) {
+    return <Navigate to="/chat" replace />
+  }
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({ email: '', password: '' })
   const [serverError, setServerError] = useState('')
@@ -54,9 +59,11 @@ function LoginPage() {
     setLoading(true)
     try {
       const data = await authService.login(formData)
-      // Lưu user vào AuthContext
-      // axios interceptor đã unwrap response.data → data = { _id, fullName, email, avatar }
-      login(data)
+      // axios interceptor đã unwrap response.data
+      // BE trả về: { _id, fullName, email, avatar, token }
+      // Tách token ra khỏi user info rồi lưu vào AuthContext
+      const { token: receivedToken, ...userInfo } = data
+      login(userInfo, receivedToken)
       toast.success(t('login.success'))
       navigate('/chat', { replace: true })
     } catch (error) {
@@ -75,23 +82,32 @@ function LoginPage() {
           placeholder={t('login.emailPlaceholder')}
           value={formData.email}
           onChange={e => handleChange('email', e.target.value)}
-
           error={errors.email}
         />
 
-        <Input
-          label={t('login.password')}
-          type={showPassword ? 'text' : 'password'}
-          placeholder={t('login.passwordPlaceholder')}
-          value={formData.password}
-          onChange={e => handleChange('password', e.target.value)}
-          error={errors.password}
-          icon={<Lock size={16} />}
-          rightIcon={showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          onRightIconClick={() => setShowPassword(prev => !prev)}
-        />
+        <div>
+          <Input
+            label={t('login.password')}
+            type={showPassword ? 'text' : 'password'}
+            placeholder={t('login.passwordPlaceholder')}
+            value={formData.password}
+            onChange={e => handleChange('password', e.target.value)}
+            error={errors.password}
+            icon={<Lock size={16} />}
+            rightIcon={showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            onRightIconClick={() => setShowPassword(prev => !prev)}
+          />
+          <div className="flex justify-end mt-1.5">
+            <Link
+              to="/forgot-password"
+              className="text-sm text-indigo-600 font-medium hover:text-indigo-700 hover:underline transition-colors"
+            >
+              {t('login.forgotPassword')}
+            </Link>
+          </div>
+        </div>
 
-        <Button type="submit" variant="primary" className="w-full mt-1" loading={loading}>
+        <Button type="submit" variant="primary" className="w-full mt-1" isLoading={loading}>
           {t('login.submit')}
         </Button>
 
@@ -113,4 +129,3 @@ function LoginPage() {
 }
 
 export default LoginPage
-

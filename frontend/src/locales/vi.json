@@ -9,6 +9,7 @@
     "submit": "Đăng nhập",
     "noAccount": "Chưa có tài khoản?",
     "registerLink": "Đăng ký",
+    "forgotPassword": "Quên mật khẩu?",
     "success": "Đăng nhập thành công!",
     "error": "Đăng nhập thất bại"
   },
@@ -23,11 +24,35 @@
     "passwordPlaceholder": "Nhập mật khẩu",
     "confirmPassword": "Xác nhận mật khẩu",
     "confirmPasswordPlaceholder": "Nhập lại mật khẩu",
+    "otpLabel": "Mã xác nhận OTP",
+    "otpPlaceholder": "Nhập mã OTP",
+    "sendOtp": "Gửi mã OTP",
+    "otpSent": "Đã gửi mã OTP đến email của bạn!",
+    "otpError": "Gửi mã OTP thất bại",
     "submit": "Đăng ký",
     "hasAccount": "Đã có tài khoản?",
     "loginLink": "Đăng nhập",
     "success": "Đăng ký thành công!",
     "error": "Đăng ký thất bại"
+  },
+  "forgotPassword": {
+    "title": "Quên mật khẩu",
+    "subtitle": "Nhập email và mã OTP để đặt lại mật khẩu.",
+    "email": "Email",
+    "emailPlaceholder": "Nhập email đã đăng ký",
+    "otpLabel": "Mã xác nhận OTP",
+    "otpPlaceholder": "Nhập mã OTP",
+    "sendOtp": "Nhận OTP",
+    "otpSent": "Đã gửi mã OTP đến email của bạn!",
+    "otpError": "Gửi OTP thất bại",
+    "newPassword": "Mật khẩu mới",
+    "newPasswordPlaceholder": "Nhập mật khẩu mới",
+    "confirmPassword": "Xác nhận mật khẩu mới",
+    "confirmPasswordPlaceholder": "Nhập lại mật khẩu mới",
+    "submit": "Đặt lại mật khẩu",
+    "backToLogin": "Quay lại Đăng nhập",
+    "success": "Đặt lại mật khẩu thành công! Hãy đăng nhập lại.",
+    "error": "Đặt lại mật khẩu thất bại"
   },
   "validation": {
     "required": "Trường này không được để trống",
@@ -84,7 +109,8 @@
     "conversationCreated": "Đã tạo cuộc trò chuyện!",
     "createError": "Không thể tạo cuộc trò chuyện",
     "loadError": "Không thể tải danh sách trò chuyện",
-    "unknownUser": "Người dùng"
+    "unknownUser": "Người dùng",
+    "sendError": "Gửi tin nhắn thất bại"
   },
   "toolbar": {
     "switchToDark": "Tối",

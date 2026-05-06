@@ -9,6 +9,7 @@
     "submit": "Login",
     "noAccount": "Don't have an account?",
     "registerLink": "Register",
+    "forgotPassword": "Forgot password?",
     "success": "Login successful!",
     "error": "Login failed"
   },
@@ -23,11 +24,35 @@
     "passwordPlaceholder": "Enter password",
     "confirmPassword": "Confirm Password",
     "confirmPasswordPlaceholder": "Re-enter password",
+    "otpLabel": "OTP Verification Code",
+    "otpPlaceholder": "Enter OTP code",
+    "sendOtp": "Send OTP",
+    "otpSent": "OTP code has been sent to your email!",
+    "otpError": "Failed to send OTP",
     "submit": "Register",
     "hasAccount": "Already have an account?",
     "loginLink": "Login",
     "success": "Registration successful!",
     "error": "Registration failed"
+  },
+  "forgotPassword": {
+    "title": "Forgot Password",
+    "subtitle": "Enter your email and OTP to reset your password.",
+    "email": "Email",
+    "emailPlaceholder": "Enter your registered email",
+    "otpLabel": "OTP Verification Code",
+    "otpPlaceholder": "Enter OTP code",
+    "sendOtp": "Get OTP",
+    "otpSent": "OTP code has been sent to your email!",
+    "otpError": "Failed to send OTP",
+    "newPassword": "New Password",
+    "newPasswordPlaceholder": "Enter new password",
+    "confirmPassword": "Confirm New Password",
+    "confirmPasswordPlaceholder": "Re-enter new password",
+    "submit": "Reset Password",
+    "backToLogin": "Back to Login",
+    "success": "Password reset successful! Please login again.",
+    "error": "Failed to reset password"
   },
   "validation": {
     "required": "This field is required",
@@ -84,7 +109,8 @@
     "conversationCreated": "Conversation created!",
     "createError": "Could not create conversation",
     "loadError": "Could not load conversations",
-    "unknownUser": "User"
+    "unknownUser": "User",
+    "sendError": "Failed to send message"
   },
   "toolbar": {
     "switchToDark": "Dark",

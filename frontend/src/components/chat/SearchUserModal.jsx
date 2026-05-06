@@ -1,19 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, X, UserPlus } from 'lucide-react'
-import { useDebounce } from '../../utils/useDebounce'
+import { useDebounce } from '../../hooks/useDebounce'
 import { userService } from '../../services/user.service'
 import { conversationService } from '../../services/conversation.service'
 import { useToast } from '../../context/ToastContext'
 import { useLang } from '../../context/LangContext'
 import Avatar from '../ui/Avatar'
 
-/**
- * SearchUserModal — Modal tìm kiếm user để tạo conversation mới
- * Props:
- *   - isOpen: boolean
- *   - onClose: callback đóng modal
- *   - onConversationCreated: callback(conversation) sau khi tạo thành công
- */
 function SearchUserModal({ isOpen, onClose, onConversationCreated }) {
   const { t } = useLang()
   const toast = useToast()
@@ -22,8 +15,6 @@ function SearchUserModal({ isOpen, onClose, onConversationCreated }) {
   const [results, setResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
-
-  // Debounce search query 300ms
   const debouncedQuery = useDebounce(query, 300)
 
   // Gọi API search khi debouncedQuery thay đổi
@@ -79,7 +70,7 @@ function SearchUserModal({ isOpen, onClose, onConversationCreated }) {
     }
   }, [isOpen])
 
-  // Click user → tạo conversation
+  // Click user -> tạo conversation
   const handleSelectUser = useCallback(async (userId) => {
     if (isCreating) return
     setIsCreating(true)
