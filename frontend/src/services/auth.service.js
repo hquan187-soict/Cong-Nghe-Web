@@ -13,6 +13,7 @@ export const authService = {
     return await axiosInstance.post('/api/auth/logout');
   },
 
+  // Gửi OTP xác thực email (đăng ký)
   async sendSignupOtp(data) {
     return await axiosInstance.post('/api/auth/send-otp', data);
   },

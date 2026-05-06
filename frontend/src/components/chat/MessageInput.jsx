@@ -2,12 +2,18 @@ import { useState, useRef, useCallback } from 'react'
 import { Send } from 'lucide-react'
 import { useLang } from '../../context/LangContext'
 
+/**
+ * MessageInput — textarea auto-resize với Enter gửi, Shift+Enter xuống dòng
+ * Props:
+ *   - onSend(text): callback khi gửi tin nhắn
+ *   - disabled: boolean — vô hiệu hóa khi đang xử lý
+ */
 function MessageInput({ onSend, disabled = false }) {
   const { t } = useLang()
   const [text, setText] = useState('')
   const textareaRef = useRef(null)
 
-  // Auto-resize textarea
+  // Auto-resize textarea theo nội dung (tối đa 120px)
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
@@ -21,12 +27,12 @@ function MessageInput({ onSend, disabled = false }) {
   }
 
   function handleKeyDown(e) {
-    // Enter gửi tin
+    // Enter (không Shift) → gửi tin
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
-    // Shift+Enter xuống dòng
+    // Shift+Enter → xuống dòng (mặc định của textarea)
   }
 
   function handleSend() {

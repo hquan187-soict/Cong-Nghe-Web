@@ -7,6 +7,15 @@ import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
 import '../../styles/sidebar.css'
 
+/**
+ * Sidebar — Danh sách conversations bên trái ChatPage
+ * Props:
+ *   - selectedConversation: conversation đang chọn (hoặc null)
+ *   - onSelectConversation: callback(conversation) khi click chọn
+ *
+ * Ref methods:
+ *   - updateLastMessage(conversationId, lastMessage): cập nhật lastMessage và đẩy lên đầu
+ */
 const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation }, ref) {
   const { t } = useLang()
   const toast = useToast()
@@ -15,6 +24,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const [isLoading, setIsLoading] = useState(true)
   const [showSearchModal, setShowSearchModal] = useState(false)
 
+  // Expose updateLastMessage cho parent (ChatPage) gọi qua ref
   useImperativeHandle(ref, () => ({
     updateLastMessage(conversationId, lastMessage) {
       setConversations((prev) => {
@@ -27,7 +37,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
               }
             : conv
         )
-        // Sắp xếp conversation
+        // Sắp xếp: conversation vừa có tin mới → lên đầu
         updated.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
         return updated
       })
@@ -41,7 +51,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     // DEV ONLY: mock conversations để preview UI khi chưa có BE
     const MOCK_NOW = new Date()
     const ago = (minutes) => new Date(MOCK_NOW - minutes * 60 * 1000).toISOString()
-    //dữ liệu giả lập
+    // dữ liệu giả lập
     const MOCK_CONVERSATIONS = [
       {
         _id: 'mock_conv_001',

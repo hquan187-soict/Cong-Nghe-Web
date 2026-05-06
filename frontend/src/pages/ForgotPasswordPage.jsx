@@ -56,7 +56,9 @@ function ForgotPasswordPage() {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
   }
 
+  // Gửi OTP — chỉ FE, logic gọi API sẽ thêm sau
   async function handleSendOtp() {
+    // Validate email trước khi gửi
     if (!formData.email.trim()) {
       setErrors(prev => ({ ...prev, email: t('validation.required') }))
       return
@@ -71,6 +73,7 @@ function ForgotPasswordPage() {
       await authService.sendForgotPasswordOtp({ email: formData.email })
       toast.success(t('forgotPassword.otpSent'))
 
+      // Cooldown 60 giây
       setOtpCooldown(60)
       const interval = setInterval(() => {
         setOtpCooldown(prev => {

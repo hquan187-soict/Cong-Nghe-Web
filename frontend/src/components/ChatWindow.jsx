@@ -9,6 +9,7 @@ import Spinner from './ui/Spinner'
 
 const LIMIT = 20
 
+// ─── DEV ONLY: mock data ──────────────────────────────────────
 const MOCK_SELF_ID = 'mock_user_001'
 
 function makeMockMsg(convId, senderId, text, minutesAgo) {
@@ -102,7 +103,14 @@ const MOCK_MESSAGES = {
     makeMockMsg('mock_conv_004', 'mock_user_diana', 'Cảm ơn bạn nhiều lắm!', 119),
   ],
 }
+// ─────────────────────────────────────────────────────────────
 
+/**
+ * ChatWindow — Hiển thị tin nhắn + ô gửi tin
+ * Props:
+ *   - conversationId: ID cuộc trò chuyện đang mở
+ *   - onMessageSent(message): callback để ChatPage cập nhật Sidebar lastMessage
+ */
 function ChatWindow({ conversationId, onMessageSent }) {
   const { user } = useAuth()
   const toast = useToast()
@@ -120,7 +128,9 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
   const currentUserId = conversationId?.startsWith('mock_') ? MOCK_SELF_ID : user?._id
 
+  // ─── Fetch messages từ API ───────────────────────────────
   const fetchMessages = useCallback(async (convId, pageNum, isLoadMore = false) => {
+    // DEV ONLY: trả mock messages cho mock conversation
     if (convId?.startsWith('mock_')) {
       setMessages(MOCK_MESSAGES[convId] || [])
       setLoading(false)
@@ -168,8 +178,9 @@ function ChatWindow({ conversationId, onMessageSent }) {
     if (!loading && messages.length > 0 && page === 1) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
     }
-  }, [loading])
+  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sau khi load thêm tin cũ, giữ nguyên vị trí scroll
   useEffect(() => {
     if (!loadingMore && prevScrollHeightRef.current > 0 && scrollContainerRef.current) {
       const newScrollHeight = scrollContainerRef.current.scrollHeight
@@ -178,6 +189,7 @@ function ChatWindow({ conversationId, onMessageSent }) {
     }
   }, [loadingMore])
 
+  // Infinite scroll lên trên
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
     if (!el || loadingMore || !hasMore) return
@@ -186,8 +198,11 @@ function ChatWindow({ conversationId, onMessageSent }) {
     }
   }, [loadingMore, hasMore, conversationId, page, fetchMessages])
 
+  // ─── Optimistic update — gửi tin nhắn ──────────────────
   const handleSendMessage = useCallback(async (text) => {
     if (!conversationId) return
+
+    // DEV ONLY: simulate gửi tin cho mock conversation (không gọi API)
     if (conversationId.startsWith('mock_')) {
       const tempId = 'mock_msg_' + Date.now()
       const mockMsg = {
@@ -213,7 +228,10 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
     if (!currentUserId) return
 
+    // 1. Tạo tempId cho tin nhắn pending
     const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
+
+    // 2. Tạo optimistic message (hiện ngay trên UI với status 'sending')
     const optimisticMsg = {
       _id: tempId,
       conversationId,
@@ -224,7 +242,10 @@ function ChatWindow({ conversationId, onMessageSent }) {
       status: 'sending',
     }
 
+    // 3. Thêm vào cuối danh sách messages
     setMessages((prev) => [...prev, optimisticMsg])
+
+    // 4. Scroll xuống cuối để thấy tin vừa gửi
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, 50)
@@ -235,6 +256,8 @@ function ChatWindow({ conversationId, onMessageSent }) {
         conversationId,
         text,
       })
+
+      // 6. Thành công → thay thế optimistic message bằng message thật từ server
       setMessages((prev) =>
         prev.map((msg) =>
           msg._id === tempId
@@ -243,6 +266,7 @@ function ChatWindow({ conversationId, onMessageSent }) {
         )
       )
 
+      // 7. Callback lên ChatPage để cập nhật Sidebar lastMessage
       if (onMessageSent) {
         onMessageSent({
           conversationId,
@@ -251,11 +275,14 @@ function ChatWindow({ conversationId, onMessageSent }) {
       }
     } catch (err) {
       console.error('Gửi tin nhắn thất bại:', err)
+
+      // 8. Lỗi → xóa tin nhắn optimistic + hiện toast
       setMessages((prev) => prev.filter((msg) => msg._id !== tempId))
       toast.error(err.response?.data?.message || t('chat.sendError'))
     }
   }, [conversationId, currentUserId, onMessageSent, toast, t])
 
+  // ─── Render ─────────────────────────────────────────────
   if (!conversationId) {
     return (
       <div className="chat-window chat-window--empty">

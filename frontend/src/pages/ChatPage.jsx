@@ -14,12 +14,14 @@ function ChatPage() {
 
   const [selectedConversation, setSelectedConversation] = useState(null)
 
+  // Ref để gọi hàm updateLastMessage trên Sidebar từ ChatWindow
   const sidebarRef = useRef(null)
 
   const otherMember = selectedConversation?.members?.find(
     (m) => m._id !== user?._id
   )
 
+  // Callback khi ChatWindow gửi tin thành công → cập nhật Sidebar lastMessage
   const handleMessageSent = useCallback(({ conversationId, lastMessage }) => {
     if (sidebarRef.current?.updateLastMessage) {
       sidebarRef.current.updateLastMessage(conversationId, lastMessage)

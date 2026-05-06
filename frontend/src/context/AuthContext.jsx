@@ -28,7 +28,9 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // login: nhận userInfo object và token thật từ API, lưu state + localStorage 
   const login = useCallback((userInfo, receivedToken) => {
+    // Nếu không truyền token (backward compat) → tạo mock
     const tokenToStore = receivedToken || 'mock-jwt-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10)
 
     setUser(userInfo)

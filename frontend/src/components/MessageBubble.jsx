@@ -1,5 +1,9 @@
 import { Check, Clock, AlertCircle } from 'lucide-react'
 
+/**
+ * Format thời gian: T4 6/5 02:06
+ * Chủ nhật = CN, các ngày khác = T2~T7
+ */
 function formatTime(dateInput) {
   const date = new Date(dateInput)
   const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
@@ -11,6 +15,14 @@ function formatTime(dateInput) {
   return `${dayLabel} ${d}/${m} ${hh}:${mm}`
 }
 
+/**
+ * MessageBubble — Hiển thị một tin nhắn
+ * Props:
+ *   - message: { _id, text, image?, createdAt, status? }
+ *   - isOwn: boolean — tin của mình hay người khác
+ *
+ * status: 'sending' | 'sent' | 'error' | undefined (mặc định = sent)
+ */
 function MessageBubble({ message, isOwn }) {
   const time = formatTime(message.createdAt)
   const status = message.status || 'sent'

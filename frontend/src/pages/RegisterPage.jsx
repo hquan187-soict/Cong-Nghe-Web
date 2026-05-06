@@ -66,8 +66,9 @@ function RegisterPage() {
     if (serverError) setServerError('')
   }
 
-  // Gửi OTP
+  // Gửi OTP — chỉ FE, logic gọi API sẽ thêm sau
   async function handleSendOtp() {
+    // Validate email trước khi gửi OTP
     if (!formData.email.trim()) {
       setErrors(prev => ({ ...prev, email: t('validation.required') }))
       return
@@ -82,7 +83,7 @@ function RegisterPage() {
       await authService.sendSignupOtp({ email: formData.email })
       toast.success(t('register.otpSent'))
 
-      // Cooldown 60 giây
+      // Cooldown 60 giây để tránh spam
       setOtpCooldown(60)
       const interval = setInterval(() => {
         setOtpCooldown(prev => {
