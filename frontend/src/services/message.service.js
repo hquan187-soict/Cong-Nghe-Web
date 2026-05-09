@@ -21,4 +21,13 @@ export const messageService = {
   async sendMessage(data) {
     return await axiosInstance.post('/api/messages', data);
   },
+
+  /**
+   * Đánh dấu tất cả tin nhắn trong conversation là đã đọc
+   * POST /api/messages/:conversationId/read
+   * Response: { message, modifiedCount, messages }
+   */
+  async markAsRead(conversationId) {
+    return await axiosInstance.post(`/api/messages/${conversationId}/read`);
+  },
 };
