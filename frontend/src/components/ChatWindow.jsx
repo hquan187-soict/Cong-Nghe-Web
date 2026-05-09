@@ -132,13 +132,15 @@ function ChatWindow({ conversationId, onMessageSent }) {
   const fetchMessages = useCallback(async (convId, pageNum, isLoadMore = false) => {
     // DEV ONLY: trả mock messages cho mock conversation
     if (convId?.startsWith('mock_')) {
-      setMessages(MOCK_MESSAGES[convId] || [])
-      setLoading(false)
-      setHasMore(false)
+      setLoading(true)
+      // Giả lập độ trễ mạng để có thời gian hiển thị Skeleton (800ms)
+      setTimeout(() => {
+        setMessages(MOCK_MESSAGES[convId] || [])
+        setLoading(false)
+        setHasMore(false)
+      }, 800)
       return
     }
-
-
     if (isLoadMore) {
       setLoadingMore(true)
       prevScrollHeightRef.current = scrollContainerRef.current?.scrollHeight ?? 0
@@ -178,7 +180,7 @@ function ChatWindow({ conversationId, onMessageSent }) {
     if (!loading && messages.length > 0 && page === 1) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
     }
-  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loading, conversationId, messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sau khi load thêm tin cũ, giữ nguyên vị trí scroll
   useEffect(() => {
@@ -208,7 +210,7 @@ function ChatWindow({ conversationId, onMessageSent }) {
       const mockMsg = {
         _id: tempId,
         conversationId,
-        senderId: 'mock_user_001',
+        senderId: MOCK_SELF_ID,
         text,
         image: null,
         createdAt: new Date().toISOString(),
@@ -306,8 +308,23 @@ function ChatWindow({ conversationId, onMessageSent }) {
         )}
 
         {loading ? (
-          <div className="chat-window__spinner-center">
-            <Spinner className="h-8 w-8" />
+          <div className="chat-window__skeleton">
+            {/* Skeleton mimics alternating chat bubbles */}
+            <div className="chat-window__skeleton-row chat-window__skeleton-row--left">
+              <div className="chat-window__skeleton-bubble chat-window__skeleton-bubble--medium"></div>
+            </div>
+            <div className="chat-window__skeleton-row chat-window__skeleton-row--right">
+              <div className="chat-window__skeleton-bubble chat-window__skeleton-bubble--short"></div>
+            </div>
+            <div className="chat-window__skeleton-row chat-window__skeleton-row--left">
+              <div className="chat-window__skeleton-bubble chat-window__skeleton-bubble--long"></div>
+            </div>
+            <div className="chat-window__skeleton-row chat-window__skeleton-row--left">
+              <div className="chat-window__skeleton-bubble chat-window__skeleton-bubble--short"></div>
+            </div>
+            <div className="chat-window__skeleton-row chat-window__skeleton-row--right">
+              <div className="chat-window__skeleton-bubble chat-window__skeleton-bubble--medium"></div>
+            </div>
           </div>
         ) : (
           messages.map((msg) => (
