@@ -54,6 +54,7 @@ export function AuthProvider({ children }) {
 
     localStorage.removeItem(STORAGE_KEY_USER)
     localStorage.removeItem(STORAGE_KEY_TOKEN)
+    localStorage.removeItem('last_conversation')
 
     console.log('AuthContext: đã logout')
   }, [])
