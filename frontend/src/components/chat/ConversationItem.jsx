@@ -10,8 +10,9 @@ import { useLang } from '../../context/LangContext'
  *   - conversation: object (populated members + lastMessage)
  *   - isActive: boolean (đang được chọn?)
  *   - onClick: callback khi click
+ *   - unreadCount: number (số tin nhắn chưa đọc)
  */
-function ConversationItem({ conversation, isActive, onClick }) {
+function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
 
@@ -34,9 +35,11 @@ function ConversationItem({ conversation, isActive, onClick }) {
     lang
   )
 
+  const hasUnread = unreadCount > 0
+
   return (
     <div
-      className={`conversation-item ${isActive ? 'conversation-item--active' : ''}`}
+      className={`conversation-item ${isActive ? 'conversation-item--active' : ''} ${hasUnread ? 'conversation-item--unread' : ''}`}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -54,16 +57,23 @@ function ConversationItem({ conversation, isActive, onClick }) {
       {/* Nội dung */}
       <div className="conversation-item__content">
         <div className="conversation-item__header">
-          <span className="conversation-item__name">
+          <span className={`conversation-item__name ${hasUnread ? 'conversation-item__name--unread' : ''}`}>
             {otherMember?.fullName || t('chat.unknownUser')}
           </span>
           <span className="conversation-item__time">
             {timeAgo}
           </span>
         </div>
-        <p className="conversation-item__preview">
-          {lastMessagePreview}
-        </p>
+        <div className="conversation-item__footer">
+          <p className={`conversation-item__preview ${hasUnread ? 'conversation-item__preview--unread' : ''}`}>
+            {lastMessagePreview}
+          </p>
+          {hasUnread && (
+            <span className="conversation-item__badge">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
