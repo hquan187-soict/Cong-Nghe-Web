@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import User from "../models/User.js";
+import Message from "../models/Message.js";
 
 export const createConversation = async (req, res, next) => {
   try {
@@ -102,7 +103,22 @@ export const getConversations = async (req, res, next) => {
       .populate("lastMessage")
       .sort({ updatedAt: -1 });
 
-    return res.status(200).json(conversations);
+    const conversationsWithUnreadCount = await Promise.all(
+      conversations.map(async (conversation) => {
+        const unreadCount = await Message.countDocuments({
+          conversationId: conversation._id,
+          senderId: { $ne: currentUserId },
+          readBy: { $ne: currentUserId },
+        });
+
+        return {
+          ...conversation.toObject(),
+          unreadCount,
+        };
+      })
+    );
+
+    return res.status(200).json(conversationsWithUnreadCount);
   } catch (error) {
     return next(error);
   }
