@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import { io, getReceiverSocketId } from "../lib/socket.js";
 
 const checkConversationAccess = async (conversationId, currentUserId) => {
   if (!mongoose.Types.ObjectId.isValid(conversationId)) {
@@ -127,7 +128,21 @@ export const sendMessage = async (req, res, next) => {
     const populatedMessage = await Message.findById(message._id)
       .populate("senderId", "-password")
       .populate("readBy", "-password");
-
+    
+    conversation.members.forEach((memberId) => {
+            if (memberId.toString() === senderId.toString()) return;
+            const receiverSocketId = getReceiverSocketId(memberId.toString());
+            if (receiverSocketId) {
+                io.to(receiverSocketId).emit("sendMessage", {
+                    conversationId: conversation._id.toString(),
+                    message: populatedMessage,
+                    lastMessage: conversation.lastMessage,
+                    updatedAt: conversation.updatedAt,
+                });
+                console.log(`Tin nhắn đã được gửi đến socketId: ${receiverSocketId}`);
+            }
+        });
+      
     return res.status(201).json(populatedMessage);
   } catch (error) {
     return next(error);
@@ -160,6 +175,19 @@ export const markMessagesAsRead = async (req, res, next) => {
       .populate("senderId", "-password")
       .populate("readBy", "-password")
       .sort({ createdAt: -1 });
+
+    const conversation = await Conversation.findById(conversationId);
+    conversation.members.forEach((memberId) => {
+      if (memberId.toString() === currentUserId.toString()) return;
+      const receiverSocketId = getReceiverSocketId(memberId.toString());
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("messagesRead", {
+          conversationId: conversation._id.toString(),
+          messages,
+        });
+        console.log(`Thông báo đã đọc đã được gửi đến socketId: ${receiverSocketId}`);
+      }
+    });
 
     return res.status(200).json({
       message: "Đã đánh dấu messages là đã đọc.",
