@@ -12,7 +12,19 @@ function ChatPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const [selectedConversation, setSelectedConversation] = useState(null)
+  const [selectedConversation, setSelectedConversation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('last_conversation')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+
+  const handleSelectConversation = useCallback((conv) => {
+    setSelectedConversation(conv)
+    localStorage.setItem('last_conversation', JSON.stringify(conv))
+  }, [])
 
   // Ref để gọi hàm updateLastMessage trên Sidebar từ ChatWindow
   const sidebarRef = useRef(null)
@@ -34,7 +46,7 @@ function ChatPage() {
       <Sidebar
         ref={sidebarRef}
         selectedConversation={selectedConversation}
-        onSelectConversation={setSelectedConversation}
+        onSelectConversation={handleSelectConversation}
       />
 
       <main className="chat-main">
