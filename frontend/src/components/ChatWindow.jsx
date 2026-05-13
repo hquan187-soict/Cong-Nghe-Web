@@ -9,6 +9,16 @@ import Spinner from './ui/Spinner'
 
 const LIMIT = 20
 
+function getEntityId(value) {
+  return value?._id || value
+}
+
+function isSameId(a, b) {
+  const aId = getEntityId(a)
+  const bId = getEntityId(b)
+  return Boolean(aId && bId && aId.toString() === bId.toString())
+}
+
 // ─── DEV ONLY: mock data ──────────────────────────────────────
 const MOCK_SELF_ID = 'mock_user_001'
 
@@ -153,13 +163,14 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
     try {
       const data = await messageService.getMessages(convId, pageNum, LIMIT)
+      const pageMessages = [...(data.messages || [])].reverse()
 
       if (isLoadMore) {
-        setMessages((prev) => [...data.messages, ...prev])
+        setMessages((prev) => [...pageMessages, ...prev])
       } else {
-        setMessages(data.messages)
+        setMessages(pageMessages)
       }
-      setHasMore(data.pagination.hasMore)
+      setHasMore(data.pagination?.hasMore ?? data.count === LIMIT)
       setPage(pageNum)
     } catch (err) {
       console.error('ChatWindow: lỗi load messages', err)
@@ -331,7 +342,7 @@ function ChatWindow({ conversationId, onMessageSent }) {
             <MessageBubble
               key={msg._id}
               message={msg}
-              isOwn={msg.senderId === currentUserId}
+              isOwn={isSameId(msg.senderId, currentUserId)}
             />
           ))
         )}
