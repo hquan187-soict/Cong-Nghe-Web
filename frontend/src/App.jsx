@@ -3,6 +3,7 @@ import { ThemeProvider } from './context/ThemeContext'
 import { LangProvider } from './context/LangContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
+import { SocketProvider } from './context/SocketContext'
 import { setLogoutCallback } from './utils/axios'
 import AppRouter from './AppRouter'
 import Toast from './components/ui/Toast'
@@ -21,14 +22,17 @@ function App() {
   return (
     <AuthProvider>
       <ConnectAxiosLogout />
-      <ToastProvider>
-        <ThemeProvider>
-          <LangProvider>
-            <AppRouter />
-            <Toast />
-          </LangProvider>
-        </ThemeProvider>
-      </ToastProvider>
+      {/* SocketProvider phải nằm bên trong AuthProvider để đọc được user/token */}
+      <SocketProvider>
+        <ToastProvider>
+          <ThemeProvider>
+            <LangProvider>
+              <AppRouter />
+              <Toast />
+            </LangProvider>
+          </ThemeProvider>
+        </ToastProvider>
+      </SocketProvider>
     </AuthProvider>
   )
 }

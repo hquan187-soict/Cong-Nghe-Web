@@ -48,17 +48,23 @@ export const getMessages = async (req, res, next) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
+    // Lấy thêm 1 để biết còn trang tiếp theo không (pattern kiểm tra hasMore)
     const messages = await Message.find({ conversationId })
       .populate("senderId", "-password")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit + 1);
+
+    const hasMore = messages.length > limit;
+    const pageMessages = hasMore ? messages.slice(0, limit) : messages;
 
     return res.status(200).json({
-      page,
-      limit,
-      count: messages.length,
-      messages,
+      messages: pageMessages,
+      pagination: {
+        page,
+        limit,
+        hasMore,
+      },
     });
   } catch (error) {
     return next(error);
@@ -130,7 +136,8 @@ export const sendMessage = async (req, res, next) => {
       .populate("readBy", "-password");
     
     conversation.members.forEach((memberId) => {
-            if (memberId.toString() === senderId.toString()) return;
+            // Không gửi lại cho người vừa gửi tin (dùng currentUserId, không phải senderId)
+            if (memberId.toString() === currentUserId.toString()) return;
             const receiverSocketId = getReceiverSocketId(memberId.toString());
             if (receiverSocketId) {
                 io.to(receiverSocketId).emit("sendMessage", {
