@@ -18,7 +18,7 @@ const LIMIT = 20
  */
 function ChatWindow({ conversationId, onMessageSent }) {
   const { user } = useAuth()
-  const { socket, joinConversation, leaveConversation } = useSocket()
+  const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
   const toast = useToast()
   const { t } = useLang()
 
@@ -56,11 +56,13 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
     try {
       const data = await messageService.getMessages(convId, pageNum, LIMIT)
+      // API trả sort createdAt: -1 (mới nhất trước) → reverse để hiển thị cũ→mới
+      const sorted = [...data.messages].reverse()
 
       if (isLoadMore) {
-        setMessages((prev) => [...data.messages, ...prev])
+        setMessages((prev) => [...sorted, ...prev])
       } else {
-        setMessages(data.messages)
+        setMessages(sorted)
       }
       setHasMore(data.pagination.hasMore)
       setPage(pageNum)
@@ -82,17 +84,10 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
   // ─── Real-time: join/leave room + lắng nghe tin nhắn mới ───
   useEffect(() => {
-    if (!conversationId || !socket) return
+    if (!conversationId || !socket?.connected) return
 
     joinConversation(conversationId)
 
-    /**
-     * Backend emit event 'sendMessage' với payload:
-     * { conversationId, message, lastMessage, updatedAt }
-     *
-     * Deduplication: kiểm tra _id trước khi thêm để tránh duplicate
-     * với optimistic message đã có.
-     */
     const handleNewMessage = ({ conversationId: incomingConvId, message }) => {
       if (incomingConvId !== conversationId) return
 
@@ -105,10 +100,6 @@ function ChatWindow({ conversationId, onMessageSent }) {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }, 50)
-
-      if (onMessageSent) {
-        onMessageSent({ conversationId, lastMessage: message })
-      }
     }
 
     socket.on('sendMessage', handleNewMessage)
@@ -117,7 +108,7 @@ function ChatWindow({ conversationId, onMessageSent }) {
       socket.off('sendMessage', handleNewMessage)
       leaveConversation(conversationId)
     }
-  }, [conversationId, socket, joinConversation, leaveConversation, onMessageSent])
+  }, [conversationId, socket, isConnected, joinConversation, leaveConversation])
   // ─────────────────────────────────────────────────────────
 
   useEffect(() => {
