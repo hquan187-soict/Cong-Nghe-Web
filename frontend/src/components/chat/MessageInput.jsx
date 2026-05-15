@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
-import { Send, ImagePlus, Paperclip, X, FileText } from 'lucide-react'
+import { Send, ImagePlus, Paperclip, X, FileText, Mic, ThumbsUp } from 'lucide-react'
 import { useLang } from '../../context/LangContext'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -159,21 +159,32 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
         />
         <button
           type="button"
-          className="message-input__action-btn"
-          onClick={() => imageInputRef.current?.click()}
+          className="message-input__action-btn tooltip-wrapper"
+          onClick={() => {
+            console.log('[MessageInput] Voice record clicked')
+          }}
           disabled={disabled}
-          title="Gửi ảnh"
         >
-          <ImagePlus size={20} />
+          <Mic size={20} />
+          <span className="tooltip tooltip--top tooltip--right">Gửi tin nhắn thoại</span>
         </button>
         <button
           type="button"
-          className="message-input__action-btn"
+          className="message-input__action-btn tooltip-wrapper"
+          onClick={() => imageInputRef.current?.click()}
+          disabled={disabled}
+        >
+          <ImagePlus size={20} />
+          <span className="tooltip tooltip--top">Gửi ảnh</span>
+        </button>
+        <button
+          type="button"
+          className="message-input__action-btn tooltip-wrapper"
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
-          title="Đính kèm file (tối đa 10 MB)"
         >
           <Paperclip size={20} />
+          <span className="tooltip tooltip--top">Gửi file đính kèm</span>
         </button>
         <textarea
           ref={textareaRef}
@@ -185,15 +196,28 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
           disabled={disabled}
           rows={1}
         />
-        <button
-          type="button"
-          className="message-input__send-btn"
-          onClick={handleSend}
-          disabled={!canSend}
-          title={t('chat.send')}
-        >
-          <Send size={18} />
-        </button>
+        {canSend ? (
+          <button
+            type="button"
+            className="message-input__send-btn"
+            onClick={handleSend}
+            title={t('chat.send')}
+          >
+            <Send size={18} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="message-input__like-btn"
+            onClick={() => {
+              console.log('[MessageInput] Like (thumbs up) clicked')
+            }}
+            disabled={disabled}
+            title="Gửi like"
+          >
+            <ThumbsUp size={20} />
+          </button>
+        )}
       </div>
     </div>
   )

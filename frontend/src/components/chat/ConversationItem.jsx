@@ -1,27 +1,23 @@
+import { useState, useRef, useEffect } from 'react'
+import {
+  MoreHorizontal, BellOff, MailOpen, Phone, Video,
+  Archive, Trash2, Minus
+} from 'lucide-react'
 import Avatar from '../ui/Avatar'
 import { formatRelativeTime } from '../../utils/timeUtils'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 
-/**
- * ConversationItem — Một dòng trong Sidebar danh sách conversations
- * Hiển thị: avatar, tên người chat, preview lastMessage (30 ký tự), thời gian tương đối
- * Props:
- *   - conversation: object (populated members + lastMessage)
- *   - isActive: boolean (đang được chọn?)
- *   - onClick: callback khi click
- *   - unreadCount: number (số tin nhắn chưa đọc)
- */
 function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
+  const [showMenu, setShowMenu] = useState(false)
+  const menuRef = useRef(null)
 
-  // Tìm member khác (không phải user hiện tại)
   const otherMember = conversation.members?.find(
     (m) => m._id !== user?._id
   )
 
-  // Preview lastMessage — cắt 30 ký tự, hiện mô tả cho ảnh/file
   const lastMessagePreview = (() => {
     const msg = conversation.lastMessage
     if (!msg) return t('chat.noMessage')
@@ -49,13 +45,30 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
     return t('chat.noMessage')
   })()
 
-  // Thời gian tương đối
   const timeAgo = formatRelativeTime(
     conversation.lastMessage?.createdAt || conversation.updatedAt,
     lang
   )
 
   const hasUnread = unreadCount > 0
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowMenu(false)
+      }
+    }
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showMenu])
+
+  const handleMenuAction = (action) => (e) => {
+    e.stopPropagation()
+    console.log(`[ConversationItem] ${action} clicked, conversationId:`, conversation._id)
+    setShowMenu(false)
+  }
 
   return (
     <div
@@ -65,7 +78,6 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
     >
-      {/* Avatar */}
       <div className="conversation-item__avatar">
         <Avatar
           src={otherMember?.avatar}
@@ -74,7 +86,6 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
         />
       </div>
 
-      {/* Nội dung */}
       <div className="conversation-item__content">
         <div className="conversation-item__header">
           <span className={`conversation-item__name ${hasUnread ? 'conversation-item__name--unread' : ''}`}>
@@ -94,6 +105,49 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
             </span>
           )}
         </div>
+      </div>
+
+      {/* Hover option button */}
+      <div className="conversation-item__options" ref={menuRef}>
+        <button
+          className="conversation-item__options-btn"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowMenu((v) => !v)
+          }}
+          title="Tùy chọn"
+        >
+          <MoreHorizontal size={16} />
+        </button>
+        {showMenu && (
+          <div className="conversation-item__dropdown">
+            <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Mute')}>
+              <BellOff size={14} />
+              <span>Tắt thông báo</span>
+            </button>
+            <button className="conversation-item__dropdown-item" onClick={handleMenuAction('MarkUnread')}>
+              <MailOpen size={14} />
+              <span>Đánh dấu là chưa đọc</span>
+            </button>
+            <div className="conversation-item__dropdown-divider" />
+            <button className="conversation-item__dropdown-item" onClick={handleMenuAction('VoiceCall')}>
+              <Phone size={14} />
+              <span>Gọi thoại</span>
+            </button>
+            <button className="conversation-item__dropdown-item" onClick={handleMenuAction('VideoCall')}>
+              <Video size={14} />
+              <span>Gọi Video</span>
+            </button>
+            <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Archive')}>
+              <Archive size={14} />
+              <span>Lưu trữ đoạn chat</span>
+            </button>
+            <button className="conversation-item__dropdown-item conversation-item__dropdown-item--danger" onClick={handleMenuAction('Delete')}>
+              <Trash2 size={14} />
+              <span>Xóa đoạn chat</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

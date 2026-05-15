@@ -13,7 +13,7 @@ const LIMIT = 20
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
-function ChatWindow({ conversationId, onMessageSent }) {
+function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   const { user } = useAuth()
   const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
   const toast = useToast()
@@ -359,13 +359,27 @@ function ChatWindow({ conversationId, onMessageSent }) {
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
-            <MessageBubble
-              key={msg._id}
-              message={{ ...msg, status: computeStatus(msg) }}
-              isOwn={getSenderId(msg.senderId) === currentUserId}
-            />
-          ))
+          messages.map((msg, idx) => {
+            const msgSenderId = getSenderId(msg.senderId)
+            const isOwn = msgSenderId === currentUserId
+            const nextMsg = messages[idx + 1]
+            const nextSenderId = nextMsg ? getSenderId(nextMsg.senderId) : null
+            const showAvatar = nextSenderId !== msgSenderId
+
+            const senderAvatar = isOwn ? user?.avatar : otherMember?.avatar
+            const senderName = isOwn ? user?.fullName : otherMember?.fullName
+
+            return (
+              <MessageBubble
+                key={msg._id}
+                message={{ ...msg, status: computeStatus(msg) }}
+                isOwn={isOwn}
+                showAvatar={showAvatar}
+                senderAvatar={senderAvatar}
+                senderName={senderName}
+              />
+            )
+          })
         )}
 
         <div ref={messagesEndRef} />

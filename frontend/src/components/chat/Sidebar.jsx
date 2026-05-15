@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
-import { Plus, MessageCircle } from 'lucide-react'
+import { Plus, MessageCircle, User } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
 import { useLang } from '../../context/LangContext'
@@ -22,6 +23,7 @@ import '../../styles/sidebar.css'
 const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation }, ref) {
   const { t } = useLang()
   const toast = useToast()
+  const navigate = useNavigate()
 
   const [conversations, setConversations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -210,10 +212,19 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     <aside className="sidebar">
       {/* Header */}
       <div className="sidebar__header">
-        <h2 className="sidebar__title">
-          <MessageCircle size={18} />
-          {t('chat.conversations')}
-        </h2>
+        <div className="sidebar__header-left">
+          <button
+            className="sidebar__profile-btn"
+            title={t('profile.title')}
+            onClick={() => navigate('/profile')}
+          >
+            <User size={18} />
+          </button>
+          <h2 className="sidebar__title">
+            <MessageCircle size={18} />
+            {t('chat.conversations')}
+          </h2>
+        </div>
         <button
           className="sidebar__add-btn"
           onClick={() => setShowSearchModal(true)}
