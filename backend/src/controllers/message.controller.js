@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import cloudinary from "../lib/cloudinary.js";
 import { io, getReceiverSocketId } from "../lib/socket.js";
 
 const checkConversationAccess = async (conversationId, currentUserId) => {
@@ -74,7 +75,7 @@ export const getMessages = async (req, res, next) => {
 export const sendMessage = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
-    const { conversationId, text, image } = req.body;
+    const { conversationId, text, image, file } = req.body;
 
     if (!currentUserId) {
       const error = new Error("Bạn chưa đăng nhập.");
@@ -108,8 +109,8 @@ export const sendMessage = async (req, res, next) => {
 
     const cleanText = typeof text === "string" ? text.trim() : "";
 
-    if (!cleanText && !image) {
-      const error = new Error("Message phải có text hoặc image.");
+    if (!cleanText && !image && !file) {
+      const error = new Error("Message phải có text, image hoặc file.");
       error.statusCode = 400;
       throw error;
     }
@@ -119,11 +120,34 @@ export const sendMessage = async (req, res, next) => {
       currentUserId
     );
 
+    let imageUrl = image || null;
+    if (image && image.startsWith("data:")) {
+      const uploaded = await cloudinary.uploader.upload(image, {
+        folder: "chat_images",
+      });
+      imageUrl = uploaded.secure_url;
+    }
+
+    let fileData = null;
+    if (file && file.data) {
+      const uploaded = await cloudinary.uploader.upload(file.data, {
+        folder: "chat_files",
+        resource_type: "auto",
+      });
+      fileData = {
+        url: uploaded.secure_url,
+        name: file.name || "file",
+        size: file.size || 0,
+        type: file.type || "",
+      };
+    }
+
     const message = await Message.create({
       conversationId,
       senderId: currentUserId,
       text: cleanText,
-      image,
+      image: imageUrl,
+      file: fileData,
       readBy: [currentUserId],
     });
 

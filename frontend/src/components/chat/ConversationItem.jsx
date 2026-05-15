@@ -21,12 +21,32 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
     (m) => m._id !== user?._id
   )
 
-  // Preview lastMessage — cắt 30 ký tự
+  // Preview lastMessage — cắt 30 ký tự, hiện mô tả cho ảnh/file
   const lastMessagePreview = (() => {
     const msg = conversation.lastMessage
     if (!msg) return t('chat.noMessage')
-    const text = msg.text || ''
-    return text.length > 30 ? text.slice(0, 30) + '…' : text
+
+    if (msg.text) {
+      const text = msg.text
+      return text.length > 30 ? text.slice(0, 30) + '…' : text
+    }
+
+    const senderName = (() => {
+      if (!msg.senderId) return ''
+      if (typeof msg.senderId === 'object') {
+        return msg.senderId._id === user?._id
+          ? 'Bạn'
+          : (msg.senderId.fullName || '')
+      }
+      return msg.senderId === user?._id ? 'Bạn' : ''
+    })()
+
+    const prefix = senderName ? senderName + ': ' : ''
+
+    if (msg.file?.url) return prefix + 'Đã gửi một tệp đính kèm'
+    if (msg.image) return prefix + 'Đã gửi một ảnh'
+
+    return t('chat.noMessage')
   })()
 
   // Thời gian tương đối

@@ -361,6 +361,7 @@ a:hover {
   flex-direction: column;
   overflow: hidden;
   height: 100%;
+  position: relative;
 }
 
 .chat-window--empty {
@@ -508,6 +509,23 @@ a:hover {
   display: flex;
   align-items: center;
   opacity: 0.7;
+  cursor: default;
+  position: relative;
+}
+
+.message-bubble__status[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .message-bubble__status--sending {
@@ -518,8 +536,106 @@ a:hover {
   opacity: 0.8;
 }
 
+.message-bubble__status--read {
+  opacity: 1;
+  color: #60a5fa;
+}
+
+.message-bubble--own .message-bubble__status--read {
+  color: #bfdbfe;
+}
+
 .message-bubble__status--error {
   color: #ef4444;
+  opacity: 1;
+}
+
+.message-bubble__image-wrapper {
+  position: relative;
+  min-height: 80px;
+}
+
+.message-bubble__image-placeholder {
+  width: 200px;
+  height: 150px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-bg) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.message-bubble__image--loading {
+  position: absolute;
+  opacity: 0;
+}
+
+.message-bubble__image {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.message-bubble__image:hover {
+  opacity: 0.9;
+}
+
+/* File attachment inside bubble */
+.message-bubble__file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s;
+  min-width: 180px;
+}
+
+.message-bubble__file--own {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.message-bubble__file:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.message-bubble__file--own:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.message-bubble__file-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.message-bubble__file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.message-bubble__file-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-bubble__file-size {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.message-bubble__file-download {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.message-bubble__file:hover .message-bubble__file-download {
   opacity: 1;
 }
 
@@ -528,12 +644,124 @@ a:hover {
    =========================== */
 
 .message-input {
-  padding: 12px 16px;
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
   display: flex;
+  flex-direction: column;
+}
+
+.message-input__preview {
+  padding: 10px 16px 0;
+}
+
+.message-input__preview-container {
+  position: relative;
+  display: inline-block;
+}
+
+.message-input__preview-img {
+  max-height: 120px;
+  max-width: 200px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+}
+
+.message-input__preview-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, background 0.15s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.message-input__preview-remove:hover {
+  background: #dc2626;
+  transform: scale(1.1);
+}
+
+.message-input__row {
+  padding: 12px 16px;
+  display: flex;
   align-items: flex-end;
   gap: 10px;
+}
+
+.message-input__file-input {
+  display: none;
+}
+
+.message-input__action-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.2s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.message-input__action-btn:hover:not(:disabled) {
+  color: var(--color-primary);
+  background: rgba(79, 110, 245, 0.08);
+}
+
+.message-input__action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* File preview in compose area */
+.message-input__preview-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  position: relative;
+}
+
+.message-input__preview-file-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.message-input__preview-file-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.message-input__preview-file-size {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.message-input__preview-remove--file {
+  position: static;
+  margin-left: 4px;
 }
 
 .message-input__textarea {
@@ -592,4 +820,50 @@ a:hover {
 .message-input__send-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ===========================
+   DRAG & DROP OVERLAY
+   =========================== */
+
+.chat-window__drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
+.chat-window__drop-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px;
+  border: 2px dashed var(--color-border);
+  border-radius: 16px;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  font-weight: 500;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  pointer-events: auto;
+}
+
+.chat-window__drop-zone--active {
+  border-color: var(--color-primary);
+  background: rgba(79, 110, 245, 0.12);
+  color: var(--color-primary);
+}
+
+.chat-window__drop-zone--messages {
+  flex: 2;
+}
+
+.chat-window__drop-zone--input {
+  flex: 1;
 }

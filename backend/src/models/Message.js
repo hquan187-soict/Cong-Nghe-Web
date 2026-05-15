@@ -20,6 +20,12 @@ const messageSchema = new mongoose.Schema(
     image: {
       type: String,
     },
+    file: {
+      url: { type: String },
+      name: { type: String },
+      size: { type: Number },
+      type: { type: String },
+    },
     readBy: [
       {
         type: mongoose.Schema.Types.ObjectId,

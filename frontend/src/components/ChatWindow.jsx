@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { Upload } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { useToast } from '../context/ToastContext'
@@ -9,13 +10,9 @@ import MessageInput from './chat/MessageInput'
 import Spinner from './ui/Spinner'
 
 const LIMIT = 20
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 10 * 1024 * 1024
 
-/**
- * ChatWindow — Hiển thị tin nhắn + ô gửi tin
- * Props:
- *   - conversationId: ID cuộc trò chuyện đang mở
- *   - onMessageSent(message): callback để ChatPage cập nhật Sidebar lastMessage
- */
 function ChatWindow({ conversationId, onMessageSent }) {
   const { user } = useAuth()
   const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
@@ -27,22 +24,35 @@ function ChatWindow({ conversationId, onMessageSent }) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  // Drag & drop state
+  const [dragOver, setDragOver] = useState(false)
+  const [dropZone, setDropZone] = useState(null) // 'messages' | 'input' | null
+  const dragCounterRef = useRef(0)
 
   const messagesEndRef = useRef(null)
   const scrollContainerRef = useRef(null)
   const prevScrollHeightRef = useRef(0)
+  const messageInputRef = useRef(null)
 
   const currentUserId = user?._id?.toString()
 
-  /**
-   * Lấy senderId dạng string, xử lý 2 trường hợp:
-   * - Populated (từ API): msg.senderId là object { _id, fullName, ... } → lấy _id
-   * - Optimistic (local): msg.senderId là string trực tiếp
-   */
   const getSenderId = (senderId) =>
     (typeof senderId === 'object' ? senderId?._id : senderId)?.toString()
 
-  // ─── Fetch messages từ API ───────────────────────────────
+  const getReadByIds = (readBy) => {
+    if (!Array.isArray(readBy)) return []
+    return readBy.map((r) => (typeof r === 'object' ? r?._id : r)?.toString())
+  }
+
+  const computeStatus = (msg) => {
+    if (msg.status === 'sending' || msg.status === 'error') return msg.status
+    const readByIds = getReadByIds(msg.readBy)
+    if (readByIds.length > 1) return 'read'
+    return 'sent'
+  }
+
   const fetchMessages = useCallback(async (convId, pageNum, isLoadMore = false) => {
     if (isLoadMore) {
       setLoadingMore(true)
@@ -56,7 +66,6 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
     try {
       const data = await messageService.getMessages(convId, pageNum, LIMIT)
-      // API trả sort createdAt: -1 (mới nhất trước) → reverse để hiển thị cũ→mới
       const sorted = [...data.messages].reverse()
 
       if (isLoadMore) {
@@ -82,7 +91,11 @@ function ChatWindow({ conversationId, onMessageSent }) {
     fetchMessages(conversationId, 1, false)
   }, [conversationId, fetchMessages])
 
-  // ─── Real-time: join/leave room + lắng nghe tin nhắn mới ───
+  useEffect(() => {
+    if (!conversationId || conversationId.startsWith('mock_')) return
+    messageService.markAsRead(conversationId).catch(() => {})
+  }, [conversationId])
+
   useEffect(() => {
     if (!conversationId || !socket?.connected) return
 
@@ -90,26 +103,38 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
     const handleNewMessage = ({ conversationId: incomingConvId, message }) => {
       if (incomingConvId !== conversationId) return
-
       setMessages((prev) => {
         const alreadyExists = prev.some((m) => m._id === message._id)
         if (alreadyExists) return prev
         return [...prev, message]
       })
-
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }, 50)
+      messageService.markAsRead(conversationId).catch(() => {})
+    }
+
+    const handleMessagesRead = ({ conversationId: incomingConvId, messages: updatedMessages }) => {
+      if (incomingConvId !== conversationId) return
+      const updatedMap = new Map(updatedMessages.map((m) => [m._id, m.readBy]))
+      setMessages((prev) =>
+        prev.map((msg) => {
+          const newReadBy = updatedMap.get(msg._id)
+          if (newReadBy) return { ...msg, readBy: newReadBy }
+          return msg
+        })
+      )
     }
 
     socket.on('sendMessage', handleNewMessage)
+    socket.on('messagesRead', handleMessagesRead)
 
     return () => {
       socket.off('sendMessage', handleNewMessage)
+      socket.off('messagesRead', handleMessagesRead)
       leaveConversation(conversationId)
     }
   }, [conversationId, socket, isConnected, joinConversation, leaveConversation])
-  // ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!loading && messages.length > 0 && page === 1) {
@@ -117,7 +142,6 @@ function ChatWindow({ conversationId, onMessageSent }) {
     }
   }, [loading, conversationId, messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sau khi load thêm tin cũ, giữ nguyên vị trí scroll
   useEffect(() => {
     if (!loadingMore && prevScrollHeightRef.current > 0 && scrollContainerRef.current) {
       const newScrollHeight = scrollContainerRef.current.scrollHeight
@@ -126,7 +150,6 @@ function ChatWindow({ conversationId, onMessageSent }) {
     }
   }, [loadingMore])
 
-  // Infinite scroll lên trên
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
     if (!el || loadingMore || !hasMore) return
@@ -135,57 +158,140 @@ function ChatWindow({ conversationId, onMessageSent }) {
     }
   }, [loadingMore, hasMore, conversationId, page, fetchMessages])
 
-  // ─── Optimistic update — gửi tin nhắn ──────────────────
-  const handleSendMessage = useCallback(async (text) => {
+  // ─── Gửi tin nhắn (text + image + file) ──────────────────
+  const handleSendMessage = useCallback(async (text, imageBase64, fileData) => {
     if (!conversationId || !currentUserId) return
+    if (!text && !imageBase64 && !fileData) return
 
-    // 1. Tạo tempId cho tin nhắn pending
     const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
 
-    // 2. Tạo optimistic message (hiện ngay trên UI với status 'sending')
     const optimisticMsg = {
       _id: tempId,
       conversationId,
       senderId: currentUserId,
-      text,
-      image: null,
+      text: text || '',
+      image: imageBase64 || null,
+      file: fileData ? { url: '', name: fileData.name, size: fileData.size, type: fileData.type } : null,
       createdAt: new Date().toISOString(),
+      readBy: [currentUserId],
       status: 'sending',
     }
 
-    // 3. Thêm vào cuối danh sách messages
     setMessages((prev) => [...prev, optimisticMsg])
+    setSending(true)
 
-    // 4. Scroll xuống cuối để thấy tin vừa gửi
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, 50)
 
     try {
-      // 5. Gọi API POST /api/messages
-      const savedMsg = await messageService.sendMessage({ conversationId, text })
+      const payload = { conversationId }
+      if (text) payload.text = text
+      if (imageBase64) payload.image = imageBase64
+      if (fileData) payload.file = fileData
 
-      // 6. Thành công → thay thế optimistic message bằng message thật từ server
+      const savedMsg = await messageService.sendMessage(payload)
+
       setMessages((prev) =>
         prev.map((msg) =>
           msg._id === tempId ? { ...savedMsg, status: 'sent' } : msg
         )
       )
 
-      // 7. Callback lên ChatPage để cập nhật Sidebar lastMessage
       if (onMessageSent) {
         onMessageSent({ conversationId, lastMessage: savedMsg })
       }
     } catch (err) {
       console.error('Gửi tin nhắn thất bại:', err)
-
-      // 8. Lỗi → xóa tin nhắn optimistic + hiện toast
       setMessages((prev) => prev.filter((msg) => msg._id !== tempId))
       toast.error(err.response?.data?.message || t('chat.sendError'))
+    } finally {
+      setSending(false)
     }
   }, [conversationId, currentUserId, onMessageSent, toast, t])
 
-  // ─── Render ─────────────────────────────────────────────
+  // ─── Drag & Drop ──────────────────────────────────────────
+  const readFileAsBase64 = (file) =>
+    new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.readAsDataURL(file)
+    })
+
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current++
+    if (e.dataTransfer.types.includes('Files')) {
+      setDragOver(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current--
+    if (dragCounterRef.current === 0) {
+      setDragOver(false)
+      setDropZone(null)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleZoneDragOver = useCallback((zone) => (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDropZone(zone)
+  }, [])
+
+  const handleDrop = useCallback(async (zone, e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current = 0
+    setDragOver(false)
+    setDropZone(null)
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
+
+    const file = files[0]
+
+    if (zone === 'messages') {
+      // Thả vào vùng chat → gửi ngay
+      const isImage = file.type.startsWith('image/')
+      if (isImage && file.size > MAX_IMAGE_SIZE) {
+        toast.error('Ảnh quá lớn (tối đa 5 MB)')
+        return
+      }
+      if (!isImage && file.size > MAX_FILE_SIZE) {
+        toast.error('File quá lớn (tối đa 10 MB)')
+        return
+      }
+
+      const base64 = await readFileAsBase64(file)
+
+      if (isImage) {
+        handleSendMessage('', base64, null)
+      } else {
+        handleSendMessage('', null, {
+          data: base64,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        })
+      }
+    } else {
+      // Thả vào vùng soạn tin → đưa vào preview
+      if (messageInputRef.current?.addFile) {
+        messageInputRef.current.addFile(file)
+      }
+    }
+  }, [handleSendMessage, toast])
+
   if (!conversationId) {
     return (
       <div className="chat-window chat-window--empty">
@@ -195,8 +301,34 @@ function ChatWindow({ conversationId, onMessageSent }) {
   }
 
   return (
-    <div className="chat-window">
-      {/* Khu vực tin nhắn */}
+    <div
+      className="chat-window"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+    >
+      {/* Drag overlay với 2 vùng thả */}
+      {dragOver && (
+        <div className="chat-window__drop-overlay">
+          <div
+            className={`chat-window__drop-zone chat-window__drop-zone--messages ${dropZone === 'messages' ? 'chat-window__drop-zone--active' : ''}`}
+            onDragOver={handleZoneDragOver('messages')}
+            onDrop={(e) => handleDrop('messages', e)}
+          >
+            <Upload size={36} />
+            <span>Thả để gửi ngay</span>
+          </div>
+          <div
+            className={`chat-window__drop-zone chat-window__drop-zone--input ${dropZone === 'input' ? 'chat-window__drop-zone--active' : ''}`}
+            onDragOver={handleZoneDragOver('input')}
+            onDrop={(e) => handleDrop('input', e)}
+          >
+            <Upload size={36} />
+            <span>Thả để soạn tin nhắn</span>
+          </div>
+        </div>
+      )}
+
       <div
         className="chat-window__messages"
         ref={scrollContainerRef}
@@ -210,7 +342,6 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
         {loading ? (
           <div className="chat-window__skeleton">
-            {/* Skeleton mimics alternating chat bubbles */}
             <div className="chat-window__skeleton-row chat-window__skeleton-row--left">
               <div className="chat-window__skeleton-bubble chat-window__skeleton-bubble--medium"></div>
             </div>
@@ -231,7 +362,7 @@ function ChatWindow({ conversationId, onMessageSent }) {
           messages.map((msg) => (
             <MessageBubble
               key={msg._id}
-              message={msg}
+              message={{ ...msg, status: computeStatus(msg) }}
               isOwn={getSenderId(msg.senderId) === currentUserId}
             />
           ))
@@ -240,8 +371,7 @@ function ChatWindow({ conversationId, onMessageSent }) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Ô nhập tin nhắn */}
-      <MessageInput onSend={handleSendMessage} />
+      <MessageInput ref={messageInputRef} onSend={handleSendMessage} disabled={sending} />
     </div>
   )
 }
