@@ -406,6 +406,10 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
             const nextSenderId = nextMsg ? getSenderId(nextMsg.senderId) : null
             const showAvatar = nextSenderId !== msgSenderId
 
+            const prevMsg = messages[idx - 1]
+            const prevSenderId = prevMsg ? getSenderId(prevMsg.senderId) : null
+            const showName = prevSenderId !== msgSenderId
+
             const senderAvatar = isOwn ? user?.avatar : otherMember?.avatar
             const senderName = isOwn ? user?.fullName : otherMember?.fullName
 
@@ -415,6 +419,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
                 message={{ ...msg, status: computeStatus(msg) }}
                 isOwn={isOwn}
                 showAvatar={showAvatar}
+                showName={showName}
                 senderAvatar={senderAvatar}
                 senderName={senderName}
               />

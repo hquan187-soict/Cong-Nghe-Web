@@ -4,6 +4,7 @@ import { LangProvider } from './context/LangContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { SocketProvider } from './context/SocketContext'
+import { AccessibilityProvider } from './context/AccessibilityContext'
 import { setLogoutCallback } from './utils/axios'
 import AppRouter from './AppRouter'
 import Toast from './components/ui/Toast'
@@ -27,8 +28,10 @@ function App() {
         <ToastProvider>
           <ThemeProvider>
             <LangProvider>
-              <AppRouter />
-              <Toast />
+              <AccessibilityProvider>
+                <AppRouter />
+                <Toast />
+              </AccessibilityProvider>
             </LangProvider>
           </ThemeProvider>
         </ToastProvider>

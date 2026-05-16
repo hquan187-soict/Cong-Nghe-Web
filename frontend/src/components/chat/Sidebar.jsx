@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect } from 'react'
-import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight } from 'lucide-react'
+import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall } from 'lucide-react'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
 import { useLang } from '../../context/LangContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useToast } from '../../context/ToastContext'
+import { useAccessibility } from '../../context/AccessibilityContext'
 import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
 import '../../styles/sidebar.css'
@@ -13,16 +14,20 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const { t, lang, toggleLang } = useLang()
   const { theme, toggleTheme } = useTheme()
   const toast = useToast()
+  const { fontSize, setFontSize, fontFamily, setFontFamily, FONT_SIZES, FONT_FAMILIES } = useAccessibility()
 
   const [conversations, setConversations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSettings, setShowSettings] = useState(false)
+  const [showAccessibility, setShowAccessibility] = useState(false)
   const settingsRef = useRef(null)
   const settingsBtnRef = useRef(null)
   const dropdownRef = useRef(null)
+  const a11yPanelRef = useRef(null)
   const [dropdownStyle, setDropdownStyle] = useState({})
+  const [a11yPanelStyle, setA11yPanelStyle] = useState({})
 
   const [unreadMap, setUnreadMap] = useState({})
 
@@ -180,16 +185,19 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (settingsRef.current && !settingsRef.current.contains(e.target) &&
-          dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      const clickedInSettings = settingsRef.current?.contains(e.target)
+      const clickedInDropdown = dropdownRef.current?.contains(e.target)
+      const clickedInA11y = a11yPanelRef.current?.contains(e.target)
+      if (!clickedInSettings && !clickedInDropdown && !clickedInA11y) {
         setShowSettings(false)
+        setShowAccessibility(false)
       }
     }
-    if (showSettings) {
+    if (showSettings || showAccessibility) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showSettings])
+  }, [showSettings, showAccessibility])
 
   useLayoutEffect(() => {
     if (!showSettings || !settingsBtnRef.current) return
@@ -206,6 +214,15 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       })
     }
   }, [showSettings, collapsed])
+
+  useLayoutEffect(() => {
+    if (!showAccessibility || !dropdownRef.current) return
+    const rect = dropdownRef.current.getBoundingClientRect()
+    setA11yPanelStyle({
+      left: rect.right + 8,
+      bottom: window.innerHeight - rect.bottom,
+    })
+  }, [showAccessibility])
 
   const handleSearchBarClick = () => {
     setShowSearchModal(true)
@@ -296,7 +313,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
               <button
                 ref={settingsBtnRef}
                 className={`sidebar__footer-btn tooltip-wrapper ${showSettings ? 'sidebar__footer-btn--active' : ''}`}
-                onClick={() => setShowSettings((v) => !v)}
+                onClick={() => { setShowSettings((v) => !v); setShowAccessibility(false) }}
               >
                 <Settings size={20} />
                 {!showSettings && <span className="tooltip tooltip--right">{t('settings.title')}</span>}
@@ -316,7 +333,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
               <button
                 ref={settingsBtnRef}
                 className={`sidebar__footer-btn tooltip-wrapper ${showSettings ? 'sidebar__footer-btn--active' : ''}`}
-                onClick={() => setShowSettings((v) => !v)}
+                onClick={() => { setShowSettings((v) => !v); setShowAccessibility(false) }}
               >
                 <Settings size={20} />
                 {!showSettings && <span className="tooltip tooltip--top">{t('settings.title')}</span>}
@@ -374,7 +391,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             </div>
             <ChevronRight size={14} className="sidebar__settings-arrow" />
           </button>
-          <button className="sidebar__settings-item">
+          <button className="sidebar__settings-item" onClick={() => setShowAccessibility(true)}>
             <Accessibility size={16} />
             <div className="sidebar__settings-item-text">
               <span>{t('settings.accessibility')}</span>
@@ -399,6 +416,58 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             </div>
             <ChevronRight size={14} className="sidebar__settings-arrow" />
           </button>
+        </div>
+      )}
+
+      {/* Accessibility sub-panel — positioned to the right of settings */}
+      {showAccessibility && showSettings && (
+        <div className="sidebar__a11y-panel" ref={a11yPanelRef} style={a11yPanelStyle}>
+          <div className="sidebar__settings-header">
+            <button className="sidebar__a11y-back" onClick={() => setShowAccessibility(false)}>
+              <ChevronLeft size={16} />
+            </button>
+            <span>{t('settings.accessibility')}</span>
+          </div>
+          <div className="sidebar__settings-divider" />
+
+          <div className="sidebar__a11y-section">
+            <div className="sidebar__a11y-label">
+              <ALargeSmall size={15} />
+              <span>{t('settings.fontSize')}</span>
+            </div>
+            <div className="sidebar__a11y-options">
+              {FONT_SIZES.map((s) => (
+                <button
+                  key={s.value}
+                  className={`sidebar__a11y-option ${fontSize === s.value ? 'sidebar__a11y-option--active' : ''}`}
+                  onClick={() => setFontSize(s.value)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="sidebar__settings-divider" />
+
+          <div className="sidebar__a11y-section">
+            <div className="sidebar__a11y-label">
+              <Type size={15} />
+              <span>{t('settings.fontFamily')}</span>
+            </div>
+            <div className="sidebar__a11y-font-list">
+              {FONT_FAMILIES.map((f) => (
+                <button
+                  key={f.value}
+                  className={`sidebar__a11y-font-item ${fontFamily === f.value ? 'sidebar__a11y-font-item--active' : ''}`}
+                  onClick={() => setFontFamily(f.value)}
+                  style={{ fontFamily: f.value }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

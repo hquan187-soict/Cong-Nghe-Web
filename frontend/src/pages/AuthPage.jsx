@@ -1,0 +1,528 @@
+import { useState } from 'react'
+import { Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { Lock, Eye, EyeOff, Mail, ShieldCheck, ArrowLeft } from 'lucide-react'
+import { useLang } from '../context/LangContext'
+import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+import Input from '../components/ui/Input'
+import Button from '../components/ui/Button'
+import { authService } from '../services/auth.service'
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function CardHeader({ title, subtitle }) {
+  return (
+    <div className="mb-8 text-center">
+      <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl mx-auto mb-4 shadow-lg shadow-indigo-500/30 flex items-center justify-center text-white">
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+      </div>
+      <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{title}</h2>
+      <p className="text-slate-500 mt-2 text-sm">{subtitle}</p>
+    </div>
+  )
+}
+
+// ─── Login Form ────────────────────────────────────────
+function LoginForm({ onNavigate }) {
+  const { t } = useLang()
+  const { login } = useAuth()
+  const toast = useToast()
+  const navigate = useNavigate()
+
+  const [formData, setFormData] = useState({ email: '', password: '' })
+  const [errors, setErrors] = useState({ email: '', password: '' })
+  const [serverError, setServerError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  function handleChange(field, value) {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
+    if (serverError) setServerError('')
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const errs = {}
+    if (!formData.email.trim()) errs.email = t('validation.required')
+    else if (!EMAIL_REGEX.test(formData.email)) errs.email = t('validation.emailInvalid')
+    if (!formData.password) errs.password = t('validation.required')
+    else if (formData.password.length < 6) errs.password = t('validation.passwordMinLength')
+    if (Object.values(errs).some(Boolean)) { setErrors(errs); return }
+
+    setLoading(true)
+    try {
+      const data = await authService.login(formData)
+      const { token: receivedToken, ...userInfo } = data
+      login(userInfo, receivedToken)
+      toast.success(t('login.success'))
+      navigate('/chat', { replace: true })
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('login.error'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <CardHeader title={t('login.title')} subtitle={t('login.subtitle')} />
+
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        <Input
+          label={t('login.email')}
+          type="email"
+          placeholder={t('login.emailPlaceholder')}
+          value={formData.email}
+          onChange={e => handleChange('email', e.target.value)}
+          error={errors.email}
+        />
+        <div>
+          <Input
+            label={t('login.password')}
+            type={showPassword ? 'text' : 'password'}
+            placeholder={t('login.passwordPlaceholder')}
+            value={formData.password}
+            onChange={e => handleChange('password', e.target.value)}
+            error={errors.password}
+            icon={<Lock size={16} />}
+            rightIcon={showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            onRightIconClick={() => setShowPassword(prev => !prev)}
+          />
+          <div className="flex justify-end mt-1.5">
+            <button
+              type="button"
+              onClick={() => onNavigate('forgot-password')}
+              className="text-sm text-indigo-600 font-medium hover:text-indigo-700 hover:underline transition-colors"
+            >
+              {t('login.forgotPassword')}
+            </button>
+          </div>
+        </div>
+
+        <Button type="submit" variant="primary" className="w-full mt-1" isLoading={loading}>
+          {t('login.submit')}
+        </Button>
+
+        {serverError && (
+          <p className="text-rose-500 text-sm font-medium text-center">{serverError}</p>
+        )}
+      </form>
+
+      <p className="text-center text-sm text-slate-500 mt-6">
+        {t('login.noAccount')}{' '}
+        <button
+          type="button"
+          onClick={() => onNavigate('register')}
+          className="text-indigo-600 font-semibold hover:underline"
+        >
+          {t('login.registerLink')}
+        </button>
+      </p>
+    </>
+  )
+}
+
+// ─── Register Form ─────────────────────────────────────
+function RegisterForm({ onNavigate }) {
+  const { t } = useLang()
+  const toast = useToast()
+
+  const [formData, setFormData] = useState({
+    fullName: '', email: '', otp: '', password: '', confirmPassword: ''
+  })
+  const [errors, setErrors] = useState({
+    fullName: '', email: '', otp: '', password: '', confirmPassword: ''
+  })
+  const [serverError, setServerError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [sendingOtp, setSendingOtp] = useState(false)
+  const [otpCooldown, setOtpCooldown] = useState(0)
+
+  function handleChange(field, value) {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
+    if (serverError) setServerError('')
+  }
+
+  async function handleSendOtp() {
+    if (!formData.email.trim()) {
+      setErrors(prev => ({ ...prev, email: t('validation.required') }))
+      return
+    }
+    if (!EMAIL_REGEX.test(formData.email)) {
+      setErrors(prev => ({ ...prev, email: t('validation.emailInvalid') }))
+      return
+    }
+    setSendingOtp(true)
+    try {
+      await authService.sendSignupOtp({ email: formData.email })
+      toast.success(t('register.otpSent'))
+      setOtpCooldown(60)
+      const interval = setInterval(() => {
+        setOtpCooldown(prev => {
+          if (prev <= 1) { clearInterval(interval); return 0 }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('register.otpError'))
+    } finally {
+      setSendingOtp(false)
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const errs = {}
+    if (!formData.fullName.trim()) errs.fullName = t('validation.required')
+    if (!formData.email.trim()) errs.email = t('validation.required')
+    else if (!EMAIL_REGEX.test(formData.email)) errs.email = t('validation.emailInvalid')
+    if (!formData.otp.trim()) errs.otp = t('validation.required')
+    if (!formData.password) errs.password = t('validation.required')
+    else if (formData.password.length < 6) errs.password = t('validation.passwordMinLength')
+    if (!formData.confirmPassword) errs.confirmPassword = t('validation.required')
+    else if (formData.confirmPassword !== formData.password) errs.confirmPassword = t('validation.passwordMismatch')
+    if (Object.values(errs).some(Boolean)) { setErrors(errs); return }
+
+    setLoading(true)
+    try {
+      const { fullName, email, password, otp } = formData
+      await authService.signup({ fullName, email, password, otp })
+      toast.success(t('register.success'))
+      onNavigate('login')
+    } catch (error) {
+      const status = error.response?.status
+      const message = error.response?.data?.message || t('register.error')
+      if (status === 409) {
+        setErrors(prev => ({ ...prev, email: message }))
+      } else {
+        toast.error(message)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <CardHeader title={t('register.title')} subtitle={t('register.subtitle')} />
+
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        <Input
+          label={t('register.fullName') || 'Full Name'}
+          type="text"
+          placeholder={t('register.fullNamePlaceholder') || 'Enter your full name'}
+          value={formData.fullName}
+          onChange={e => handleChange('fullName', e.target.value)}
+          error={errors.fullName}
+        />
+        <Input
+          label={t('register.email')}
+          type="email"
+          placeholder={t('register.emailPlaceholder')}
+          value={formData.email}
+          onChange={e => handleChange('email', e.target.value)}
+          error={errors.email}
+        />
+        <div>
+          <label className="text-sm font-semibold text-slate-700 mb-1.5 block">
+            {t('register.otpLabel')}
+          </label>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Input
+                type="text"
+                placeholder={t('register.otpPlaceholder')}
+                value={formData.otp}
+                onChange={e => handleChange('otp', e.target.value)}
+                error={errors.otp}
+                icon={<ShieldCheck size={16} />}
+                maxLength={6}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="shrink-0 !px-4 !py-2.5 self-start"
+              onClick={handleSendOtp}
+              isLoading={sendingOtp}
+              disabled={sendingOtp || otpCooldown > 0}
+            >
+              {otpCooldown > 0 ? `${otpCooldown}s` : t('register.sendOtp')}
+            </Button>
+          </div>
+        </div>
+        <Input
+          label={t('register.password')}
+          type={showPassword ? 'text' : 'password'}
+          placeholder={t('register.passwordPlaceholder')}
+          value={formData.password}
+          onChange={e => handleChange('password', e.target.value)}
+          error={errors.password}
+          icon={<Lock size={16} />}
+          rightIcon={showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          onRightIconClick={() => setShowPassword(prev => !prev)}
+        />
+        <Input
+          label={t('register.confirmPassword')}
+          type={showConfirm ? 'text' : 'password'}
+          placeholder={t('register.confirmPasswordPlaceholder')}
+          value={formData.confirmPassword}
+          onChange={e => handleChange('confirmPassword', e.target.value)}
+          error={errors.confirmPassword}
+          icon={<Lock size={16} />}
+          rightIcon={showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+          onRightIconClick={() => setShowConfirm(prev => !prev)}
+        />
+
+        <Button type="submit" variant="primary" className="w-full mt-1" isLoading={loading}>
+          {t('register.submit')}
+        </Button>
+
+        {serverError && (
+          <p className="text-rose-500 text-sm font-medium text-center">{serverError}</p>
+        )}
+      </form>
+
+      <p className="text-center text-sm text-slate-500 mt-6">
+        {t('register.hasAccount')}{' '}
+        <button
+          type="button"
+          onClick={() => onNavigate('login')}
+          className="text-indigo-600 font-semibold hover:underline"
+        >
+          {t('register.loginLink')}
+        </button>
+      </p>
+    </>
+  )
+}
+
+// ─── Forgot Password Form ──────────────────────────────
+function ForgotPasswordForm({ onNavigate }) {
+  const { t } = useLang()
+  const toast = useToast()
+
+  const [formData, setFormData] = useState({
+    email: '', otp: '', newPassword: '', confirmPassword: ''
+  })
+  const [errors, setErrors] = useState({
+    email: '', otp: '', newPassword: '', confirmPassword: ''
+  })
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [sendingOtp, setSendingOtp] = useState(false)
+  const [otpCooldown, setOtpCooldown] = useState(0)
+
+  function handleChange(field, value) {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
+  }
+
+  async function handleSendOtp() {
+    if (!formData.email.trim()) {
+      setErrors(prev => ({ ...prev, email: t('validation.required') }))
+      return
+    }
+    if (!EMAIL_REGEX.test(formData.email)) {
+      setErrors(prev => ({ ...prev, email: t('validation.emailInvalid') }))
+      return
+    }
+    setSendingOtp(true)
+    try {
+      await authService.sendForgotPasswordOtp({ email: formData.email })
+      toast.success(t('forgotPassword.otpSent'))
+      setOtpCooldown(60)
+      const interval = setInterval(() => {
+        setOtpCooldown(prev => {
+          if (prev <= 1) { clearInterval(interval); return 0 }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('forgotPassword.otpError'))
+    } finally {
+      setSendingOtp(false)
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const errs = {}
+    if (!formData.email.trim()) errs.email = t('validation.required')
+    else if (!EMAIL_REGEX.test(formData.email)) errs.email = t('validation.emailInvalid')
+    if (!formData.otp.trim()) errs.otp = t('validation.required')
+    if (!formData.newPassword) errs.newPassword = t('validation.required')
+    else if (formData.newPassword.length < 6) errs.newPassword = t('validation.passwordMinLength')
+    if (!formData.confirmPassword) errs.confirmPassword = t('validation.required')
+    else if (formData.confirmPassword !== formData.newPassword) errs.confirmPassword = t('validation.passwordMismatch')
+    if (Object.values(errs).some(Boolean)) { setErrors(errs); return }
+
+    setLoading(true)
+    try {
+      await authService.resetPassword({
+        email: formData.email,
+        otp: formData.otp,
+        newPassword: formData.newPassword,
+      })
+      toast.success(t('forgotPassword.success'))
+      onNavigate('login')
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('forgotPassword.error'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <CardHeader title={t('forgotPassword.title')} subtitle={t('forgotPassword.subtitle')} />
+
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        <Input
+          label={t('forgotPassword.email')}
+          type="email"
+          placeholder={t('forgotPassword.emailPlaceholder')}
+          value={formData.email}
+          onChange={e => handleChange('email', e.target.value)}
+          error={errors.email}
+          icon={<Mail size={16} />}
+        />
+        <div>
+          <label className="text-sm font-semibold text-slate-700 mb-1.5 block">
+            {t('forgotPassword.otpLabel')}
+          </label>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Input
+                type="text"
+                placeholder={t('forgotPassword.otpPlaceholder')}
+                value={formData.otp}
+                onChange={e => handleChange('otp', e.target.value)}
+                error={errors.otp}
+                icon={<ShieldCheck size={16} />}
+                maxLength={6}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="shrink-0 !px-4 !py-2.5 self-start"
+              onClick={handleSendOtp}
+              isLoading={sendingOtp}
+              disabled={sendingOtp || otpCooldown > 0}
+            >
+              {otpCooldown > 0 ? `${otpCooldown}s` : t('forgotPassword.sendOtp')}
+            </Button>
+          </div>
+        </div>
+        <Input
+          label={t('forgotPassword.newPassword')}
+          type={showNewPassword ? 'text' : 'password'}
+          placeholder={t('forgotPassword.newPasswordPlaceholder')}
+          value={formData.newPassword}
+          onChange={e => handleChange('newPassword', e.target.value)}
+          error={errors.newPassword}
+          icon={<Lock size={16} />}
+          rightIcon={showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          onRightIconClick={() => setShowNewPassword(prev => !prev)}
+        />
+        <Input
+          label={t('forgotPassword.confirmPassword')}
+          type={showConfirm ? 'text' : 'password'}
+          placeholder={t('forgotPassword.confirmPasswordPlaceholder')}
+          value={formData.confirmPassword}
+          onChange={e => handleChange('confirmPassword', e.target.value)}
+          error={errors.confirmPassword}
+          icon={<Lock size={16} />}
+          rightIcon={showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+          onRightIconClick={() => setShowConfirm(prev => !prev)}
+        />
+
+        <Button type="submit" variant="primary" className="w-full mt-1" isLoading={loading}>
+          {t('forgotPassword.submit')}
+        </Button>
+      </form>
+
+      <p className="text-center text-sm text-slate-500 mt-6">
+        <button
+          type="button"
+          onClick={() => onNavigate('login')}
+          className="text-indigo-600 font-semibold hover:underline inline-flex items-center gap-1"
+        >
+          <ArrowLeft size={14} />
+          {t('forgotPassword.backToLogin')}
+        </button>
+      </p>
+    </>
+  )
+}
+
+// ─── Main AuthPage with Flip Animation ─────────────────
+function AuthPage() {
+  const { user } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  const initialView = location.pathname === '/register'
+    ? 'register'
+    : location.pathname === '/forgot-password'
+      ? 'forgot-password'
+      : 'login'
+
+  const [activeView, setActiveView] = useState(initialView)
+  const [flipState, setFlipState] = useState('idle')
+  const [displayView, setDisplayView] = useState(initialView)
+
+  if (user) {
+    return <Navigate to="/chat" replace />
+  }
+
+  function handleNavigate(view) {
+    if (view === activeView || flipState !== 'idle') return
+
+    setFlipState('flipping-out')
+
+    setTimeout(() => {
+      setActiveView(view)
+      setDisplayView(view)
+      const path = view === 'login' ? '/login' : view === 'register' ? '/register' : '/forgot-password'
+      navigate(path, { replace: true })
+      setFlipState('flipping-in')
+    }, 300)
+
+    setTimeout(() => {
+      setFlipState('idle')
+    }, 600)
+  }
+
+  const flipClass = flipState === 'flipping-out'
+    ? 'auth-card-flip-out'
+    : flipState === 'flipping-in'
+      ? 'auth-card-flip-in'
+      : ''
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 sm:p-8 relative overflow-hidden">
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply blur-3xl opacity-30 animate-pulse"></div>
+      <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '4s' }}></div>
+
+      <div className="auth-flip-perspective relative z-10 w-full max-w-md">
+        <div className={`auth-card ${flipClass}`}>
+          <div className="bg-white/80 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-900/5">
+            {displayView === 'login' && <LoginForm onNavigate={handleNavigate} />}
+            {displayView === 'register' && <RegisterForm onNavigate={handleNavigate} />}
+            {displayView === 'forgot-password' && <ForgotPasswordForm onNavigate={handleNavigate} />}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default AuthPage

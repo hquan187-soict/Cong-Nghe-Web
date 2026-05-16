@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   User, MessageSquare, Phone, Video, Info, X,
   BellOff, Search, ChevronDown, Lock, Sparkles,
@@ -18,6 +19,8 @@ function ChatPage() {
   const { t } = useLang()
   const { user } = useAuth()
   const { socket, isConnected } = useSocket()
+  const { conversationId: urlConversationId } = useParams()
+  const navigate = useNavigate()
   const [selectedConversation, setSelectedConversation] = useState(() => {
     try {
       const saved = localStorage.getItem('last_conversation')
@@ -93,6 +96,24 @@ function ChatPage() {
     localStorage.setItem('sidebar_width', String(newWidth))
   }, [sidebarCollapsed])
 
+  useEffect(() => {
+    if (urlConversationId && (!selectedConversation || selectedConversation._id !== urlConversationId)) {
+      const saved = localStorage.getItem('last_conversation')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          if (parsed._id === urlConversationId) {
+            setSelectedConversation(parsed)
+            return
+          }
+        } catch { /* ignore */ }
+      }
+    }
+    if (!urlConversationId && selectedConversation?._id) {
+      navigate(`/chat/${selectedConversation._id}`, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedConvIdRef = useRef(selectedConversation?._id)
   useEffect(() => {
     selectedConvIdRef.current = selectedConversation?._id
@@ -101,7 +122,10 @@ function ChatPage() {
   const handleSelectConversation = useCallback((conv) => {
     setSelectedConversation(conv)
     localStorage.setItem('last_conversation', JSON.stringify(conv))
-  }, [])
+    if (conv?._id) {
+      navigate(`/chat/${conv._id}`, { replace: true })
+    }
+  }, [navigate])
 
   const sidebarRef = useRef(null)
 
