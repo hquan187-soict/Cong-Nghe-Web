@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Upload } from 'lucide-react'
+import { Upload, ArrowDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { useToast } from '../context/ToastContext'
@@ -7,6 +7,7 @@ import { useLang } from '../context/LangContext'
 import { messageService } from '../services/message.service'
 import MessageBubble from './MessageBubble'
 import MessageInput from './chat/MessageInput'
+import TypingIndicator from './chat/TypingIndicator'
 import Spinner from './ui/Spinner'
 
 const LIMIT = 20
@@ -25,6 +26,9 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [sending, setSending] = useState(false)
+
+  const [isTyping, setIsTyping] = useState(false)
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
 
   // Drag & drop state
   const [dragOver, setDragOver] = useState(false)
@@ -152,11 +156,47 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
-    if (!el || loadingMore || !hasMore) return
-    if (el.scrollTop < 60) {
+    if (!el) return
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    setShowScrollBtn(distanceFromBottom > 200)
+
+    if (!loadingMore && hasMore && el.scrollTop < 60) {
       fetchMessages(conversationId, page + 1, true)
     }
   }, [loadingMore, hasMore, conversationId, page, fetchMessages])
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  useEffect(() => {
+    if (!socket?.connected || !conversationId) return
+
+    const handleTyping = ({ conversationId: cid, userId }) => {
+      if (cid === conversationId && userId !== currentUserId) {
+        setIsTyping(true)
+      }
+    }
+
+    const handleStopTyping = ({ conversationId: cid, userId }) => {
+      if (cid === conversationId && userId !== currentUserId) {
+        setIsTyping(false)
+      }
+    }
+
+    socket.on('typing', handleTyping)
+    socket.on('stopTyping', handleStopTyping)
+
+    return () => {
+      socket.off('typing', handleTyping)
+      socket.off('stopTyping', handleStopTyping)
+    }
+  }, [socket, conversationId, currentUserId])
+
+  useEffect(() => {
+    setIsTyping(false)
+  }, [conversationId])
 
   // ─── Gửi tin nhắn (text + image + file) ──────────────────
   const handleSendMessage = useCallback(async (text, imageBase64, fileData) => {
@@ -382,8 +422,20 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
           })
         )}
 
+        {isTyping && <TypingIndicator userName={otherMember?.fullName} />}
+
         <div ref={messagesEndRef} />
       </div>
+
+      {showScrollBtn && (
+        <button
+          className="chat-window__scroll-btn"
+          onClick={scrollToBottom}
+          type="button"
+        >
+          <ArrowDown size={20} />
+        </button>
+      )}
 
       <MessageInput ref={messageInputRef} onSend={handleSendMessage} disabled={sending} />
     </div>
