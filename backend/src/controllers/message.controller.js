@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import cloudinary from "../lib/cloudinary.js";
+import { io, getReceiverSocketId } from "../lib/socket.js";
 
 const checkConversationAccess = async (conversationId, currentUserId) => {
   if (!mongoose.Types.ObjectId.isValid(conversationId)) {
@@ -47,17 +49,23 @@ export const getMessages = async (req, res, next) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
+    // Lấy thêm 1 để biết còn trang tiếp theo không (pattern kiểm tra hasMore)
     const messages = await Message.find({ conversationId })
       .populate("senderId", "-password")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit + 1);
+
+    const hasMore = messages.length > limit;
+    const pageMessages = hasMore ? messages.slice(0, limit) : messages;
 
     return res.status(200).json({
-      page,
-      limit,
-      count: messages.length,
-      messages,
+      messages: pageMessages,
+      pagination: {
+        page,
+        limit,
+        hasMore,
+      },
     });
   } catch (error) {
     return next(error);
@@ -67,7 +75,7 @@ export const getMessages = async (req, res, next) => {
 export const sendMessage = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
-    const { conversationId, text, image } = req.body;
+    const { conversationId, text, image, file } = req.body;
 
     if (!currentUserId) {
       const error = new Error("Bạn chưa đăng nhập.");
@@ -101,8 +109,8 @@ export const sendMessage = async (req, res, next) => {
 
     const cleanText = typeof text === "string" ? text.trim() : "";
 
-    if (!cleanText && !image) {
-      const error = new Error("Message phải có text hoặc image.");
+    if (!cleanText && !image && !file) {
+      const error = new Error("Message phải có text, image hoặc file.");
       error.statusCode = 400;
       throw error;
     }
@@ -112,11 +120,34 @@ export const sendMessage = async (req, res, next) => {
       currentUserId
     );
 
+    let imageUrl = image || null;
+    if (image && image.startsWith("data:")) {
+      const uploaded = await cloudinary.uploader.upload(image, {
+        folder: "chat_images",
+      });
+      imageUrl = uploaded.secure_url;
+    }
+
+    let fileData = null;
+    if (file && file.data) {
+      const uploaded = await cloudinary.uploader.upload(file.data, {
+        folder: "chat_files",
+        resource_type: "auto",
+      });
+      fileData = {
+        url: uploaded.secure_url,
+        name: file.name || "file",
+        size: file.size || 0,
+        type: file.type || "",
+      };
+    }
+
     const message = await Message.create({
       conversationId,
       senderId: currentUserId,
       text: cleanText,
-      image,
+      image: imageUrl,
+      file: fileData,
       readBy: [currentUserId],
     });
 
@@ -127,7 +158,22 @@ export const sendMessage = async (req, res, next) => {
     const populatedMessage = await Message.findById(message._id)
       .populate("senderId", "-password")
       .populate("readBy", "-password");
-
+    
+    conversation.members.forEach((memberId) => {
+            // Không gửi lại cho người vừa gửi tin (dùng currentUserId, không phải senderId)
+            if (memberId.toString() === currentUserId.toString()) return;
+            const receiverSocketId = getReceiverSocketId(memberId.toString());
+            if (receiverSocketId) {
+                io.to(receiverSocketId).emit("sendMessage", {
+                    conversationId: conversation._id.toString(),
+                    message: populatedMessage,
+                    lastMessage: conversation.lastMessage,
+                    updatedAt: conversation.updatedAt,
+                });
+                console.log(`Tin nhắn đã được gửi đến socketId: ${receiverSocketId}`);
+            }
+        });
+      
     return res.status(201).json(populatedMessage);
   } catch (error) {
     return next(error);
@@ -160,6 +206,19 @@ export const markMessagesAsRead = async (req, res, next) => {
       .populate("senderId", "-password")
       .populate("readBy", "-password")
       .sort({ createdAt: -1 });
+
+    const conversation = await Conversation.findById(conversationId);
+    conversation.members.forEach((memberId) => {
+      if (memberId.toString() === currentUserId.toString()) return;
+      const receiverSocketId = getReceiverSocketId(memberId.toString());
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("messagesRead", {
+          conversationId: conversation._id.toString(),
+          messages,
+        });
+        console.log(`Thông báo đã đọc đã được gửi đến socketId: ${receiverSocketId}`);
+      }
+    });
 
     return res.status(200).json({
       message: "Đã đánh dấu messages là đã đọc.",

@@ -1,128 +1,22 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { Upload, ArrowDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useSocket } from '../context/SocketContext'
 import { useToast } from '../context/ToastContext'
 import { useLang } from '../context/LangContext'
 import { messageService } from '../services/message.service'
 import MessageBubble from './MessageBubble'
 import MessageInput from './chat/MessageInput'
+import TypingIndicator from './chat/TypingIndicator'
 import Spinner from './ui/Spinner'
 
 const LIMIT = 20
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 10 * 1024 * 1024
 
-function getEntityId(value) {
-  return value?._id || value
-}
-
-function isSameId(a, b) {
-  const aId = getEntityId(a)
-  const bId = getEntityId(b)
-  return Boolean(aId && bId && aId.toString() === bId.toString())
-}
-
-// ─── DEV ONLY: mock data ──────────────────────────────────────
-const MOCK_SELF_ID = 'mock_user_001'
-
-function makeMockMsg(convId, senderId, text, minutesAgo) {
-  return {
-    _id: `${convId}_${minutesAgo}_${senderId}`,
-    conversationId: convId,
-    senderId,
-    text,
-    image: null,
-    createdAt: new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
-    status: 'sent',
-  }
-}
-const M = MOCK_SELF_ID
-const MOCK_MESSAGES = {
-  mock_conv_001: [
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'Chào bạn! 👋', 120),
-    makeMockMsg('mock_conv_001', M, 'Hello Alice!', 119),
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'Bạn có khỏe không?', 118),
-    makeMockMsg('mock_conv_001', M, 'Khỏe lắm bạn ơi, bạn thì sao?', 117),
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'Mình cũng khỏe!', 116),
-    makeMockMsg('mock_conv_001', M, 'OK', 115),
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'Này bạn ơi, mình muốn hỏi về dự án Web đó, hôm qua thầy có gửi mail chưa?', 60),
-    makeMockMsg('mock_conv_001', M, 'Ừ rồi, thầy gửi lúc tối qua. Deadline là cuối tuần này nên mình đang làm gấp 😅', 58),
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'Trời ơi vậy sao, mình chưa đọc mail. Dự án về cái gì vậy?', 55),
-    makeMockMsg('mock_conv_001', M, 'Làm ứng dụng chat real-time, stack là React + Node.js + Socket.io. Bạn biết mấy cái đó chưa?', 50),
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'React thì biết rồi nhưng Socket.io thì chưa. Có tài liệu nào không?', 45),
-    makeMockMsg('mock_conv_001', M, 'Bạn lên docs chính thức của socket.io đọc đi, khá dễ hiểu. Mình sẽ share repo lên GitHub sau.', 40),
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'Oke bạn! Nhớ thêm mình vào collaborator nha 😊', 35),
-    makeMockMsg('mock_conv_001', M, 'Haha oke, mình sẽ add. Chiều nay mình push code lên.', 30),
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'Cảm ơn bạn nhiều! Nhân tiện, tối nay bạn có rảnh không? Nhóm muốn họp online.', 20),
-    makeMockMsg('mock_conv_001', M, 'Tối nay 8h được không? Mình rảnh từ 7:30.', 15),
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'Được luôn! Mình sẽ tạo link Meet gửi cả nhóm.', 10),
-    makeMockMsg('mock_conv_001', M, '👍 Oke bạn, gặp tối nay nha!', 5),
-    makeMockMsg('mock_conv_001', 'mock_user_alice', 'Oke bạn nhé! Hẹn gặp lại 😊', 2),
-  ],
-  mock_conv_002: [
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'Hey man!', 200),
-    makeMockMsg('mock_conv_002', M, 'Yo Bob!', 199),
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'Haha lâu rồi không gặp', 198),
-    makeMockMsg('mock_conv_002', M, 'Ừ nhỉ, dạo này bận quá', 195),
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'ok ok', 190),
-    makeMockMsg('mock_conv_002', M, 'Này tớ muốn hỏi bạn về thuật toán sort, bạn có nhớ QuickSort không?', 100),
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'Nhớ chứ! Tại sao?', 98),
-    makeMockMsg('mock_conv_002', M, 'Bài tập yêu cầu implement từ đầu không dùng library, tớ đang bí chỗ partition.', 95),
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.', 90),
-    makeMockMsg('mock_conv_002', M, 'Uầy dài quá, tóm tắt lại cho tớ đi 😂', 85),
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'Tóm lại: chọn pivot, chia mảng thành 2 phần (nhỏ hơn | lớn hơn pivot), đệ quy từng phần.', 80),
-    makeMockMsg('mock_conv_002', M, 'À ra vậy! Cảm ơn cậu nhiều lắm. Tớ thử code lại xem.', 75),
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'Trong worst case (mảng đã sorted), QuickSort sẽ có O(n²). Dùng "median of three" để chọn pivot tốt hơn nhé.', 70),
-    makeMockMsg('mock_conv_002', M, 'Oke bạn! Tớ sẽ đọc thêm.', 65),
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'Ngoài ra nếu dữ liệu có nhiều phần tử trùng nhau thì nên dùng 3-way partition (Dutch National Flag). Cực kỳ hiệu quả.', 40),
-    makeMockMsg('mock_conv_002', M, '😮 Nhiều thứ phải học quá. Đang code dở thì bạn nhắn thêm đống này 😅', 35),
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'Haha sorry, mình hay bị "giải thích mode" quá đà 😅', 30),
-    makeMockMsg('mock_conv_002', M, 'Không sao, cảm ơn bạn vì mình hiểu rõ hơn rồi!', 20),
-    makeMockMsg('mock_conv_002', 'mock_user_bob', 'Lorem ipsum dolor sit amet consectetur...', 15),
-  ],
-  mock_conv_003: [
-    makeMockMsg('mock_conv_003', 'mock_user_charlie', 'Bạn đã submit bài chưa?', 90),
-    makeMockMsg('mock_conv_003', M, 'Chưa, đang sửa lỗi 😭', 88),
-    makeMockMsg('mock_conv_003', 'mock_user_charlie', 'Deadline còn 2 tiếng nữa đó!', 85),
-    makeMockMsg('mock_conv_003', M, 'Biết rồi biết rồi 😰', 84),
-    makeMockMsg('mock_conv_003', 'mock_user_charlie', '😂 Cần mình giúp không?', 80),
-    makeMockMsg('mock_conv_003', M, 'Giúp tớ debug cái hàm này với:', 75),
-    makeMockMsg('mock_conv_003', M, 'function foo(arr) {\n  return arr.filter(x => x > 0).map(x => x * 2)\n}', 74),
-    makeMockMsg('mock_conv_003', 'mock_user_charlie', 'Trông ổn mà? Lỗi ở đâu?', 70),
-    makeMockMsg('mock_conv_003', M, 'Ah tớ truyền string vào thay vì number 😭', 65),
-    makeMockMsg('mock_conv_003', 'mock_user_charlie', 'LOL 😂 parse trước khi filter đi', 63),
-    makeMockMsg('mock_conv_003', M, 'Oke fix rồi! Cảm ơn!!', 60),
-    makeMockMsg('mock_conv_003', 'mock_user_charlie', 'Haha no problem. Submit nhanh lên!', 58),
-    makeMockMsg('mock_conv_003', M, 'Vừa submit xong rồi 😮‍💨', 55),
-    makeMockMsg('mock_conv_003', 'mock_user_charlie', 'GG', 54),
-    makeMockMsg('mock_conv_003', M, '😊', 53),
-    makeMockMsg('mock_conv_003', 'mock_user_charlie', 'OK', 52),
-  ],
-  mock_conv_004: [
-    makeMockMsg('mock_conv_004', 'mock_user_diana', 'Bạn ơi, bạn có note buổi học hôm qua không?', 200),
-    makeMockMsg('mock_conv_004', M, 'Có! Mình sẽ chụp ảnh gửi nhé.', 198),
-    makeMockMsg('mock_conv_004', 'mock_user_diana', 'Cảm ơn bạn nhiều lắm! 🙏', 195),
-    makeMockMsg('mock_conv_004', M, 'Test scroll — tin ngắn 1', 180),
-    makeMockMsg('mock_conv_004', 'mock_user_diana', 'Test scroll — tin ngắn 2', 175),
-    makeMockMsg('mock_conv_004', M, 'OK', 170),
-    makeMockMsg('mock_conv_004', 'mock_user_diana', 'haha', 165),
-    makeMockMsg('mock_conv_004', M, ':D', 160),
-    makeMockMsg('mock_conv_004', 'mock_user_diana', 'Tin dài để test wrap: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation.', 155),
-    makeMockMsg('mock_conv_004', M, 'ok', 150),
-    makeMockMsg('mock_conv_004', 'mock_user_diana', 'Thật ra mình muốn hỏi thêm về dự án, bạn đã làm phần nào rồi?', 135),
-    makeMockMsg('mock_conv_004', M, 'Mình đã xong phần auth: login, register, forgot password. Đang làm phần chat.', 130),
-    makeMockMsg('mock_conv_004', 'mock_user_diana', 'Hay đó! Phần real-time dùng gì vậy?', 125),
-    makeMockMsg('mock_conv_004', M, 'Socket.io. Tuần sau mới integrate, giờ đang làm REST API trước.', 120),
-    makeMockMsg('mock_conv_004', 'mock_user_diana', 'Cảm ơn bạn nhiều lắm!', 119),
-  ],
-}
-// ─────────────────────────────────────────────────────────────
-
-/**
- * ChatWindow — Hiển thị tin nhắn + ô gửi tin
- * Props:
- *   - conversationId: ID cuộc trò chuyện đang mở
- *   - onMessageSent(message): callback để ChatPage cập nhật Sidebar lastMessage
- */
-function ChatWindow({ conversationId, onMessageSent }) {
+function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   const { user } = useAuth()
+  const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
   const toast = useToast()
   const { t } = useLang()
 
@@ -131,26 +25,39 @@ function ChatWindow({ conversationId, onMessageSent }) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const [isTyping, setIsTyping] = useState(false)
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
+
+  // Drag & drop state
+  const [dragOver, setDragOver] = useState(false)
+  const [dropZone, setDropZone] = useState(null) // 'messages' | 'input' | null
+  const dragCounterRef = useRef(0)
 
   const messagesEndRef = useRef(null)
   const scrollContainerRef = useRef(null)
   const prevScrollHeightRef = useRef(0)
+  const messageInputRef = useRef(null)
 
-  const currentUserId = conversationId?.startsWith('mock_') ? MOCK_SELF_ID : user?._id
+  const currentUserId = user?._id?.toString()
 
-  // ─── Fetch messages từ API ───────────────────────────────
+  const getSenderId = (senderId) =>
+    (typeof senderId === 'object' ? senderId?._id : senderId)?.toString()
+
+  const getReadByIds = (readBy) => {
+    if (!Array.isArray(readBy)) return []
+    return readBy.map((r) => (typeof r === 'object' ? r?._id : r)?.toString())
+  }
+
+  const computeStatus = (msg) => {
+    if (msg.status === 'sending' || msg.status === 'error') return msg.status
+    const readByIds = getReadByIds(msg.readBy)
+    if (readByIds.length > 1) return 'read'
+    return 'sent'
+  }
+
   const fetchMessages = useCallback(async (convId, pageNum, isLoadMore = false) => {
-    // DEV ONLY: trả mock messages cho mock conversation
-    if (convId?.startsWith('mock_')) {
-      setLoading(true)
-      // Giả lập độ trễ mạng để có thời gian hiển thị Skeleton (800ms)
-      setTimeout(() => {
-        setMessages(MOCK_MESSAGES[convId] || [])
-        setLoading(false)
-        setHasMore(false)
-      }, 800)
-      return
-    }
     if (isLoadMore) {
       setLoadingMore(true)
       prevScrollHeightRef.current = scrollContainerRef.current?.scrollHeight ?? 0
@@ -163,12 +70,12 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
     try {
       const data = await messageService.getMessages(convId, pageNum, LIMIT)
-      const pageMessages = [...(data.messages || [])].reverse()
+      const sorted = [...data.messages].reverse()
 
       if (isLoadMore) {
-        setMessages((prev) => [...pageMessages, ...prev])
+        setMessages((prev) => [...sorted, ...prev])
       } else {
-        setMessages(pageMessages)
+        setMessages(sorted)
       }
       setHasMore(data.pagination?.hasMore ?? data.count === LIMIT)
       setPage(pageNum)
@@ -187,13 +94,58 @@ function ChatWindow({ conversationId, onMessageSent }) {
     if (!conversationId) return
     fetchMessages(conversationId, 1, false)
   }, [conversationId, fetchMessages])
+
+  useEffect(() => {
+    if (!conversationId || conversationId.startsWith('mock_')) return
+    messageService.markAsRead(conversationId).catch(() => {})
+  }, [conversationId])
+
+  useEffect(() => {
+    if (!conversationId || !socket?.connected) return
+
+    joinConversation(conversationId)
+
+    const handleNewMessage = ({ conversationId: incomingConvId, message }) => {
+      if (incomingConvId !== conversationId) return
+      setMessages((prev) => {
+        const alreadyExists = prev.some((m) => m._id === message._id)
+        if (alreadyExists) return prev
+        return [...prev, message]
+      })
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 50)
+      messageService.markAsRead(conversationId).catch(() => {})
+    }
+
+    const handleMessagesRead = ({ conversationId: incomingConvId, messages: updatedMessages }) => {
+      if (incomingConvId !== conversationId) return
+      const updatedMap = new Map(updatedMessages.map((m) => [m._id, m.readBy]))
+      setMessages((prev) =>
+        prev.map((msg) => {
+          const newReadBy = updatedMap.get(msg._id)
+          if (newReadBy) return { ...msg, readBy: newReadBy }
+          return msg
+        })
+      )
+    }
+
+    socket.on('sendMessage', handleNewMessage)
+    socket.on('messagesRead', handleMessagesRead)
+
+    return () => {
+      socket.off('sendMessage', handleNewMessage)
+      socket.off('messagesRead', handleMessagesRead)
+      leaveConversation(conversationId)
+    }
+  }, [conversationId, socket, isConnected, joinConversation, leaveConversation])
+
   useEffect(() => {
     if (!loading && messages.length > 0 && page === 1) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
     }
   }, [loading, conversationId, messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sau khi load thêm tin cũ, giữ nguyên vị trí scroll
   useEffect(() => {
     if (!loadingMore && prevScrollHeightRef.current > 0 && scrollContainerRef.current) {
       const newScrollHeight = scrollContainerRef.current.scrollHeight
@@ -202,100 +154,184 @@ function ChatWindow({ conversationId, onMessageSent }) {
     }
   }, [loadingMore])
 
-  // Infinite scroll lên trên
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
-    if (!el || loadingMore || !hasMore) return
-    if (el.scrollTop < 60) {
+    if (!el) return
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    setShowScrollBtn(distanceFromBottom > 200)
+
+    if (!loadingMore && hasMore && el.scrollTop < 60) {
       fetchMessages(conversationId, page + 1, true)
     }
   }, [loadingMore, hasMore, conversationId, page, fetchMessages])
 
-  // ─── Optimistic update — gửi tin nhắn ──────────────────
-  const handleSendMessage = useCallback(async (text) => {
-    if (!conversationId) return
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
 
-    // DEV ONLY: simulate gửi tin cho mock conversation (không gọi API)
-    if (conversationId.startsWith('mock_')) {
-      const tempId = 'mock_msg_' + Date.now()
-      const mockMsg = {
-        _id: tempId,
-        conversationId,
-        senderId: MOCK_SELF_ID,
-        text,
-        image: null,
-        createdAt: new Date().toISOString(),
-        status: 'sending',
+  useEffect(() => {
+    if (!socket?.connected || !conversationId) return
+
+    const handleTyping = ({ conversationId: cid, userId }) => {
+      if (cid === conversationId && userId !== currentUserId) {
+        setIsTyping(true)
       }
-      setMessages((prev) => [...prev, mockMsg])
-      setTimeout(() => {
-        setMessages((prev) =>
-          prev.map((m) => m._id === tempId ? { ...m, status: 'sent' } : m)
-        )
-      }, 600)
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-      }, 50)
-      return
     }
 
-    if (!currentUserId) return
+    const handleStopTyping = ({ conversationId: cid, userId }) => {
+      if (cid === conversationId && userId !== currentUserId) {
+        setIsTyping(false)
+      }
+    }
 
-    // 1. Tạo tempId cho tin nhắn pending
+    socket.on('typing', handleTyping)
+    socket.on('stopTyping', handleStopTyping)
+
+    return () => {
+      socket.off('typing', handleTyping)
+      socket.off('stopTyping', handleStopTyping)
+    }
+  }, [socket, conversationId, currentUserId])
+
+  useEffect(() => {
+    setIsTyping(false)
+  }, [conversationId])
+
+  // ─── Gửi tin nhắn (text + image + file) ──────────────────
+  const handleSendMessage = useCallback(async (text, imageBase64, fileData) => {
+    if (!conversationId || !currentUserId) return
+    if (!text && !imageBase64 && !fileData) return
+
     const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
 
-    // 2. Tạo optimistic message (hiện ngay trên UI với status 'sending')
     const optimisticMsg = {
       _id: tempId,
       conversationId,
       senderId: currentUserId,
-      text,
-      image: null,
+      text: text || '',
+      image: imageBase64 || null,
+      file: fileData ? { url: '', name: fileData.name, size: fileData.size, type: fileData.type } : null,
       createdAt: new Date().toISOString(),
+      readBy: [currentUserId],
       status: 'sending',
     }
 
-    // 3. Thêm vào cuối danh sách messages
     setMessages((prev) => [...prev, optimisticMsg])
+    setSending(true)
 
-    // 4. Scroll xuống cuối để thấy tin vừa gửi
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, 50)
 
     try {
-      // 5. Gọi API POST /api/messages
-      const savedMsg = await messageService.sendMessage({
-        conversationId,
-        text,
-      })
+      const payload = { conversationId }
+      if (text) payload.text = text
+      if (imageBase64) payload.image = imageBase64
+      if (fileData) payload.file = fileData
 
-      // 6. Thành công → thay thế optimistic message bằng message thật từ server
+      const savedMsg = await messageService.sendMessage(payload)
+
       setMessages((prev) =>
         prev.map((msg) =>
-          msg._id === tempId
-            ? { ...savedMsg, status: 'sent' }
-            : msg
+          msg._id === tempId ? { ...savedMsg, status: 'sent' } : msg
         )
       )
 
-      // 7. Callback lên ChatPage để cập nhật Sidebar lastMessage
       if (onMessageSent) {
-        onMessageSent({
-          conversationId,
-          lastMessage: savedMsg,
-        })
+        onMessageSent({ conversationId, lastMessage: savedMsg })
       }
     } catch (err) {
       console.error('Gửi tin nhắn thất bại:', err)
-
-      // 8. Lỗi → xóa tin nhắn optimistic + hiện toast
       setMessages((prev) => prev.filter((msg) => msg._id !== tempId))
       toast.error(err.response?.data?.message || t('chat.sendError'))
+    } finally {
+      setSending(false)
     }
   }, [conversationId, currentUserId, onMessageSent, toast, t])
 
-  // ─── Render ─────────────────────────────────────────────
+  // ─── Drag & Drop ──────────────────────────────────────────
+  const readFileAsBase64 = (file) =>
+    new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.readAsDataURL(file)
+    })
+
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current++
+    if (e.dataTransfer.types.includes('Files')) {
+      setDragOver(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current--
+    if (dragCounterRef.current === 0) {
+      setDragOver(false)
+      setDropZone(null)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleZoneDragOver = useCallback((zone) => (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDropZone(zone)
+  }, [])
+
+  const handleDrop = useCallback(async (zone, e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current = 0
+    setDragOver(false)
+    setDropZone(null)
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
+
+    const file = files[0]
+
+    if (zone === 'messages') {
+      // Thả vào vùng chat → gửi ngay
+      const isImage = file.type.startsWith('image/')
+      if (isImage && file.size > MAX_IMAGE_SIZE) {
+        toast.error('Ảnh quá lớn (tối đa 5 MB)')
+        return
+      }
+      if (!isImage && file.size > MAX_FILE_SIZE) {
+        toast.error('File quá lớn (tối đa 10 MB)')
+        return
+      }
+
+      const base64 = await readFileAsBase64(file)
+
+      if (isImage) {
+        handleSendMessage('', base64, null)
+      } else {
+        handleSendMessage('', null, {
+          data: base64,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        })
+      }
+    } else {
+      // Thả vào vùng soạn tin → đưa vào preview
+      if (messageInputRef.current?.addFile) {
+        messageInputRef.current.addFile(file)
+      }
+    }
+  }, [handleSendMessage, toast])
+
   if (!conversationId) {
     return (
       <div className="chat-window chat-window--empty">
@@ -305,8 +341,34 @@ function ChatWindow({ conversationId, onMessageSent }) {
   }
 
   return (
-    <div className="chat-window">
-      {/* Khu vực tin nhắn */}
+    <div
+      className="chat-window"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+    >
+      {/* Drag overlay với 2 vùng thả */}
+      {dragOver && (
+        <div className="chat-window__drop-overlay">
+          <div
+            className={`chat-window__drop-zone chat-window__drop-zone--messages ${dropZone === 'messages' ? 'chat-window__drop-zone--active' : ''}`}
+            onDragOver={handleZoneDragOver('messages')}
+            onDrop={(e) => handleDrop('messages', e)}
+          >
+            <Upload size={36} />
+            <span>Thả để gửi ngay</span>
+          </div>
+          <div
+            className={`chat-window__drop-zone chat-window__drop-zone--input ${dropZone === 'input' ? 'chat-window__drop-zone--active' : ''}`}
+            onDragOver={handleZoneDragOver('input')}
+            onDrop={(e) => handleDrop('input', e)}
+          >
+            <Upload size={36} />
+            <span>Thả để soạn tin nhắn</span>
+          </div>
+        </div>
+      )}
+
       <div
         className="chat-window__messages"
         ref={scrollContainerRef}
@@ -320,7 +382,6 @@ function ChatWindow({ conversationId, onMessageSent }) {
 
         {loading ? (
           <div className="chat-window__skeleton">
-            {/* Skeleton mimics alternating chat bubbles */}
             <div className="chat-window__skeleton-row chat-window__skeleton-row--left">
               <div className="chat-window__skeleton-bubble chat-window__skeleton-bubble--medium"></div>
             </div>
@@ -338,20 +399,45 @@ function ChatWindow({ conversationId, onMessageSent }) {
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
-            <MessageBubble
-              key={msg._id}
-              message={msg}
-              isOwn={isSameId(msg.senderId, currentUserId)}
-            />
-          ))
+          messages.map((msg, idx) => {
+            const msgSenderId = getSenderId(msg.senderId)
+            const isOwn = msgSenderId === currentUserId
+            const nextMsg = messages[idx + 1]
+            const nextSenderId = nextMsg ? getSenderId(nextMsg.senderId) : null
+            const showAvatar = nextSenderId !== msgSenderId
+
+            const senderAvatar = isOwn ? user?.avatar : otherMember?.avatar
+            const senderName = isOwn ? user?.fullName : otherMember?.fullName
+
+            return (
+              <MessageBubble
+                key={msg._id}
+                message={{ ...msg, status: computeStatus(msg) }}
+                isOwn={isOwn}
+                showAvatar={showAvatar}
+                senderAvatar={senderAvatar}
+                senderName={senderName}
+              />
+            )
+          })
         )}
+
+        {isTyping && <TypingIndicator userName={otherMember?.fullName} />}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Ô nhập tin nhắn */}
-      <MessageInput onSend={handleSendMessage} />
+      {showScrollBtn && (
+        <button
+          className="chat-window__scroll-btn"
+          onClick={scrollToBottom}
+          type="button"
+        >
+          <ArrowDown size={20} />
+        </button>
+      )}
+
+      <MessageInput ref={messageInputRef} onSend={handleSendMessage} disabled={sending} />
     </div>
   )
 }
