@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { Send, ImagePlus, Paperclip, X, FileText, Mic, ThumbsUp } from 'lucide-react'
 import { useLang } from '../../context/LangContext'
+import { useSocket } from '../../context/SocketContext'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -12,8 +13,9 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false }, ref) {
+const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false, conversationId }, ref) {
   const { t } = useLang()
+  const { socket } = useSocket()
   const [text, setText] = useState('')
   const [imagePreview, setImagePreview] = useState(null)
   const [imageBase64, setImageBase64] = useState(null)
@@ -21,6 +23,19 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
   const textareaRef = useRef(null)
   const imageInputRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  // Typing indicator refs
+  const typingTimeoutRef = useRef(null)
+  const isTypingRef = useRef(false)
+
+  // Cleanup typing timeout khi unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current
@@ -32,6 +47,30 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
   function handleChange(e) {
     setText(e.target.value)
     adjustHeight()
+
+    // Emit typing_start ngay lần đầu gõ, dùng flag isTypingRef để tránh spam
+    if (socket && conversationId && e.target.value.length > 0) {
+      if (!isTypingRef.current) {
+        socket.emit('typing_start', { conversationId })
+        isTypingRef.current = true
+      }
+
+      // Reset timer: sau 2s không gõ → emit typing_stop
+      clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = setTimeout(() => {
+        if (isTypingRef.current) {
+          socket.emit('typing_stop', { conversationId })
+          isTypingRef.current = false
+        }
+      }, 2000)
+    }
+
+    // Nếu xóa hết text → emit typing_stop ngay
+    if (socket && conversationId && e.target.value.length === 0 && isTypingRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+      socket.emit('typing_stop', { conversationId })
+      isTypingRef.current = false
+    }
   }
 
   useImperativeHandle(ref, () => ({
@@ -95,6 +134,13 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
   function handleSend() {
     const trimmed = text.trim()
     if ((!trimmed && !imageBase64 && !fileData) || disabled) return
+
+    // Emit typing_stop ngay khi gửi tin nhắn
+    if (socket && conversationId && isTypingRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+      socket.emit('typing_stop', { conversationId })
+      isTypingRef.current = false
+    }
 
     onSend(trimmed || '', imageBase64 || null, fileData || null)
     setText('')

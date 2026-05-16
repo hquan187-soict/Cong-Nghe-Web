@@ -83,6 +83,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
           src={otherMember?.avatar}
           alt={otherMember?.fullName || '?'}
           size="sm"
+          isOnline={otherMember?.isOnline}
         />
       </div>
 

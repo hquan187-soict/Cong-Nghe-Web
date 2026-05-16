@@ -5,6 +5,7 @@ import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
 import { useLang } from '../../context/LangContext'
 import { useToast } from '../../context/ToastContext'
+import { useSocket } from '../../context/SocketContext'
 import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
 import '../../styles/sidebar.css'
@@ -24,6 +25,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const { t } = useLang()
   const toast = useToast()
   const navigate = useNavigate()
+  const { socket } = useSocket()
 
   const [conversations, setConversations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -68,6 +70,25 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       }))
     },
   }), [])
+
+  // Lắng nghe user_status từ socket để cập nhật online/offline real-time (không re-fetch API)
+  useEffect(() => {
+    if (!socket) return
+
+    const handleUserStatus = ({ userId, isOnline }) => {
+      setConversations((prev) =>
+        prev.map((conv) => ({
+          ...conv,
+          members: conv.members.map((m) =>
+            m._id === userId ? { ...m, isOnline } : m
+          ),
+        }))
+      )
+    }
+
+    socket.on('user_status', handleUserStatus)
+    return () => socket.off('user_status', handleUserStatus)
+  }, [socket])
 
   // Fetch conversations khi mount
   useEffect(() => {
