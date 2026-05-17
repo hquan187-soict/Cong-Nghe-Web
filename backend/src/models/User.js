@@ -20,6 +20,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    lastSeen: {
+      type: Date,
+      default: null,
+    },
+    showActiveStatus: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );

@@ -32,7 +32,7 @@ const STATUS_LABELS = {
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡']
 
-function MessageBubble({ message, isOwn, showAvatar = true, senderAvatar, senderName }) {
+function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName }) {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showRecallModal, setShowRecallModal] = useState(false)
@@ -161,6 +161,11 @@ function MessageBubble({ message, isOwn, showAvatar = true, senderAvatar, sender
 
   return (
     <>
+      {showName && !isOwn && senderName && (
+        <div className="message-bubble-sender-name">
+          {senderName}
+        </div>
+      )}
       <div className={`message-bubble-row ${isOwn ? 'message-bubble-row--own' : ''}`}>
         {/* Avatar bên trái (tin nhắn người khác) */}
         {!isOwn && (
@@ -237,17 +242,17 @@ function MessageBubble({ message, isOwn, showAvatar = true, senderAvatar, sender
           </div>
         </div>
         {!isOwn && actionButtons}
-        {/* Reactions display */}
-        {reactions.length > 0 && (
-          <div className={`message-reactions ${isOwn ? 'message-reactions--own' : ''}`}>
-            {reactions.map((r, i) => (
-              <span key={i} className="message-reactions__item" onClick={() => handleSelectEmoji(r.emoji)}>
-                {r.emoji}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
+      {/* Reactions display — below the bubble row */}
+      {reactions.length > 0 && (
+        <div className={`message-reactions ${isOwn ? 'message-reactions--own' : ''}`}>
+          {reactions.map((r, i) => (
+            <span key={i} className="message-reactions__item" onClick={() => handleSelectEmoji(r.emoji)}>
+              {r.emoji}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Modal thu hồi tin nhắn (own message) */}
       {showRecallModal && (

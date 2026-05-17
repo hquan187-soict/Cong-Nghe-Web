@@ -141,7 +141,8 @@
     "reportConversation": "Report conversation",
     "searchPlaceholder": "Search on Messenger",
     "collapseSidebar": "Collapse sidebar",
-    "expandSidebar": "Expand sidebar"
+    "expandSidebar": "Expand sidebar",
+    "activeNow": "Active now"
   },
   "settings": {
     "title": "Settings",
@@ -153,8 +154,14 @@
     "notificationsDesc": "Manage notification preferences",
     "activeStatus": "Active status",
     "activeStatusDesc": "Show when you're active",
+    "activeStatusToggle": "Show active status",
+    "activeStatusInfo": "When active status is on, your friends and contacts will see when you're active or recently active. You'll also be able to see when they're active or recently active.",
+    "activeStatusOn": "On",
+    "activeStatusOff": "Off",
     "accessibility": "Accessibility",
-    "accessibilityDesc": "Font size, contrast settings",
+    "accessibilityDesc": "Font size, font family",
+    "fontSize": "Font size",
+    "fontFamily": "Font family",
     "storage": "Storage & data",
     "storageDesc": "Manage storage usage",
     "helpSupport": "Help & support",

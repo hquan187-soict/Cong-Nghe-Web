@@ -32,4 +32,12 @@ export const userService = {
   async changePassword(data) {
     return await axiosInstance.put('/api/users/change-password', data);
   },
+
+  async getUserById(id) {
+    return await axiosInstance.get(`/api/users/${id}`);
+  },
+
+  async toggleActiveStatus(enabled) {
+    return await axiosInstance.put('/api/users/active-status', { enabled });
+  },
 };

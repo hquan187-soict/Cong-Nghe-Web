@@ -141,7 +141,8 @@
     "reportConversation": "Báo cáo đoạn chat",
     "searchPlaceholder": "Tìm kiếm trên Messenger",
     "collapseSidebar": "Thu gọn thanh bên",
-    "expandSidebar": "Mở rộng thanh bên"
+    "expandSidebar": "Mở rộng thanh bên",
+    "activeNow": "Đang hoạt động"
   },
   "settings": {
     "title": "Cài đặt",
@@ -153,8 +154,14 @@
     "notificationsDesc": "Quản lý tùy chọn thông báo",
     "activeStatus": "Trạng thái hoạt động",
     "activeStatusDesc": "Hiển thị khi bạn đang hoạt động",
+    "activeStatusToggle": "Hiển thị trạng thái hoạt động",
+    "activeStatusInfo": "Khi trạng thái hoạt động được bật, bạn bè và liên hệ của bạn sẽ thấy khi bạn đang hoạt động hoặc hoạt động gần đây. Bạn cũng có thể thấy khi họ đang hoạt động.",
+    "activeStatusOn": "Bật",
+    "activeStatusOff": "Tắt",
     "accessibility": "Trợ năng",
-    "accessibilityDesc": "Cỡ chữ, cài đặt tương phản",
+    "accessibilityDesc": "Cỡ chữ, loại chữ",
+    "fontSize": "Cỡ chữ",
+    "fontFamily": "Loại chữ",
     "storage": "Lưu trữ & dữ liệu",
     "storageDesc": "Quản lý dung lượng lưu trữ",
     "helpSupport": "Trợ giúp & hỗ trợ",

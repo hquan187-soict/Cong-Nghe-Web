@@ -9,10 +9,10 @@ import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 
-function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false }) {
+function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [] }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
-  const { onlineUsers } = useSocket()
+  const { onlineUsers: contextOnlineUsers } = useSocket()
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef(null)
 
@@ -20,7 +20,9 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     (m) => m._id !== user?._id
   )
 
-  const isOnline = otherMember ? onlineUsers.includes(otherMember._id) : false
+  const otherMemberId = otherMember?._id?.toString()
+  const effectiveOnlineUsers = onlineUsers.length > 0 ? onlineUsers : contextOnlineUsers
+  const isOtherOnline = otherMemberId ? effectiveOnlineUsers.some((id) => id.toString() === otherMemberId) : false
 
   const lastMessagePreview = (() => {
     const msg = conversation.lastMessage
@@ -36,8 +38,6 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
       return msg.senderId === user?._id ? 'Bạn' : ''
     })()
 
-    // Chỉ hiện tên đối phương nếu đây là group chat (nhiều hơn 2 người), 
-    // còn 1-1 thì nếu mình gửi mới hiện "Bạn: "
     const isGroup = conversation.members?.length > 2
     const prefixStr = senderName === 'Bạn' || isGroup ? senderName + ': ' : ''
 
@@ -93,6 +93,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
             src={otherMember?.avatar}
             alt={otherMember?.fullName || '?'}
             size="sm"
+            isOnline={isOtherOnline}
           />
           {hasUnread && (
             <span className="conversation-item__badge conversation-item__badge--dot" />
@@ -115,7 +116,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
           src={otherMember?.avatar}
           alt={otherMember?.fullName || '?'}
           size="sm"
-          isOnline={isOnline}
+          isOnline={isOtherOnline}
         />
       </div>
 

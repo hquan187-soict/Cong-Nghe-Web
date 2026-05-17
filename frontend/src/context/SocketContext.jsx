@@ -8,9 +8,7 @@ export function SocketProvider({ children }) {
   const { user } = useAuth()
   const socketRef = useRef(null)
   const [isConnected, setIsConnected] = useState(false)
-  // State giữ socket instance — đảm bảo consumers re-render khi socket sẵn sàng
   const [socketInstance, setSocketInstance] = useState(null)
-  // Quản lý danh sách online global
   const [onlineUsers, setOnlineUsers] = useState([])
 
   useEffect(() => {
@@ -20,6 +18,7 @@ export function SocketProvider({ children }) {
         socketRef.current = null
         setSocketInstance(null)
         setIsConnected(false)
+        setOnlineUsers([])
       }
       return
     }
@@ -56,7 +55,6 @@ export function SocketProvider({ children }) {
         })
       })
 
-      // Expose socket qua state để trigger re-render cho consumers
       setSocketInstance(socket)
       socket.connect()
     }
@@ -67,6 +65,7 @@ export function SocketProvider({ children }) {
         socketRef.current = null
         setSocketInstance(null)
         setIsConnected(false)
+        setOnlineUsers([])
       }
     }
   }, [user])
@@ -83,12 +82,25 @@ export function SocketProvider({ children }) {
     socketRef.current.emit('leave_conversation', conversationId)
   }, [])
 
+  const getUserLastSeen = useCallback((userId) => {
+    return new Promise((resolve) => {
+      if (!socketRef.current?.connected || !userId) {
+        resolve(null)
+        return
+      }
+      socketRef.current.emit('getUserLastSeen', userId, (data) => {
+        resolve(data?.lastSeen || null)
+      })
+    })
+  }, [])
+
   const value = {
     socket: socketInstance,
     isConnected,
+    onlineUsers,
     joinConversation,
     leaveConversation,
-    onlineUsers,
+    getUserLastSeen,
   }
 
   return (

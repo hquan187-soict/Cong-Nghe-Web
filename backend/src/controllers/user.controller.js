@@ -55,6 +55,28 @@ export const getUserById = async (req, res, next) => {
   }
 };
 
+export const toggleActiveStatus = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const { enabled } = req.body;
+    const update = { showActiveStatus: !!enabled };
+    if (!enabled) {
+      update.lastSeen = new Date();
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(currentUserId, update, { new: true }).select("-password");
+    return res.status(200).json(updatedUser);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const  updateProfile = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
