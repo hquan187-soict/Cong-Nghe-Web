@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight } from 'lucide-react'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'

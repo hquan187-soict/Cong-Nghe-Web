@@ -434,7 +434,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
           })
         )}
 
-        {isTyping && <TypingIndicator senderName={otherMember?.fullName} />}
+        {isOtherTyping && <TypingIndicator senderName={otherMember?.fullName} />}
 
         <div ref={messagesEndRef} />
       </div>

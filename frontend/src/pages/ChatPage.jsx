@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   User, MessageSquare, Phone, Video, Info, X,
   BellOff, Search, ChevronDown, Lock, Sparkles,

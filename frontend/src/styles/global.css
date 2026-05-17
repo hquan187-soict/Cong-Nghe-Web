@@ -1784,6 +1784,10 @@ a:hover {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* ===========================
    RESPONSIVE — Mobile (< 768px)
    =========================== */
 

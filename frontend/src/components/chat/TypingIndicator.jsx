@@ -20,9 +20,3 @@ function TypingIndicator({ senderName, userName }) {
 }
 
 export default TypingIndicator
-      </span>
-    </div>
-  )
-}
-
-export default TypingIndicator
