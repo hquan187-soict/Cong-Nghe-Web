@@ -30,13 +30,18 @@ const STATUS_LABELS = {
   error: 'Lỗi gửi',
 }
 
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡']
+
 function MessageBubble({ message, isOwn, showAvatar = true, senderAvatar, senderName }) {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showRecallModal, setShowRecallModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [recallOption, setRecallOption] = useState('everyone')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [reactions, setReactions] = useState(message.reactions || [])
   const moreMenuRef = useRef(null)
+  const emojiPickerRef = useRef(null)
 
   const time = formatTime(message.createdAt)
   const status = message.status || 'sent'
@@ -47,19 +52,29 @@ function MessageBubble({ message, isOwn, showAvatar = true, senderAvatar, sender
       if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
         setShowMoreMenu(false)
       }
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
+        setShowEmojiPicker(false)
+      }
     }
-    if (showMoreMenu) {
+    if (showMoreMenu || showEmojiPicker) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showMoreMenu])
+  }, [showMoreMenu, showEmojiPicker])
 
   const handleReply = () => {
-    console.log('[MessageBubble] Reply clicked, messageId:', message._id)
+    // TODO: integrate reply
   }
 
-  const handleReact = () => {
-    console.log('[MessageBubble] React (emoji) clicked, messageId:', message._id)
+  const handleSelectEmoji = (emoji) => {
+    const existing = reactions.find((r) => r.emoji === emoji)
+    if (existing) {
+      setReactions((prev) => prev.filter((r) => r.emoji !== emoji))
+    } else {
+      setReactions((prev) => [...prev, { emoji, userId: 'self' }])
+    }
+    setShowEmojiPicker(false)
+    // TODO: emit reaction via socket/API
   }
 
   const handleRecall = () => {
@@ -93,9 +108,24 @@ function MessageBubble({ message, isOwn, showAvatar = true, senderAvatar, sender
 
   const actionButtons = (
     <div className={`message-actions ${isOwn ? 'message-actions--own' : 'message-actions--other'}`}>
-      <button className="message-actions__btn" onClick={handleReact} title="Bày tỏ cảm xúc">
-        <Smile size={16} />
-      </button>
+      <div className="message-actions__emoji-wrapper" ref={emojiPickerRef}>
+        <button className="message-actions__btn" onClick={() => setShowEmojiPicker((v) => !v)} title="Bày tỏ cảm xúc">
+          <Smile size={16} />
+        </button>
+        {showEmojiPicker && (
+          <div className={`message-actions__emoji-picker ${isOwn ? 'message-actions__emoji-picker--own' : ''}`}>
+            {REACTION_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                className="message-actions__emoji-btn"
+                onClick={() => handleSelectEmoji(emoji)}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <button className="message-actions__btn" onClick={handleReply} title="Trả lời">
         <Reply size={16} />
       </button>
@@ -207,12 +237,14 @@ function MessageBubble({ message, isOwn, showAvatar = true, senderAvatar, sender
           </div>
         </div>
         {!isOwn && actionButtons}
-        {/* Avatar bên phải (tin nhắn của mình) */}
-        {isOwn && (
-          <div className="message-bubble-row__avatar-slot">
-            {showAvatar && (
-              <Avatar src={senderAvatar} alt={senderName || '?'} size="sm" />
-            )}
+        {/* Reactions display */}
+        {reactions.length > 0 && (
+          <div className={`message-reactions ${isOwn ? 'message-reactions--own' : ''}`}>
+            {reactions.map((r, i) => (
+              <span key={i} className="message-reactions__item" onClick={() => handleSelectEmoji(r.emoji)}>
+                {r.emoji}
+              </span>
+            ))}
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Upload } from 'lucide-react'
+import { Upload, ArrowDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { useToast } from '../context/ToastContext'
@@ -30,6 +30,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   // Typing indicator state
   const [isOtherTyping, setIsOtherTyping] = useState(false)
   const typingAutoHideRef = useRef(null)
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
 
   // Drag & drop state
   const [dragOver, setDragOver] = useState(false)
@@ -78,7 +79,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       } else {
         setMessages(sorted)
       }
-      setHasMore(data.pagination.hasMore)
+      setHasMore(data.pagination?.hasMore ?? data.count === LIMIT)
       setPage(pageNum)
     } catch (err) {
       console.error('ChatWindow: lỗi load messages', err)
@@ -190,13 +191,26 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
-    if (!el || loadingMore || !hasMore) return
-    if (el.scrollTop < 60) {
+    if (!el) return
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    setShowScrollBtn(distanceFromBottom > 200)
+
+    if (!loadingMore && hasMore && el.scrollTop < 60) {
       fetchMessages(conversationId, page + 1, true)
     }
   }, [loadingMore, hasMore, conversationId, page, fetchMessages])
 
-  // Gửi tin nhắn (text + image + file) 
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  useEffect(() => {
+    setIsOtherTyping(false)
+    clearTimeout(typingAutoHideRef.current)
+  }, [conversationId])
+
+  // Gửi tin nhắn (text + image + file)
   const handleSendMessage = useCallback(async (text, imageBase64, fileData) => {
     if (!conversationId || !currentUserId) return
     if (!text && !imageBase64 && !fileData) return
@@ -420,14 +434,27 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
           })
         )}
 
+        {isTyping && <TypingIndicator senderName={otherMember?.fullName} />}
+
         <div ref={messagesEndRef} />
       </div>
 
-      {isOtherTyping && (
-        <TypingIndicator senderName={otherMember?.fullName} />
+      {showScrollBtn && (
+        <button
+          className="chat-window__scroll-btn"
+          onClick={scrollToBottom}
+          type="button"
+        >
+          <ArrowDown size={20} />
+        </button>
       )}
 
-      <MessageInput ref={messageInputRef} onSend={handleSendMessage} disabled={sending} conversationId={conversationId} />
+      <MessageInput
+        ref={messageInputRef}
+        onSend={handleSendMessage}
+        disabled={sending}
+        conversationId={conversationId}
+      />
     </div>
   )
 }

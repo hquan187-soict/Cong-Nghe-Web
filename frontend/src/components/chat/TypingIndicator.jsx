@@ -1,16 +1,25 @@
-/**
-TypingIndicator — Hiển thị trạng thái "đang soạn tin..." với 3 chấm nhảy
- */
-const TypingIndicator = ({ senderName }) => {
+import { useLang } from '../../context/LangContext'
+
+function TypingIndicator({ senderName, userName }) {
+  const { t } = useLang()
+  const name = senderName || userName
+
   return (
     <div className="typing-indicator">
       <div className="typing-indicator__dots">
-        <span className="typing-indicator__dot"></span>
-        <span className="typing-indicator__dot"></span>
-        <span className="typing-indicator__dot"></span>
+        <span className="typing-indicator__dot" />
+        <span className="typing-indicator__dot" />
+        <span className="typing-indicator__dot" />
       </div>
+
       <span className="typing-indicator__text">
-        {senderName ? `${senderName} đang soạn tin...` : 'Đang soạn tin...'}
+        {name ? `${name} ${t('chat.typing')}` : t('chat.typing')}
+      </span>
+    </div>
+  )
+}
+
+export default TypingIndicator
       </span>
     </div>
   )

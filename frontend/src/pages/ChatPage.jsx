@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   User, MessageSquare, Phone, Video, Info, X,
-  BellOff, Search, ChevronDown, Lock
+  BellOff, Search, ChevronDown, Lock, Sparkles,
+  Palette, AtSign, SmilePlus, Image, FileText,
+  ShieldBan, Flag, ChevronRight
 } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
@@ -11,6 +12,7 @@ import { useSocket } from '../context/SocketContext'
 import Sidebar from '../components/chat/Sidebar'
 import ChatWindow from '../components/ChatWindow'
 import Avatar from '../components/ui/Avatar'
+import ProfileModal from '../components/ProfileModal'
 
 function ChatPage() {
   const { t } = useLang()
@@ -28,6 +30,70 @@ function ChatPage() {
   })
 
   const [showInfoPanel, setShowInfoPanel] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+
+  const SIDEBAR_MIN = 72
+  const SIDEBAR_COLLAPSE_THRESHOLD = 180
+  const SIDEBAR_DEFAULT = 320
+  const SIDEBAR_MAX_RATIO = 0.5
+
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('sidebar_width')
+    return saved ? Number(saved) : SIDEBAR_DEFAULT
+  })
+  const sidebarCollapsed = sidebarWidth <= SIDEBAR_MIN
+
+  const isDraggingRef = useRef(false)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault()
+    isDraggingRef.current = true
+    setIsDragging(true)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (moveEvent) => {
+      if (!isDraggingRef.current) return
+      const maxWidth = window.innerWidth * SIDEBAR_MAX_RATIO
+      let newWidth = moveEvent.clientX
+      if (newWidth < SIDEBAR_COLLAPSE_THRESHOLD) {
+        newWidth = SIDEBAR_MIN
+      } else if (newWidth < SIDEBAR_DEFAULT) {
+        newWidth = Math.max(newWidth, 240)
+      }
+      newWidth = Math.min(newWidth, maxWidth)
+      setSidebarWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false
+      setIsDragging(false)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      setSidebarWidth((w) => {
+        localStorage.setItem('sidebar_width', String(w))
+        return w
+      })
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [])
+
+  const handleSidebarDoubleClick = useCallback(() => {
+    const newWidth = sidebarCollapsed ? SIDEBAR_DEFAULT : SIDEBAR_MIN
+    setSidebarWidth(newWidth)
+    localStorage.setItem('sidebar_width', String(newWidth))
+  }, [sidebarCollapsed])
+
+  const handleToggleCollapse = useCallback(() => {
+    const newWidth = sidebarCollapsed ? SIDEBAR_DEFAULT : SIDEBAR_MIN
+    setSidebarWidth(newWidth)
+    localStorage.setItem('sidebar_width', String(newWidth))
+  }, [sidebarCollapsed])
 
   const selectedConvIdRef = useRef(selectedConversation?._id)
   useEffect(() => {
@@ -74,16 +140,15 @@ function ChatPage() {
   }, [])
 
   const handleVoiceCall = () => {
-    console.log('[ChatPage] Voice call clicked, conversationId:', selectedConversation?._id)
+    // TODO: integrate voice call
   }
 
   const handleVideoCall = () => {
-    console.log('[ChatPage] Video call clicked, conversationId:', selectedConversation?._id)
+    // TODO: integrate video call
   }
 
   const handleToggleInfoPanel = () => {
     setShowInfoPanel((v) => !v)
-    console.log('[ChatPage] Info panel toggled')
   }
 
   // Info panel section toggles
@@ -94,11 +159,21 @@ function ChatPage() {
 
   return (
     <div className="chat-layout">
-      <Sidebar
-        ref={sidebarRef}
-        selectedConversation={selectedConversation}
-        onSelectConversation={handleSelectConversation}
-      />
+      <div className={`sidebar-wrapper ${isDragging ? 'sidebar-wrapper--dragging' : ''}`} style={{ width: sidebarWidth, minWidth: sidebarWidth }}>
+        <Sidebar
+          ref={sidebarRef}
+          selectedConversation={selectedConversation}
+          onSelectConversation={handleSelectConversation}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={handleToggleCollapse}
+          onOpenProfile={() => setShowProfileModal(true)}
+        />
+        <div
+          className="sidebar-resize-handle"
+          onMouseDown={handleResizeStart}
+          onDoubleClick={handleSidebarDoubleClick}
+        />
+      </div>
 
       <main className="chat-main">
         <header className="chat-header">
@@ -125,17 +200,19 @@ function ChatPage() {
                 type="button"
                 className="chat-header__icon-btn tooltip-wrapper"
                 onClick={handleVoiceCall}
+                title={t('chat.comingSoon')}
               >
                 <Phone size={20} />
-                <span className="tooltip">Gọi thoại</span>
+                <span className="tooltip">{t('chat.voiceCall')}</span>
               </button>
               <button
                 type="button"
                 className="chat-header__icon-btn tooltip-wrapper"
                 onClick={handleVideoCall}
+                title={t('chat.comingSoon')}
               >
                 <Video size={20} />
-                <span className="tooltip">Gọi video</span>
+                <span className="tooltip">{t('chat.videoCall')}</span>
               </button>
               <button
                 type="button"
@@ -143,7 +220,7 @@ function ChatPage() {
                 onClick={handleToggleInfoPanel}
               >
                 <Info size={20} />
-                <span className="tooltip">Xem thêm</span>
+                <span className="tooltip">{t('chat.moreInfo')}</span>
               </button>
             </div>
           )}
@@ -158,134 +235,165 @@ function ChatPage() {
             />
           ) : (
             <div className="chat-empty-state">
-              <MessageSquare size={56} className="chat-empty-state__icon" />
+              <div className="chat-empty-state__icon-wrapper">
+                <Sparkles size={24} className="chat-empty-state__sparkle" />
+                <MessageSquare size={56} className="chat-empty-state__icon" />
+              </div>
               <h3 className="chat-empty-state__title">
-                {t('chat.selectConversation')}
+                {t('chat.emptyStateGreeting')}
               </h3>
+              <p className="chat-empty-state__subtitle">
+                {t('chat.emptyStateSubtitle')}
+              </p>
             </div>
-          )}
-
-          {/* Info Panel (right sidebar) */}
-          {showInfoPanel && selectedConversation && (
-            <aside className="info-panel">
-              <div className="info-panel__header">
-                <button className="info-panel__close" onClick={() => setShowInfoPanel(false)}>
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="info-panel__profile">
-                <div className="info-panel__avatar">
-                  <Avatar
-                    src={otherMember?.avatar}
-                    alt={otherMember?.fullName || '?'}
-                    size="lg"
-                    isOnline={otherMemberIsOnline}
-                  />
-                </div>
-                <h3 className="info-panel__name">{otherMember?.fullName || 'Unknown'}</h3>
-                <div className="info-panel__encryption">
-                  <Lock size={12} />
-                  <span>Được mã hóa đầu cuối</span>
-                </div>
-              </div>
-
-              <div className="info-panel__quick-actions">
-                <button
-                  className="info-panel__quick-btn"
-                  onClick={() => {
-                    console.log('[InfoPanel] View profile clicked')
-                    navigate('/profile')
-                  }}
-                >
-                  <div className="info-panel__quick-icon"><User size={20} /></div>
-                  <span>Trang cá n...</span>
-                </button>
-                <button
-                  className="info-panel__quick-btn"
-                  onClick={() => console.log('[InfoPanel] Mute notifications clicked')}
-                >
-                  <div className="info-panel__quick-icon"><BellOff size={20} /></div>
-                  <span>Tắt thông báo</span>
-                </button>
-                <button
-                  className="info-panel__quick-btn"
-                  onClick={() => console.log('[InfoPanel] Search in chat clicked')}
-                >
-                  <div className="info-panel__quick-icon"><Search size={20} /></div>
-                  <span>Tìm kiếm</span>
-                </button>
-              </div>
-
-              <div className="info-panel__sections">
-                <button
-                  className="info-panel__section-toggle"
-                  onClick={() => {
-                    setInfoChatOpen((v) => !v)
-                    console.log('[InfoPanel] Chat info section toggled')
-                  }}
-                >
-                  <span>Thông tin về đoạn chat</span>
-                  <ChevronDown size={16} className={infoChatOpen ? 'info-panel__chevron--open' : ''} />
-                </button>
-                {infoChatOpen && (
-                  <div className="info-panel__section-content">
-                    <p>Thông tin chi tiết về đoạn chat sẽ hiển thị ở đây.</p>
-                  </div>
-                )}
-
-                <button
-                  className="info-panel__section-toggle"
-                  onClick={() => {
-                    setInfoCustomizeOpen((v) => !v)
-                    console.log('[InfoPanel] Customize section toggled')
-                  }}
-                >
-                  <span>Tùy chỉnh đoạn chat</span>
-                  <ChevronDown size={16} className={infoCustomizeOpen ? 'info-panel__chevron--open' : ''} />
-                </button>
-                {infoCustomizeOpen && (
-                  <div className="info-panel__section-content">
-                    <p>Các tùy chỉnh đoạn chat sẽ hiển thị ở đây.</p>
-                  </div>
-                )}
-
-                <button
-                  className="info-panel__section-toggle"
-                  onClick={() => {
-                    setInfoMediaOpen((v) => !v)
-                    console.log('[InfoPanel] Media section toggled')
-                  }}
-                >
-                  <span>File phương tiện và file</span>
-                  <ChevronDown size={16} className={infoMediaOpen ? 'info-panel__chevron--open' : ''} />
-                </button>
-                {infoMediaOpen && (
-                  <div className="info-panel__section-content">
-                    <p>Ảnh, video và file đã chia sẻ sẽ hiển thị ở đây.</p>
-                  </div>
-                )}
-
-                <button
-                  className="info-panel__section-toggle"
-                  onClick={() => {
-                    setInfoPrivacyOpen((v) => !v)
-                    console.log('[InfoPanel] Privacy section toggled')
-                  }}
-                >
-                  <span>Quyền riêng tư và hỗ trợ</span>
-                  <ChevronDown size={16} className={infoPrivacyOpen ? 'info-panel__chevron--open' : ''} />
-                </button>
-                {infoPrivacyOpen && (
-                  <div className="info-panel__section-content">
-                    <p>Cài đặt quyền riêng tư và hỗ trợ sẽ hiển thị ở đây.</p>
-                  </div>
-                )}
-              </div>
-            </aside>
           )}
         </div>
       </main>
+
+      {/* Info Panel — separate full-height column */}
+      {showInfoPanel && selectedConversation && (
+        <aside className="info-panel">
+          <div className="info-panel__header">
+            <button className="info-panel__close" onClick={() => setShowInfoPanel(false)}>
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="info-panel__profile">
+            <div className="info-panel__avatar">
+              <Avatar
+                src={otherMember?.avatar}
+                alt={otherMember?.fullName || '?'}
+                size="lg"
+                isOnline={otherMemberIsOnline}
+              />
+            </div>
+            <h3 className="info-panel__name">{otherMember?.fullName || t('chat.unknownUser')}</h3>
+            <div className="info-panel__encryption">
+              <Lock size={12} />
+              <span>{t('chat.endToEndEncrypted')}</span>
+            </div>
+          </div>
+
+          <div className="info-panel__quick-actions">
+            <button
+              className="info-panel__quick-btn"
+              onClick={() => setShowProfileModal(true)}
+            >
+              <div className="info-panel__quick-icon"><User size={20} /></div>
+              <span>{t('chat.viewProfile')}</span>
+            </button>
+            <button
+              className="info-panel__quick-btn"
+              title={t('chat.comingSoon')}
+            >
+              <div className="info-panel__quick-icon"><BellOff size={20} /></div>
+              <span>{t('chat.muteNotifications')}</span>
+            </button>
+            <button
+              className="info-panel__quick-btn"
+              title={t('chat.comingSoon')}
+            >
+              <div className="info-panel__quick-icon"><Search size={20} /></div>
+              <span>{t('chat.search')}</span>
+            </button>
+          </div>
+
+          <div className="info-panel__sections">
+            <button
+              className="info-panel__section-toggle"
+              onClick={() => setInfoChatOpen((v) => !v)}
+            >
+              <span>{t('chat.chatInfo')}</span>
+              <ChevronDown size={16} className={infoChatOpen ? 'info-panel__chevron--open' : ''} />
+            </button>
+            {infoChatOpen && (
+              <div className="info-panel__section-content">
+                <div className="info-panel__detail-row">
+                  <span className="info-panel__detail-label">{t('profile.email')}</span>
+                  <span className="info-panel__detail-value">{otherMember?.email || '—'}</span>
+                </div>
+              </div>
+            )}
+
+            <button
+              className="info-panel__section-toggle"
+              onClick={() => setInfoCustomizeOpen((v) => !v)}
+            >
+              <span>{t('chat.customizeChat')}</span>
+              <ChevronDown size={16} className={infoCustomizeOpen ? 'info-panel__chevron--open' : ''} />
+            </button>
+            {infoCustomizeOpen && (
+              <div className="info-panel__section-content">
+                <button className="info-panel__action-row">
+                  <Palette size={16} />
+                  <span>{t('chat.themeColor')}</span>
+                  <ChevronRight size={14} className="info-panel__action-arrow" />
+                </button>
+                <button className="info-panel__action-row">
+                  <AtSign size={16} />
+                  <span>{t('chat.changeNickname')}</span>
+                  <ChevronRight size={14} className="info-panel__action-arrow" />
+                </button>
+                <button className="info-panel__action-row">
+                  <SmilePlus size={16} />
+                  <span>{t('chat.changeEmoji')}</span>
+                  <ChevronRight size={14} className="info-panel__action-arrow" />
+                </button>
+              </div>
+            )}
+
+            <button
+              className="info-panel__section-toggle"
+              onClick={() => setInfoMediaOpen((v) => !v)}
+            >
+              <span>{t('chat.mediaAndFiles')}</span>
+              <ChevronDown size={16} className={infoMediaOpen ? 'info-panel__chevron--open' : ''} />
+            </button>
+            {infoMediaOpen && (
+              <div className="info-panel__section-content">
+                <div className="info-panel__media-tabs">
+                  <span className="info-panel__media-tab info-panel__media-tab--active">
+                    <Image size={14} /> {t('chat.sharedPhotos')}
+                  </span>
+                  <span className="info-panel__media-tab">
+                    <FileText size={14} /> {t('chat.sharedFiles')}
+                  </span>
+                </div>
+                <div className="info-panel__media-empty">
+                  <Image size={32} />
+                  <p>{t('chat.noMedia')}</p>
+                </div>
+              </div>
+            )}
+
+            <button
+              className="info-panel__section-toggle"
+              onClick={() => setInfoPrivacyOpen((v) => !v)}
+            >
+              <span>{t('chat.privacyAndSupport')}</span>
+              <ChevronDown size={16} className={infoPrivacyOpen ? 'info-panel__chevron--open' : ''} />
+            </button>
+            {infoPrivacyOpen && (
+              <div className="info-panel__section-content">
+                <button className="info-panel__action-row info-panel__action-row--danger">
+                  <ShieldBan size={16} />
+                  <span>{t('chat.blockUser')}</span>
+                </button>
+                <button className="info-panel__action-row info-panel__action-row--danger">
+                  <Flag size={16} />
+                  <span>{t('chat.reportConversation')}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </aside>
+      )}
+
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </div>
   )
 }

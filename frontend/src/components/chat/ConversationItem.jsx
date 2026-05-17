@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 
-function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) {
+function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
   const { onlineUsers } = useSocket()
@@ -76,6 +76,30 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
     e.stopPropagation()
     console.log(`[ConversationItem] ${action} clicked, conversationId:`, conversation._id)
     setShowMenu(false)
+  }
+
+  if (collapsed) {
+    return (
+      <div
+        className={`conversation-item conversation-item--collapsed ${isActive ? 'conversation-item--active' : ''}`}
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
+        title={otherMember?.fullName || t('chat.unknownUser')}
+      >
+        <div className="conversation-item__avatar">
+          <Avatar
+            src={otherMember?.avatar}
+            alt={otherMember?.fullName || '?'}
+            size="sm"
+          />
+          {hasUnread && (
+            <span className="conversation-item__badge conversation-item__badge--dot" />
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (
