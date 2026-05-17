@@ -6,15 +6,20 @@ import { useLang } from '../../context/LangContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useToast } from '../../context/ToastContext'
 import { useAccessibility } from '../../context/AccessibilityContext'
+import { useSocket } from '../../context/SocketContext'
+import { useAuth } from '../../context/AuthContext'
+import { userService } from '../../services/user.service'
 import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
 import '../../styles/sidebar.css'
 
-const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onOpenProfile }, ref) {
+const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onOpenProfile, onlineUsers = [] }, ref) {
   const { t, lang, toggleLang } = useLang()
   const { theme, toggleTheme } = useTheme()
   const toast = useToast()
   const { fontSize, setFontSize, fontFamily, setFontFamily, FONT_SIZES, FONT_FAMILIES } = useAccessibility()
+  const { socket } = useSocket()
+  const { user, updateUser } = useAuth()
 
   const [conversations, setConversations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -22,12 +27,20 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const [searchQuery, setSearchQuery] = useState('')
   const [showSettings, setShowSettings] = useState(false)
   const [showAccessibility, setShowAccessibility] = useState(false)
+  const [showActiveStatus, setShowActiveStatus] = useState(false)
+  const [activeStatusEnabled, setActiveStatusEnabled] = useState(() => {
+    const saved = localStorage.getItem('active_status_enabled')
+    return saved !== null ? saved === 'true' : true
+  })
   const settingsRef = useRef(null)
   const settingsBtnRef = useRef(null)
   const dropdownRef = useRef(null)
   const a11yPanelRef = useRef(null)
+  const activeStatusPanelRef = useRef(null)
+  const activeStatusBtnRef = useRef(null)
   const [dropdownStyle, setDropdownStyle] = useState({})
   const [a11yPanelStyle, setA11yPanelStyle] = useState({})
+  const [activeStatusPanelStyle, setActiveStatusPanelStyle] = useState({})
 
   const [unreadMap, setUnreadMap] = useState({})
 
@@ -63,6 +76,29 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       }))
     },
   }), [])
+
+  useEffect(() => {
+    if (user?.showActiveStatus !== undefined) {
+      setActiveStatusEnabled(user.showActiveStatus)
+      localStorage.setItem('active_status_enabled', String(user.showActiveStatus))
+    }
+  }, [user?.showActiveStatus])
+
+  const handleToggleActiveStatus = useCallback(async (enabled) => {
+    setActiveStatusEnabled(enabled)
+    localStorage.setItem('active_status_enabled', String(enabled))
+    try {
+      const updatedUser = await userService.toggleActiveStatus(enabled)
+      if (updatedUser) {
+        updateUser(updatedUser)
+      }
+      if (socket?.connected) {
+        socket.emit('toggleActiveStatus', enabled)
+      }
+    } catch (err) {
+      console.error('Toggle active status error:', err)
+    }
+  }, [socket, updateUser])
 
   useEffect(() => {
     let cancelled = false
@@ -188,16 +224,18 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       const clickedInSettings = settingsRef.current?.contains(e.target)
       const clickedInDropdown = dropdownRef.current?.contains(e.target)
       const clickedInA11y = a11yPanelRef.current?.contains(e.target)
-      if (!clickedInSettings && !clickedInDropdown && !clickedInA11y) {
+      const clickedInActiveStatus = activeStatusPanelRef.current?.contains(e.target)
+      if (!clickedInSettings && !clickedInDropdown && !clickedInA11y && !clickedInActiveStatus) {
         setShowSettings(false)
         setShowAccessibility(false)
+        setShowActiveStatus(false)
       }
     }
-    if (showSettings || showAccessibility) {
+    if (showSettings || showAccessibility || showActiveStatus) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showSettings, showAccessibility])
+  }, [showSettings, showAccessibility, showActiveStatus])
 
   useLayoutEffect(() => {
     if (!showSettings || !settingsBtnRef.current) return
@@ -223,6 +261,16 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       bottom: window.innerHeight - rect.bottom,
     })
   }, [showAccessibility])
+
+  useLayoutEffect(() => {
+    if (!showActiveStatus || !dropdownRef.current) return
+    const dropdownRect = dropdownRef.current.getBoundingClientRect()
+    const btnRect = activeStatusBtnRef.current?.getBoundingClientRect()
+    setActiveStatusPanelStyle({
+      left: dropdownRect.right + 8,
+      top: btnRect ? btnRect.top : dropdownRect.top,
+    })
+  }, [showActiveStatus])
 
   const handleSearchBarClick = () => {
     setShowSearchModal(true)
@@ -301,6 +349,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             onClick={() => handleSelectConversation(conv)}
             unreadCount={unreadMap[conv._id] || 0}
             collapsed={collapsed}
+            onlineUsers={onlineUsers}
           />
         ))}
       </div>
@@ -383,7 +432,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             </div>
             <ChevronRight size={14} className="sidebar__settings-arrow" />
           </button>
-          <button className="sidebar__settings-item">
+          <button ref={activeStatusBtnRef} className="sidebar__settings-item" onClick={() => { setShowActiveStatus(true); setShowAccessibility(false) }}>
             <Eye size={16} />
             <div className="sidebar__settings-item-text">
               <span>{t('settings.activeStatus')}</span>
@@ -391,7 +440,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             </div>
             <ChevronRight size={14} className="sidebar__settings-arrow" />
           </button>
-          <button className="sidebar__settings-item" onClick={() => setShowAccessibility(true)}>
+          <button className="sidebar__settings-item" onClick={() => { setShowAccessibility(true); setShowActiveStatus(false) }}>
             <Accessibility size={16} />
             <div className="sidebar__settings-item-text">
               <span>{t('settings.accessibility')}</span>
@@ -467,6 +516,32 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active Status sub-panel — positioned to the right of settings */}
+      {showActiveStatus && showSettings && (
+        <div className="sidebar__active-status-panel" ref={activeStatusPanelRef} style={activeStatusPanelStyle}>
+          <div className="sidebar__settings-header">
+            <button className="sidebar__a11y-back" onClick={() => setShowActiveStatus(false)}>
+              <ChevronLeft size={16} />
+            </button>
+            <span>{t('settings.activeStatus')}</span>
+          </div>
+          <div className="sidebar__settings-divider" />
+
+          <div className="sidebar__a11y-section">
+            <div className="sidebar__active-status-toggle">
+              <span className="sidebar__active-status-label">{t('settings.activeStatusToggle')}</span>
+              <button
+                className={`sidebar__toggle-switch ${activeStatusEnabled ? 'sidebar__toggle-switch--on' : ''}`}
+                onClick={() => handleToggleActiveStatus(!activeStatusEnabled)}
+              >
+                <span className="sidebar__toggle-knob" />
+              </button>
+            </div>
+            <p className="sidebar__active-status-info">{t('settings.activeStatusInfo')}</p>
           </div>
         </div>
       )}

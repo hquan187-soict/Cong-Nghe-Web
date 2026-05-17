@@ -8,7 +8,7 @@ import { formatRelativeTime } from '../../utils/timeUtils'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 
-function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false }) {
+function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [] }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
   const [showMenu, setShowMenu] = useState(false)
@@ -17,6 +17,9 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   const otherMember = conversation.members?.find(
     (m) => m._id !== user?._id
   )
+
+  const otherMemberId = otherMember?._id?.toString()
+  const isOtherOnline = otherMemberId ? onlineUsers.some((id) => id.toString() === otherMemberId) : false
 
   const lastMessagePreview = (() => {
     const msg = conversation.lastMessage
@@ -84,6 +87,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
             src={otherMember?.avatar}
             alt={otherMember?.fullName || '?'}
             size="sm"
+            isOnline={isOtherOnline}
           />
           {hasUnread && (
             <span className="conversation-item__badge conversation-item__badge--dot" />
@@ -106,6 +110,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
           src={otherMember?.avatar}
           alt={otherMember?.fullName || '?'}
           size="sm"
+          isOnline={isOtherOnline}
         />
       </div>
 

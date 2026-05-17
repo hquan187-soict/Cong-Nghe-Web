@@ -242,17 +242,17 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           </div>
         </div>
         {!isOwn && actionButtons}
-        {/* Reactions display */}
-        {reactions.length > 0 && (
-          <div className={`message-reactions ${isOwn ? 'message-reactions--own' : ''}`}>
-            {reactions.map((r, i) => (
-              <span key={i} className="message-reactions__item" onClick={() => handleSelectEmoji(r.emoji)}>
-                {r.emoji}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
+      {/* Reactions display — below the bubble row */}
+      {reactions.length > 0 && (
+        <div className={`message-reactions ${isOwn ? 'message-reactions--own' : ''}`}>
+          {reactions.map((r, i) => (
+            <span key={i} className="message-reactions__item" onClick={() => handleSelectEmoji(r.emoji)}>
+              {r.emoji}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Modal thu hồi tin nhắn (own message) */}
       {showRecallModal && (

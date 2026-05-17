@@ -9,6 +9,8 @@ import {
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
+import { formatLastActive } from '../utils/timeUtils'
+import { userService } from '../services/user.service'
 
 import Sidebar from '../components/chat/Sidebar'
 import ChatWindow from '../components/ChatWindow'
@@ -16,9 +18,9 @@ import Avatar from '../components/ui/Avatar'
 import ProfileModal from '../components/ProfileModal'
 
 function ChatPage() {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const { user } = useAuth()
-  const { socket, isConnected } = useSocket()
+  const { socket, isConnected, onlineUsers } = useSocket()
   const { conversationId: urlConversationId } = useParams()
   const navigate = useNavigate()
   const [selectedConversation, setSelectedConversation] = useState(() => {
@@ -129,9 +131,50 @@ function ChatPage() {
 
   const sidebarRef = useRef(null)
 
+  const currentUserId = user?._id?.toString()
   const otherMember = selectedConversation?.members?.find(
-    (m) => m._id !== user?._id
+    (m) => m._id?.toString() !== currentUserId
   )
+
+  const otherMemberId = otherMember?._id?.toString()
+  const myActiveStatus = user?.showActiveStatus !== false
+  const isOtherOnline = myActiveStatus && otherMemberId ? onlineUsers.some((id) => id.toString() === otherMemberId) : false
+  const [lastSeen, setLastSeen] = useState(null)
+
+  useEffect(() => {
+    if (!otherMemberId) return
+    if (isOtherOnline) {
+      setLastSeen(null)
+      return
+    }
+    let cancelled = false
+    userService.getUserById(otherMemberId)
+      .then((userData) => {
+        if (!cancelled && userData?.lastSeen) {
+          setLastSeen(userData.lastSeen)
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [otherMemberId, isOtherOnline])
+
+  useEffect(() => {
+    if (!socket?.connected) return
+    const handleUserLastSeen = ({ userId, lastSeen: ls }) => {
+      if (userId?.toString() === otherMemberId) {
+        setLastSeen(ls)
+      }
+    }
+    socket.on('userLastSeen', handleUserLastSeen)
+    return () => socket.off('userLastSeen', handleUserLastSeen)
+  }, [socket, otherMemberId])
+
+  const [, forceUpdate] = useState(0)
+  useEffect(() => {
+    if (isOtherOnline || !lastSeen) return
+    const interval = setInterval(() => forceUpdate((n) => n + 1), 60000)
+    return () => clearInterval(interval)
+  }, [isOtherOnline, lastSeen])
 
   useEffect(() => {
     if (!socket?.connected) return
@@ -187,6 +230,7 @@ function ChatPage() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={handleToggleCollapse}
           onOpenProfile={() => setShowProfileModal(true)}
+          onlineUsers={myActiveStatus ? onlineUsers : []}
         />
         <div
           className="sidebar-resize-handle"
@@ -204,14 +248,26 @@ function ChatPage() {
                   src={otherMember.avatar}
                   alt={otherMember.fullName || '?'}
                   size="sm"
+                  isOnline={isOtherOnline}
                 />
               </div>
             ) : null}
-            <h2>
-              {selectedConversation
-                ? otherMember?.fullName || t('chat.title')
-                : t('chat.title')}
-            </h2>
+            <div className="chat-header__user-info">
+              <h2>
+                {selectedConversation
+                  ? otherMember?.fullName || t('chat.title')
+                  : t('chat.title')}
+              </h2>
+              {selectedConversation && otherMember && (
+                <span className="chat-header__status">
+                  {isOtherOnline
+                    ? t('chat.activeNow')
+                    : lastSeen
+                      ? formatLastActive(lastSeen, lang)
+                      : ''}
+                </span>
+              )}
+            </div>
           </div>
           {selectedConversation && (
             <div className="chat-header__right">
@@ -284,6 +340,7 @@ function ChatPage() {
                 src={otherMember?.avatar}
                 alt={otherMember?.fullName || '?'}
                 size="lg"
+                isOnline={isOtherOnline}
               />
             </div>
             <h3 className="info-panel__name">{otherMember?.fullName || t('chat.unknownUser')}</h3>

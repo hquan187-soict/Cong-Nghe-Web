@@ -54,3 +54,26 @@ export function formatRelativeTime(dateInput, lang = 'vi') {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${day}/${month}`;
 }
+
+export function formatLastActive(dateInput, lang = 'vi') {
+  if (!dateInput) return '';
+
+  const date = new Date(dateInput);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (lang === 'vi') {
+    if (diffMinutes < 1) return 'Đang hoạt động'
+    if (diffMinutes < 60) return `Hoạt động ${diffMinutes} phút trước`
+    if (diffHours < 24) return `Hoạt động ${diffHours} giờ trước`
+    return `Hoạt động ${diffDays} ngày trước`
+  }
+
+  if (diffMinutes < 1) return 'Active now'
+  if (diffMinutes < 60) return `Active ${diffMinutes}m ago`
+  if (diffHours < 24) return `Active ${diffHours}h ago`
+  return `Active ${diffDays}d ago`
+}
