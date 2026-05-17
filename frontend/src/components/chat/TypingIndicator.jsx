@@ -1,7 +1,8 @@
 import { useLang } from '../../context/LangContext'
 
-function TypingIndicator({ userName }) {
+function TypingIndicator({ senderName, userName }) {
   const { t } = useLang()
+  const name = senderName || userName
 
   return (
     <div className="typing-indicator">
@@ -10,8 +11,15 @@ function TypingIndicator({ userName }) {
         <span className="typing-indicator__dot" />
         <span className="typing-indicator__dot" />
       </div>
+
       <span className="typing-indicator__text">
-        {userName ? `${userName} ${t('chat.typing')}` : t('chat.typing')}
+        {name ? `${name} ${t('chat.typing')}` : t('chat.typing')}
+      </span>
+    </div>
+  )
+}
+
+export default TypingIndicator
       </span>
     </div>
   )

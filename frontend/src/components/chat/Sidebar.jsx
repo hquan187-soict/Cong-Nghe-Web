@@ -5,6 +5,8 @@ import { messageService } from '../../services/message.service'
 import { useLang } from '../../context/LangContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useToast } from '../../context/ToastContext'
+import { useSocket } from '../../context/SocketContext'
+import { useAuth } from '../../context/AuthContext'
 import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
 import '../../styles/sidebar.css'
@@ -13,6 +15,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const { t, lang, toggleLang } = useLang()
   const { theme, toggleTheme } = useTheme()
   const toast = useToast()
+  const navigate = useNavigate()
+  const { socket } = useSocket()
+  const { user } = useAuth()
 
   const [conversations, setConversations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -59,56 +64,11 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     },
   }), [])
 
+  // (Trạng thái online/offline hiện được quản lý tập trung ở SocketContext)
+
+  // Fetch conversations khi mount
   useEffect(() => {
     let cancelled = false
-
-    const MOCK_NOW = new Date()
-    const ago = (minutes) => new Date(MOCK_NOW - minutes * 60 * 1000).toISOString()
-    const MOCK_CONVERSATIONS = [
-      {
-        _id: 'mock_conv_001',
-        members: [
-          { _id: 'mock_user_001', fullName: 'Bạn', avatar: null },
-          { _id: 'mock_user_alice', fullName: 'Alice Nguyễn', avatar: null },
-        ],
-        lastMessage: { text: 'Oke bạn nhé! Hẹn gặp lại 😊', createdAt: ago(2) },
-        updatedAt: ago(2),
-      },
-      {
-        _id: 'mock_conv_002',
-        members: [
-          { _id: 'mock_user_001', fullName: 'Bạn', avatar: null },
-          { _id: 'mock_user_bob', fullName: 'Bob Trần', avatar: null },
-        ],
-        lastMessage: { text: 'Lorem ipsum dolor sit amet consectetur...', createdAt: ago(15) },
-        updatedAt: ago(15),
-      },
-      {
-        _id: 'mock_conv_003',
-        members: [
-          { _id: 'mock_user_001', fullName: 'Bạn', avatar: null },
-          { _id: 'mock_user_charlie', fullName: 'Charlie Lê', avatar: null },
-        ],
-        lastMessage: { text: 'OK', createdAt: ago(60) },
-        updatedAt: ago(60),
-      },
-      {
-        _id: 'mock_conv_004',
-        members: [
-          { _id: 'mock_user_001', fullName: 'Bạn', avatar: null },
-          { _id: 'mock_user_diana', fullName: 'Diana Phạm', avatar: null },
-        ],
-        lastMessage: { text: 'Cảm ơn bạn nhiều lắm!', createdAt: ago(120) },
-        updatedAt: ago(120),
-      },
-    ]
-
-    const MOCK_UNREAD_MAP = {
-      mock_conv_001: 3,
-      mock_conv_002: 12,
-      mock_conv_003: 0,
-      mock_conv_004: 1,
-    }
 
     async function fetchConversations() {
       setIsLoading(true)
@@ -116,26 +76,19 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         const data = await conversationService.getConversations()
         if (!cancelled) {
           const list = Array.isArray(data) ? data : []
-          if (list.length === 0 && import.meta.env.DEV) {
-            setConversations(MOCK_CONVERSATIONS)
-            setUnreadMap(MOCK_UNREAD_MAP)
-          } else {
-            setConversations(list)
-            const uMap = {}
-            list.forEach((conv) => {
-              if (conv.unreadCount && conv.unreadCount > 0) {
-                uMap[conv._id] = conv.unreadCount
-              }
-            })
-            setUnreadMap(uMap)
-          }
+          setConversations(list)
+          // Trích unreadCount từ API response (nếu backend trả về)
+          const uMap = {}
+          list.forEach((conv) => {
+            if (conv.unreadCount && conv.unreadCount > 0) {
+              uMap[conv._id] = conv.unreadCount
+            }
+          })
+          setUnreadMap(uMap)
         }
       } catch (err) {
         console.error('Fetch conversations error:', err)
-        if (!cancelled && import.meta.env.DEV) {
-          setConversations(MOCK_CONVERSATIONS)
-          setUnreadMap(MOCK_UNREAD_MAP)
-        } else if (!cancelled) {
+        if (!cancelled) {
           toast.error(t('chat.loadError'))
         }
       } finally {
@@ -219,9 +172,18 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           <button
             className="sidebar__profile-btn"
             title={t('profile.title')}
-            onClick={() => onOpenProfile?.()}
+            onClick={() => navigate('/profile')}
+            style={user?.avatar ? { padding: 0, overflow: 'hidden' } : {}}
           >
-            <User size={18} />
+            {user?.avatar ? (
+              <img 
+                src={user.avatar} 
+                alt={user.fullName || 'Profile'} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            ) : (
+              <User size={18} />
+            )}
           </button>
           {!collapsed && (
             <h2 className="sidebar__title">

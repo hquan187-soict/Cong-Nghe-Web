@@ -27,12 +27,14 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   const [hasMore, setHasMore] = useState(false)
   const [sending, setSending] = useState(false)
 
-  const [isTyping, setIsTyping] = useState(false)
+  // Typing indicator state
+  const [isOtherTyping, setIsOtherTyping] = useState(false)
+  const typingAutoHideRef = useRef(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
 
   // Drag & drop state
   const [dragOver, setDragOver] = useState(false)
-  const [dropZone, setDropZone] = useState(null) // 'messages' | 'input' | null
+  const [dropZone, setDropZone] = useState(null)
   const dragCounterRef = useRef(0)
 
   const messagesEndRef = useRef(null)
@@ -97,7 +99,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
 
   useEffect(() => {
     if (!conversationId || conversationId.startsWith('mock_')) return
-    messageService.markAsRead(conversationId).catch(() => {})
+    messageService.markAsRead(conversationId).catch(() => { })
   }, [conversationId])
 
   useEffect(() => {
@@ -115,7 +117,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }, 50)
-      messageService.markAsRead(conversationId).catch(() => {})
+      messageService.markAsRead(conversationId).catch(() => { })
     }
 
     const handleMessagesRead = ({ conversationId: incomingConvId, messages: updatedMessages }) => {
@@ -140,11 +142,44 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
     }
   }, [conversationId, socket, isConnected, joinConversation, leaveConversation])
 
+  // Lắng nghe typing_start / typing_stop từ đối phương
+  useEffect(() => {
+    if (!conversationId || !socket) return
+
+    const handleTypingStart = (data) => {
+      // Guard: chỉ xử lý event của conversation đang mở
+      if (data.conversationId !== conversationId) return
+      setIsOtherTyping(true)
+
+      // Auto-hide safety: 7s tự động ẩn nếu không nhận được typing_stop
+      clearTimeout(typingAutoHideRef.current)
+      typingAutoHideRef.current = setTimeout(() => {
+        setIsOtherTyping(false)
+      }, 7000)
+    }
+
+    const handleTypingStop = (data) => {
+      if (data.conversationId !== conversationId) return
+      clearTimeout(typingAutoHideRef.current)
+      setIsOtherTyping(false)
+    }
+
+    socket.on('typing_start', handleTypingStart)
+    socket.on('typing_stop', handleTypingStop)
+
+    return () => {
+      socket.off('typing_start', handleTypingStart)
+      socket.off('typing_stop', handleTypingStop)
+      clearTimeout(typingAutoHideRef.current)
+      setIsOtherTyping(false)
+    }
+  }, [conversationId, socket])
+
   useEffect(() => {
     if (!loading && messages.length > 0 && page === 1) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
     }
-  }, [loading, conversationId, messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loading, conversationId, messages.length])
 
   useEffect(() => {
     if (!loadingMore && prevScrollHeightRef.current > 0 && scrollContainerRef.current) {
@@ -171,34 +206,11 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   }, [])
 
   useEffect(() => {
-    if (!socket?.connected || !conversationId) return
-
-    const handleTyping = ({ conversationId: cid, userId }) => {
-      if (cid === conversationId && userId !== currentUserId) {
-        setIsTyping(true)
-      }
-    }
-
-    const handleStopTyping = ({ conversationId: cid, userId }) => {
-      if (cid === conversationId && userId !== currentUserId) {
-        setIsTyping(false)
-      }
-    }
-
-    socket.on('typing', handleTyping)
-    socket.on('stopTyping', handleStopTyping)
-
-    return () => {
-      socket.off('typing', handleTyping)
-      socket.off('stopTyping', handleStopTyping)
-    }
-  }, [socket, conversationId, currentUserId])
-
-  useEffect(() => {
-    setIsTyping(false)
+    setIsOtherTyping(false)
+    clearTimeout(typingAutoHideRef.current)
   }, [conversationId])
 
-  // ─── Gửi tin nhắn (text + image + file) ──────────────────
+  // Gửi tin nhắn (text + image + file)
   const handleSendMessage = useCallback(async (text, imageBase64, fileData) => {
     if (!conversationId || !currentUserId) return
     if (!text && !imageBase64 && !fileData) return
@@ -250,7 +262,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
     }
   }, [conversationId, currentUserId, onMessageSent, toast, t])
 
-  // ─── Drag & Drop ──────────────────────────────────────────
+  // Drag & Drop
   const readFileAsBase64 = (file) =>
     new Promise((resolve) => {
       const reader = new FileReader()
@@ -422,7 +434,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
           })
         )}
 
-        {isTyping && <TypingIndicator userName={otherMember?.fullName} />}
+        {isTyping && <TypingIndicator senderName={otherMember?.fullName} />}
 
         <div ref={messagesEndRef} />
       </div>
@@ -437,7 +449,12 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
         </button>
       )}
 
-      <MessageInput ref={messageInputRef} onSend={handleSendMessage} disabled={sending} />
+      <MessageInput
+        ref={messageInputRef}
+        onSend={handleSendMessage}
+        disabled={sending}
+        conversationId={conversationId}
+      />
     </div>
   )
 }

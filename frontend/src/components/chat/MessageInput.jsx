@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { Send, ImagePlus, Paperclip, X, FileText, Mic, ThumbsUp } from 'lucide-react'
 import { useLang } from '../../context/LangContext'
+import { useSocket } from '../../context/SocketContext'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -12,8 +13,9 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false }, ref) {
+const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false, conversationId }, ref) {
   const { t } = useLang()
+  const { socket } = useSocket()
   const [text, setText] = useState('')
   const [imagePreview, setImagePreview] = useState(null)
   const [imageBase64, setImageBase64] = useState(null)
@@ -21,6 +23,19 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
   const textareaRef = useRef(null)
   const imageInputRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  // Typing indicator refs
+  const typingTimeoutRef = useRef(null)
+  const debounceStartRef = useRef(null)
+  const isTypingRef = useRef(false)
+
+  // Cleanup typing timeout khi unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+    }
+  }, [])
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current
@@ -30,8 +45,44 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
   }, [])
 
   function handleChange(e) {
-    setText(e.target.value)
+    const newText = e.target.value
+    setText(newText)
     adjustHeight()
+
+    if (socket && conversationId) {
+      if (newText.length > 0) {
+        // 1. Debounce 500ms cho việc gửi typing_start
+        if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+        
+        if (!isTypingRef.current) {
+          debounceStartRef.current = setTimeout(() => {
+            socket.emit('typing_start', { conversationId })
+            isTypingRef.current = true
+          }, 500)
+        }
+
+        // 2. Debounce 2s (2000ms) cho việc gửi typing_stop
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        
+        typingTimeoutRef.current = setTimeout(() => {
+          if (isTypingRef.current) {
+            socket.emit('typing_stop', { conversationId })
+            isTypingRef.current = false
+          }
+          if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+        }, 2000)
+
+      } else {
+        // 3. Nếu xóa sạch chữ → emit typing_stop ngay lập tức
+        if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        
+        if (isTypingRef.current) {
+          socket.emit('typing_stop', { conversationId })
+          isTypingRef.current = false
+        }
+      }
+    }
   }
 
   useImperativeHandle(ref, () => ({
@@ -95,6 +146,17 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
   function handleSend() {
     const trimmed = text.trim()
     if ((!trimmed && !imageBase64 && !fileData) || disabled) return
+
+    // Emit typing_stop ngay khi gửi tin nhắn
+    if (socket && conversationId) {
+      if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      
+      if (isTypingRef.current) {
+        socket.emit('typing_stop', { conversationId })
+        isTypingRef.current = false
+      }
+    }
 
     onSend(trimmed || '', imageBase64 || null, fileData || null)
     setText('')

@@ -17,7 +17,9 @@ import ProfileModal from '../components/ProfileModal'
 function ChatPage() {
   const { t } = useLang()
   const { user } = useAuth()
-  const { socket, isConnected } = useSocket()
+  const { socket, isConnected, onlineUsers } = useSocket()
+  const navigate = useNavigate()
+
   const [selectedConversation, setSelectedConversation] = useState(() => {
     try {
       const saved = localStorage.getItem('last_conversation')
@@ -109,6 +111,8 @@ function ChatPage() {
     (m) => m._id !== user?._id
   )
 
+  const otherMemberIsOnline = otherMember ? onlineUsers.includes(otherMember._id) : false
+
   useEffect(() => {
     if (!socket?.connected) return
 
@@ -180,6 +184,7 @@ function ChatPage() {
                   src={otherMember.avatar}
                   alt={otherMember.fullName || '?'}
                   size="sm"
+                  isOnline={otherMemberIsOnline}
                 />
               </div>
             ) : null}
@@ -260,6 +265,7 @@ function ChatPage() {
                 src={otherMember?.avatar}
                 alt={otherMember?.fullName || '?'}
                 size="lg"
+                isOnline={otherMemberIsOnline}
               />
             </div>
             <h3 className="info-panel__name">{otherMember?.fullName || t('chat.unknownUser')}</h3>
