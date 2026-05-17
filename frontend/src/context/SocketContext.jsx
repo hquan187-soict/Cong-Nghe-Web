@@ -10,6 +10,8 @@ export function SocketProvider({ children }) {
   const [isConnected, setIsConnected] = useState(false)
   // State giữ socket instance — đảm bảo consumers re-render khi socket sẵn sàng
   const [socketInstance, setSocketInstance] = useState(null)
+  // Quản lý danh sách online global
+  const [onlineUsers, setOnlineUsers] = useState([])
 
   useEffect(() => {
     if (!user) {
@@ -38,6 +40,20 @@ export function SocketProvider({ children }) {
 
       socket.on('connect_error', (err) => {
         console.error('[SocketContext] Lỗi kết nối socket:', err.message)
+      })
+
+      socket.on('getOnlineUsers', (userIds) => {
+        setOnlineUsers(userIds)
+      })
+
+      socket.on('user_status', ({ userId, isOnline }) => {
+        setOnlineUsers((prev) => {
+          if (isOnline) {
+            return prev.includes(userId) ? prev : [...prev, userId]
+          } else {
+            return prev.filter((id) => id !== userId)
+          }
+        })
       })
 
       // Expose socket qua state để trigger re-render cho consumers
@@ -72,6 +88,7 @@ export function SocketProvider({ children }) {
     isConnected,
     joinConversation,
     leaveConversation,
+    onlineUsers,
   }
 
   return (

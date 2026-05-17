@@ -26,14 +26,14 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
 
   // Typing indicator refs
   const typingTimeoutRef = useRef(null)
+  const debounceStartRef = useRef(null)
   const isTypingRef = useRef(false)
 
   // Cleanup typing timeout khi unmount
   useEffect(() => {
     return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current)
-      }
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
     }
   }, [])
 
@@ -45,31 +45,43 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
   }, [])
 
   function handleChange(e) {
-    setText(e.target.value)
+    const newText = e.target.value
+    setText(newText)
     adjustHeight()
 
-    // Emit typing_start ngay lần đầu gõ, dùng flag isTypingRef để tránh spam
-    if (socket && conversationId && e.target.value.length > 0) {
-      if (!isTypingRef.current) {
-        socket.emit('typing_start', { conversationId })
-        isTypingRef.current = true
-      }
+    if (socket && conversationId) {
+      if (newText.length > 0) {
+        // 1. Debounce 500ms cho việc gửi typing_start
+        if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+        
+        if (!isTypingRef.current) {
+          debounceStartRef.current = setTimeout(() => {
+            socket.emit('typing_start', { conversationId })
+            isTypingRef.current = true
+          }, 500)
+        }
 
-      // Reset timer: sau 2s không gõ → emit typing_stop
-      clearTimeout(typingTimeoutRef.current)
-      typingTimeoutRef.current = setTimeout(() => {
+        // 2. Debounce 2s (2000ms) cho việc gửi typing_stop
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        
+        typingTimeoutRef.current = setTimeout(() => {
+          if (isTypingRef.current) {
+            socket.emit('typing_stop', { conversationId })
+            isTypingRef.current = false
+          }
+          if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+        }, 2000)
+
+      } else {
+        // 3. Nếu xóa sạch chữ → emit typing_stop ngay lập tức
+        if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        
         if (isTypingRef.current) {
           socket.emit('typing_stop', { conversationId })
           isTypingRef.current = false
         }
-      }, 2000)
-    }
-
-    // Nếu xóa hết text → emit typing_stop ngay
-    if (socket && conversationId && e.target.value.length === 0 && isTypingRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-      socket.emit('typing_stop', { conversationId })
-      isTypingRef.current = false
+      }
     }
   }
 
@@ -136,10 +148,14 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
     if ((!trimmed && !imageBase64 && !fileData) || disabled) return
 
     // Emit typing_stop ngay khi gửi tin nhắn
-    if (socket && conversationId && isTypingRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-      socket.emit('typing_stop', { conversationId })
-      isTypingRef.current = false
+    if (socket && conversationId) {
+      if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      
+      if (isTypingRef.current) {
+        socket.emit('typing_stop', { conversationId })
+        isTypingRef.current = false
+      }
     }
 
     onSend(trimmed || '', imageBase64 || null, fileData || null)

@@ -7,10 +7,12 @@ import Avatar from '../ui/Avatar'
 import { formatRelativeTime } from '../../utils/timeUtils'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
+import { useSocket } from '../../context/SocketContext'
 
 function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
+  const { onlineUsers } = useSocket()
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef(null)
 
@@ -18,14 +20,11 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
     (m) => m._id !== user?._id
   )
 
+  const isOnline = otherMember ? onlineUsers.includes(otherMember._id) : false
+
   const lastMessagePreview = (() => {
     const msg = conversation.lastMessage
     if (!msg) return t('chat.noMessage')
-
-    if (msg.text) {
-      const text = msg.text
-      return text.length > 30 ? text.slice(0, 30) + '…' : text
-    }
 
     const senderName = (() => {
       if (!msg.senderId) return ''
@@ -37,10 +36,19 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
       return msg.senderId === user?._id ? 'Bạn' : ''
     })()
 
-    const prefix = senderName ? senderName + ': ' : ''
+    // Chỉ hiện tên đối phương nếu đây là group chat (nhiều hơn 2 người), 
+    // còn 1-1 thì nếu mình gửi mới hiện "Bạn: "
+    const isGroup = conversation.members?.length > 2
+    const prefixStr = senderName === 'Bạn' || isGroup ? senderName + ': ' : ''
 
-    if (msg.file?.url) return prefix + 'Đã gửi một tệp đính kèm'
-    if (msg.image) return prefix + 'Đã gửi một ảnh'
+    if (msg.text) {
+      const text = msg.text
+      const truncated = text.length > 30 ? text.slice(0, 30) + '…' : text
+      return prefixStr + truncated
+    }
+
+    if (msg.file?.url) return prefixStr + 'Đã gửi một tệp đính kèm'
+    if (msg.image) return prefixStr + 'Đã gửi một ảnh'
 
     return t('chat.noMessage')
   })()
@@ -83,7 +91,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0 }) 
           src={otherMember?.avatar}
           alt={otherMember?.fullName || '?'}
           size="sm"
-          isOnline={otherMember?.isOnline}
+          isOnline={isOnline}
         />
       </div>
 
