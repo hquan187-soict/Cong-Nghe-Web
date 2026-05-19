@@ -484,6 +484,7 @@ a:hover {
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px;
+  padding-bottom: 28px;
   display: flex;
   flex-direction: column;
   gap: 4px;

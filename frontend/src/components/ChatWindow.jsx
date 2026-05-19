@@ -103,7 +103,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   }, [conversationId])
 
   useEffect(() => {
-    if (!conversationId || !socket?.connected) return
+    if (!conversationId || !isConnected) return
 
     joinConversation(conversationId)
 
@@ -144,11 +144,12 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
 
   // Lắng nghe typing_start / typing_stop từ đối phương
   useEffect(() => {
-    if (!conversationId || !socket) return
+    if (!conversationId || !socket || !isConnected) return
 
     const handleTypingStart = (data) => {
       // Guard: chỉ xử lý event của conversation đang mở
       if (data.conversationId !== conversationId) return
+      if (data.userId?.toString() === currentUserId) return
       setIsOtherTyping(true)
 
       // Auto-hide safety: 7s tự động ẩn nếu không nhận được typing_stop
@@ -160,6 +161,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
 
     const handleTypingStop = (data) => {
       if (data.conversationId !== conversationId) return
+      if (data.userId?.toString() === currentUserId) return
       clearTimeout(typingAutoHideRef.current)
       setIsOtherTyping(false)
     }
@@ -173,7 +175,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       clearTimeout(typingAutoHideRef.current)
       setIsOtherTyping(false)
     }
-  }, [conversationId, socket])
+  }, [conversationId, socket, isConnected, currentUserId])
 
   useEffect(() => {
     if (!loading && messages.length > 0 && page === 1) {
@@ -209,6 +211,13 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
     setIsOtherTyping(false)
     clearTimeout(typingAutoHideRef.current)
   }, [conversationId])
+
+  useEffect(() => {
+    if (!isOtherTyping) return
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    })
+  }, [isOtherTyping])
 
   // Gửi tin nhắn (text + image + file)
   const handleSendMessage = useCallback(async (text, imageBase64, fileData) => {

@@ -3,6 +3,7 @@ import http from "http";
 import express from "express";
 import { socketAuthMiddleware } from "../middleware/socketAuthMiddleware.js";
 import User from "../models/User.js";
+import Conversation from "../models/Conversation.js";
 import { getContactSocketIds } from "./socketHelper.js";
 import dotenv from "dotenv";
 
@@ -33,6 +34,26 @@ async function getVisibleOnlineUsers() {
   return users.map((u) => u._id.toString());
 }
 
+async function emitTypingToConversation(conversationId, senderId, eventName) {
+  const conversation = await Conversation.findById(conversationId).select("members");
+  if (!conversation) return;
+
+  const isMember = conversation.members.some(
+    (memberId) => memberId.toString() === senderId.toString(),
+  );
+  if (!isMember) return;
+
+  conversation.members.forEach((memberId) => {
+    const memberIdStr = memberId.toString();
+    if (memberIdStr === senderId.toString()) return;
+
+    const receiverSocketId = userSocketsMap[memberIdStr];
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit(eventName, { conversationId, userId: senderId });
+    }
+  });
+}
+
 io.on("connection", async (socket) => {
   console.log(
     `Kêt nối socket được thiết lập cho người dùng ${socket.user.fullName} `,
@@ -45,10 +66,12 @@ io.on("connection", async (socket) => {
   const visibleOnline = await getVisibleOnlineUsers();
   io.emit("getOnlineUsers", visibleOnline);
 
-  const contactSocketIds = await getContactSocketIds(userId, userSocketsMap);
-  contactSocketIds.forEach((socketId) => {
-    io.to(socketId).emit("user_status", { userId, isOnline: true });
-  });
+  if (socket.user.showActiveStatus !== false) {
+    const contactSocketIds = await getContactSocketIds(userId, userSocketsMap);
+    contactSocketIds.forEach((socketId) => {
+      io.to(socketId).emit("user_status", { userId, isOnline: true });
+    });
+  }
 
   // Quản lý phòng chat
   socket.on("join_conversation", (conversationId) => {
@@ -60,14 +83,16 @@ io.on("connection", async (socket) => {
   });
 
   // Proxy tính năng Typing
-  socket.on("typing_start", ({ conversationId }) => {
-    if (conversationId)
-      socket.to(conversationId).emit("typing_start", { conversationId, userId });
+  socket.on("typing_start", async ({ conversationId }) => {
+    if (conversationId) {
+      await emitTypingToConversation(conversationId, userId, "typing_start");
+    }
   });
 
-  socket.on("typing_stop", ({ conversationId }) => {
-    if (conversationId)
-      socket.to(conversationId).emit("typing_stop", { conversationId, userId });
+  socket.on("typing_stop", async ({ conversationId }) => {
+    if (conversationId) {
+      await emitTypingToConversation(conversationId, userId, "typing_stop");
+    }
   });
 
   socket.on("getUserLastSeen", async (targetUserId, callback) => {

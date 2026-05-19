@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 
-function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [] }) {
+function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
   const { onlineUsers: contextOnlineUsers } = useSocket()
@@ -21,7 +21,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   )
 
   const otherMemberId = otherMember?._id?.toString()
-  const effectiveOnlineUsers = onlineUsers.length > 0 ? onlineUsers : contextOnlineUsers
+  const effectiveOnlineUsers = Array.isArray(onlineUsers) ? onlineUsers : contextOnlineUsers
   const isOtherOnline = otherMemberId ? effectiveOnlineUsers.some((id) => id.toString() === otherMemberId) : false
 
   const lastMessagePreview = (() => {

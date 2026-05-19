@@ -225,7 +225,7 @@ function ProfilePage() {
               src={isEditing ? formData.avatar : user?.avatar}
               alt={user?.fullName || 'User'}
               size="lg"
-              isOnline={true}
+              isOnline={user?.showActiveStatus !== false}
             />
             {isEditing && (
               <>
