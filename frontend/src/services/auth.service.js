@@ -20,7 +20,7 @@ export const authService = {
 
   // Gửi OTP quên mật khẩu
   async sendForgotPasswordOtp(data) {
-    return await axiosInstance.post('/api/auth/forgot-password/send-otp', data);
+    return await axiosInstance.post('/api/auth/send-otp', data);
   },
 
   // Đặt lại mật khẩu bằng OTP

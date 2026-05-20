@@ -70,7 +70,10 @@ function ForgotPasswordPage() {
 
     setSendingOtp(true)
     try {
-      await authService.sendForgotPasswordOtp({ email: formData.email })
+      await authService.sendForgotPasswordOtp({ 
+        email: formData.email,
+        type: "reset"
+       })
       toast.success(t('forgotPassword.otpSent'))
 
       // Cooldown 60 giây

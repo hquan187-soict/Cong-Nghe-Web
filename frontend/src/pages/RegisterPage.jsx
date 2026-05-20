@@ -80,7 +80,10 @@ function RegisterPage() {
 
     setSendingOtp(true)
     try {
-      await authService.sendSignupOtp({ email: formData.email })
+      await authService.sendSignupOtp({ 
+        email: formData.email,
+        type: 'verify'
+       })
       toast.success(t('register.otpSent'))
 
       // Cooldown 60 giây để tránh spam

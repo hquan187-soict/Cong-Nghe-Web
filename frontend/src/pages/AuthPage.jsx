@@ -158,7 +158,7 @@ function RegisterForm({ onNavigate }) {
     }
     setSendingOtp(true)
     try {
-      await authService.sendSignupOtp({ email: formData.email })
+      await authService.sendSignupOtp({ email: formData.email, type: 'verify' })
       toast.success(t('register.otpSent'))
       setOtpCooldown(60)
       const interval = setInterval(() => {
@@ -334,7 +334,7 @@ function ForgotPasswordForm({ onNavigate }) {
     }
     setSendingOtp(true)
     try {
-      await authService.sendForgotPasswordOtp({ email: formData.email })
+      await authService.sendForgotPasswordOtp({ email: formData.email, type: "reset" })
       toast.success(t('forgotPassword.otpSent'))
       setOtpCooldown(60)
       const interval = setInterval(() => {
