@@ -132,26 +132,9 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       )
     }
 
-    socket.on('sendMessage', handleNewMessage)
-    socket.on('messagesRead', handleMessagesRead)
-
-    return () => {
-      socket.off('sendMessage', handleNewMessage)
-      socket.off('messagesRead', handleMessagesRead)
-      leaveConversation(conversationId)
-    }
-  }, [conversationId, socket, isConnected, joinConversation, leaveConversation])
-
-  // Lắng nghe typing_start / typing_stop từ đối phương
-  useEffect(() => {
-    if (!conversationId || !socket) return
-
     const handleTypingStart = (data) => {
-      // Guard: chỉ xử lý event của conversation đang mở
       if (data.conversationId !== conversationId) return
       setIsOtherTyping(true)
-
-      // Auto-hide safety: 7s tự động ẩn nếu không nhận được typing_stop
       clearTimeout(typingAutoHideRef.current)
       typingAutoHideRef.current = setTimeout(() => {
         setIsOtherTyping(false)
@@ -164,16 +147,21 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       setIsOtherTyping(false)
     }
 
+    socket.on('sendMessage', handleNewMessage)
+    socket.on('messagesRead', handleMessagesRead)
     socket.on('typing_start', handleTypingStart)
     socket.on('typing_stop', handleTypingStop)
 
     return () => {
+      socket.off('sendMessage', handleNewMessage)
+      socket.off('messagesRead', handleMessagesRead)
       socket.off('typing_start', handleTypingStart)
       socket.off('typing_stop', handleTypingStop)
       clearTimeout(typingAutoHideRef.current)
       setIsOtherTyping(false)
+      leaveConversation(conversationId)
     }
-  }, [conversationId, socket])
+  }, [conversationId, socket, isConnected, joinConversation, leaveConversation])
 
   useEffect(() => {
     if (!loading && messages.length > 0 && page === 1) {

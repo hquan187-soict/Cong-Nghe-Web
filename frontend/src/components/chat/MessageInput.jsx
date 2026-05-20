@@ -15,7 +15,7 @@ function formatFileSize(bytes) {
 
 const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false, conversationId }, ref) {
   const { t } = useLang()
-  const { socket } = useSocket()
+  const { socket, isConnected } = useSocket()
   const [text, setText] = useState('')
   const [imagePreview, setImagePreview] = useState(null)
   const [imageBase64, setImageBase64] = useState(null)
@@ -24,18 +24,49 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
   const imageInputRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  // Typing indicator refs
-  const typingTimeoutRef = useRef(null)
-  const debounceStartRef = useRef(null)
   const isTypingRef = useRef(false)
+  const prevConvRef = useRef(conversationId)
+  const heartbeatRef = useRef(null)
 
-  // Cleanup typing timeout khi unmount
+  const stopTyping = useCallback((convId) => {
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+    heartbeatRef.current = null
+    if (isTypingRef.current && socket?.connected) {
+      socket.emit('typing_stop', { conversationId: convId || conversationId })
+      isTypingRef.current = false
+    }
+  }, [socket, conversationId])
+
   useEffect(() => {
     return () => {
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-      if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (isTypingRef.current && socket?.connected && prevConvRef.current) {
+      socket.emit('typing_stop', { conversationId: prevConvRef.current })
+    }
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+    heartbeatRef.current = null
+    isTypingRef.current = false
+    prevConvRef.current = conversationId
+  }, [conversationId, socket])
+
+  useEffect(() => {
+    if (!isConnected || !socket?.connected || !conversationId || isTypingRef.current) return
+    const currentText = textareaRef.current?.value || ''
+    if (currentText.length > 0) {
+      socket.emit('typing_start', { conversationId })
+      isTypingRef.current = true
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+      heartbeatRef.current = setInterval(() => {
+        if (socket.connected && isTypingRef.current) {
+          socket.emit('typing_start', { conversationId })
+        }
+      }, 4000)
+    }
+  }, [isConnected, socket, conversationId])
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current
@@ -49,38 +80,21 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
     setText(newText)
     adjustHeight()
 
-    if (socket && conversationId) {
+    if (socket?.connected && conversationId) {
       if (newText.length > 0) {
-        // 1. Debounce 500ms cho việc gửi typing_start
-        if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
-        
         if (!isTypingRef.current) {
-          debounceStartRef.current = setTimeout(() => {
-            socket.emit('typing_start', { conversationId })
-            isTypingRef.current = true
-          }, 500)
+          socket.emit('typing_start', { conversationId })
+          isTypingRef.current = true
+
+          if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+          heartbeatRef.current = setInterval(() => {
+            if (socket.connected && isTypingRef.current) {
+              socket.emit('typing_start', { conversationId })
+            }
+          }, 4000)
         }
-
-        // 2. Debounce 2s (2000ms) cho việc gửi typing_stop
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-        
-        typingTimeoutRef.current = setTimeout(() => {
-          if (isTypingRef.current) {
-            socket.emit('typing_stop', { conversationId })
-            isTypingRef.current = false
-          }
-          if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
-        }, 2000)
-
       } else {
-        // 3. Nếu xóa sạch chữ → emit typing_stop ngay lập tức
-        if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-        
-        if (isTypingRef.current) {
-          socket.emit('typing_stop', { conversationId })
-          isTypingRef.current = false
-        }
+        stopTyping()
       }
     }
   }
@@ -147,16 +161,7 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
     const trimmed = text.trim()
     if ((!trimmed && !imageBase64 && !fileData) || disabled) return
 
-    // Emit typing_stop ngay khi gửi tin nhắn
-    if (socket && conversationId) {
-      if (debounceStartRef.current) clearTimeout(debounceStartRef.current)
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-      
-      if (isTypingRef.current) {
-        socket.emit('typing_stop', { conversationId })
-        isTypingRef.current = false
-      }
-    }
+    stopTyping()
 
     onSend(trimmed || '', imageBase64 || null, fileData || null)
     setText('')

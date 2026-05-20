@@ -138,8 +138,7 @@ function ChatPage() {
   )
 
   const otherMemberId = otherMember?._id?.toString()
-  const myActiveStatus = user?.showActiveStatus !== false
-  const isOtherOnline = myActiveStatus && otherMemberId ? onlineUsers.some((id) => id.toString() === otherMemberId) : false
+  const isOtherOnline = otherMemberId ? onlineUsers.some((id) => id.toString() === otherMemberId) : false
   const [lastSeen, setLastSeen] = useState(null)
 
   useEffect(() => {
@@ -230,7 +229,7 @@ function ChatPage() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={handleToggleCollapse}
           onOpenProfile={() => setShowProfileModal(true)}
-          onlineUsers={myActiveStatus ? onlineUsers : []}
+          onlineUsers={onlineUsers}
         />
         <div
           className="sidebar-resize-handle"
