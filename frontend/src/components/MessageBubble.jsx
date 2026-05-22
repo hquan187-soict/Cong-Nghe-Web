@@ -217,8 +217,10 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       await messageService.editMessage(message._id, editText.trim())
       setIsEditing(false)
     } catch (err) {
-      setEditLoading(false)
       console.error('Edit message error:', err)
+    } finally {
+      setEditLoading(false)
+      setIsEditing(false)
     }
   }
 
@@ -264,7 +266,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               <Trash2 size={14} />
               <span>{isOwn ? 'Thu hồi tin nhắn' : 'Xóa tin nhắn'}</span>
             </button>
-            {isOwn && (
+            {isOwn && (((new Date() - new Date(message.createdAt))) < 5 * 60 * 1000) && (
               <button className="message-actions__dropdown-item" onClick={handleEdit}>
                 <Edit3 size={14} />
                 <span>Sửa tin nhắn</span>
