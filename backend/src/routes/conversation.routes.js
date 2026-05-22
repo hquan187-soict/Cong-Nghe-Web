@@ -6,6 +6,11 @@ import {
   updateConversation,
   addMember,
   leaveGroup,
+  removeMember,
+  updateAddMemberPermission,
+  requestAddMember,
+  approveRequest,
+  rejectRequest,
 } from "../controllers/conversation.controller.js";
 
 const router = express.Router();
@@ -15,5 +20,10 @@ router.get("/", protect, getConversations);
 router.put("/:id", protect, updateConversation);
 router.post("/:id/members", protect, addMember);
 router.post("/:id/leave", protect, leaveGroup);
+router.post("/:id/remove-member", protect, removeMember);
+router.put("/:id/add-member-permission", protect, updateAddMemberPermission);
+router.post("/:id/request-add-member", protect, requestAddMember);
+router.post("/:id/approve-request", protect, approveRequest);
+router.post("/:id/reject-request", protect, rejectRequest);
 
 export default router;

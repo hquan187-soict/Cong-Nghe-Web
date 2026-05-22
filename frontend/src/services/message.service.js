@@ -30,4 +30,8 @@ export const messageService = {
   async markAsRead(conversationId) {
     return await axiosInstance.post(`/api/messages/${conversationId}/read`);
   },
+
+  async toggleReaction(messageId, emoji) {
+    return await axiosInstance.post(`/api/messages/${messageId}/reaction`, { emoji });
+  },
 };

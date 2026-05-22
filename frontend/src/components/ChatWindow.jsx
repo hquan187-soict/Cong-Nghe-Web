@@ -5,6 +5,7 @@ import { useSocket } from '../context/SocketContext'
 import { useToast } from '../context/ToastContext'
 import { useLang } from '../context/LangContext'
 import { messageService } from '../services/message.service'
+import { conversationService } from '../services/conversation.service'
 import MessageBubble from './MessageBubble'
 import MessageInput from './chat/MessageInput'
 import TypingIndicator from './chat/TypingIndicator'
@@ -14,7 +15,7 @@ const LIMIT = 20
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
-function ChatWindow({ conversationId, otherMember, onMessageSent }) {
+function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKicked = false }) {
   const { user } = useAuth()
   const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
   const toast = useToast()
@@ -31,6 +32,8 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   const [isOtherTyping, setIsOtherTyping] = useState(false)
   const typingAutoHideRef = useRef(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
+
+  const [membersMap, setMembersMap] = useState({})
 
   // Drag & drop state
   const [dragOver, setDragOver] = useState(false)
@@ -98,6 +101,22 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   }, [conversationId, fetchMessages])
 
   useEffect(() => {
+    if (!isGroup) return
+    const fetchConv = async () => {
+      try {
+        const convs = await conversationService.getConversations()
+        const conv = (Array.isArray(convs) ? convs : []).find(c => c._id === conversationId)
+        if (conv?.members) {
+          const map = {}
+          conv.members.forEach(m => { map[m._id] = m })
+          setMembersMap(map)
+        }
+      } catch {}
+    }
+    fetchConv()
+  }, [conversationId, isGroup])
+
+  useEffect(() => {
     if (!conversationId || conversationId.startsWith('mock_')) return
     messageService.markAsRead(conversationId).catch(() => { })
   }, [conversationId])
@@ -147,27 +166,54 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       setIsOtherTyping(false)
     }
 
+    const handleMessageReaction = ({ conversationId: cId, messageId, reactions }) => {
+      if (cId !== conversationId) return
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId ? { ...msg, reactions } : msg
+        )
+      )
+    }
+
     socket.on('sendMessage', handleNewMessage)
     socket.on('messagesRead', handleMessagesRead)
     socket.on('typing_start', handleTypingStart)
     socket.on('typing_stop', handleTypingStop)
+    socket.on('messageReaction', handleMessageReaction)
 
     return () => {
       socket.off('sendMessage', handleNewMessage)
       socket.off('messagesRead', handleMessagesRead)
       socket.off('typing_start', handleTypingStart)
       socket.off('typing_stop', handleTypingStop)
+      socket.off('messageReaction', handleMessageReaction)
       clearTimeout(typingAutoHideRef.current)
       setIsOtherTyping(false)
       leaveConversation(conversationId)
     }
   }, [conversationId, socket, isConnected, joinConversation, leaveConversation])
 
+  const lastConvIdRef = useRef(null)
+
   useEffect(() => {
-    if (!loading && messages.length > 0 && page === 1) {
+    if (loading || messages.length === 0 || page !== 1) return
+    const isNewConv = lastConvIdRef.current !== conversationId
+    lastConvIdRef.current = conversationId
+
+    const doScroll = () => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
+      }
+    }
+
+    if (isNewConv) {
+      doScroll()
+      requestAnimationFrame(doScroll)
+      setTimeout(doScroll, 50)
+    } else {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
     }
-  }, [loading, conversationId, messages.length])
+  }, [loading, conversationId, messages.length, page])
 
   useEffect(() => {
     if (!loadingMore && prevScrollHeightRef.current > 0 && scrollContainerRef.current) {
@@ -400,18 +446,39 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
           </div>
         ) : (
           messages.map((msg, idx) => {
+            if (msg.messageType === 'system') {
+              return (
+                <div key={msg._id} className="message-system" style={{
+                  textAlign: 'center', padding: '8px 16px', margin: '4px 0',
+                  fontSize: '12px', color: 'var(--color-text-muted)', fontStyle: 'italic'
+                }}>
+                  {msg.text}
+                </div>
+              )
+            }
+
             const msgSenderId = getSenderId(msg.senderId)
             const isOwn = msgSenderId === currentUserId
             const nextMsg = messages[idx + 1]
-            const nextSenderId = nextMsg ? getSenderId(nextMsg.senderId) : null
+            const nextSenderId = nextMsg && nextMsg.messageType !== 'system' ? getSenderId(nextMsg.senderId) : null
             const showAvatar = nextSenderId !== msgSenderId
 
             const prevMsg = messages[idx - 1]
-            const prevSenderId = prevMsg ? getSenderId(prevMsg.senderId) : null
-            const showName = prevSenderId !== msgSenderId
+            const prevSenderId = prevMsg && prevMsg.messageType !== 'system' ? getSenderId(prevMsg.senderId) : null
+            const showName = isGroup && !isOwn && prevSenderId !== msgSenderId
 
-            const senderAvatar = isOwn ? user?.avatar : otherMember?.avatar
-            const senderName = isOwn ? user?.fullName : otherMember?.fullName
+            let senderAvatar, senderName
+            if (isOwn) {
+              senderAvatar = user?.avatar
+              senderName = user?.fullName
+            } else if (isGroup) {
+              const member = membersMap[msgSenderId] || (typeof msg.senderId === 'object' ? msg.senderId : null)
+              senderAvatar = member?.avatar
+              senderName = member?.fullName || otherMember?.fullName
+            } else {
+              senderAvatar = otherMember?.avatar
+              senderName = otherMember?.fullName
+            }
 
             return (
               <MessageBubble
@@ -422,6 +489,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
                 showName={showName}
                 senderAvatar={senderAvatar}
                 senderName={senderName}
+                isKicked={isKicked}
               />
             )
           })
@@ -442,12 +510,21 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
         </button>
       )}
 
-      <MessageInput
-        ref={messageInputRef}
-        onSend={handleSendMessage}
-        disabled={sending}
-        conversationId={conversationId}
-      />
+      {isKicked ? (
+        <div style={{
+          padding: '16px', textAlign: 'center', borderTop: '1px solid var(--color-border-subtle)',
+          color: 'var(--color-text-muted)', fontSize: '14px', background: 'var(--color-surface)'
+        }}>
+          Bạn đã bị buộc rời khỏi nhóm. Bạn không thể thực hiện hành động nào.
+        </div>
+      ) : (
+        <MessageInput
+          ref={messageInputRef}
+          onSend={handleSendMessage}
+          disabled={sending}
+          conversationId={conversationId}
+        />
+      )}
     </div>
   )
 }

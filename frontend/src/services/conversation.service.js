@@ -50,4 +50,24 @@ export const conversationService = {
   async leaveGroup(conversationId) {
     return await axiosInstance.post(`/api/conversations/${conversationId}/leave`);
   },
+
+  async removeMember(conversationId, userId) {
+    return await axiosInstance.post(`/api/conversations/${conversationId}/remove-member`, { userId });
+  },
+
+  async updateAddMemberPermission(conversationId, permission) {
+    return await axiosInstance.put(`/api/conversations/${conversationId}/add-member-permission`, { permission });
+  },
+
+  async requestAddMember(conversationId, userId) {
+    return await axiosInstance.post(`/api/conversations/${conversationId}/request-add-member`, { userId });
+  },
+
+  async approveRequest(conversationId, userId) {
+    return await axiosInstance.post(`/api/conversations/${conversationId}/approve-request`, { userId });
+  },
+
+  async rejectRequest(conversationId, userId) {
+    return await axiosInstance.post(`/api/conversations/${conversationId}/reject-request`, { userId });
+  },
 };

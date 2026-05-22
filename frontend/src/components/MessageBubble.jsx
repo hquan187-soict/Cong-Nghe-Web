@@ -4,6 +4,7 @@ import {
   MoreHorizontal, Reply, Smile, Trash2, Edit3, Flag, X
 } from 'lucide-react'
 import Avatar from './ui/Avatar'
+import { messageService } from '../services/message.service'
 
 function formatTime(dateInput) {
   const date = new Date(dateInput)
@@ -32,14 +33,104 @@ const STATUS_LABELS = {
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡']
 
-function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName }) {
+function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked }) {
+  const [activeTab, setActiveTab] = useState('all')
+
+  const grouped = {}
+  reactions.forEach(r => {
+    if (!grouped[r.emoji]) grouped[r.emoji] = []
+    grouped[r.emoji].push(r)
+  })
+
+  const displayReactions = activeTab === 'all' ? reactions : (grouped[activeTab] || [])
+
+  return (
+    <div className="recall-modal__overlay" onClick={onClose}>
+      <div className="recall-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px' }}>
+        <div className="recall-modal__header">
+          <h3>Cảm xúc về tin nhắn</h3>
+          <button className="recall-modal__close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', padding: '12px 16px', borderBottom: '1px solid var(--color-border-subtle)', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setActiveTab('all')}
+            style={{
+              padding: '4px 12px', borderRadius: '16px', border: 'none', cursor: 'pointer',
+              background: activeTab === 'all' ? 'var(--color-primary-light)' : 'transparent',
+              color: activeTab === 'all' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+              fontWeight: 600, fontSize: '13px'
+            }}
+          >
+            Tất cả {reactions.length}
+          </button>
+          {Object.entries(grouped).map(([emoji, users]) => (
+            <button
+              key={emoji}
+              onClick={() => setActiveTab(emoji)}
+              style={{
+                padding: '4px 12px', borderRadius: '16px', border: 'none', cursor: 'pointer',
+                background: activeTab === emoji ? 'var(--color-primary-light)' : 'transparent',
+                color: activeTab === emoji ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px'
+              }}
+            >
+              {emoji} {users.length}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: '8px 16px', maxHeight: '300px', overflowY: 'auto' }}>
+          {displayReactions.map((r, i) => {
+            const userName = typeof r.userId === 'object' ? r.userId?.fullName : null
+            const userAvatar = typeof r.userId === 'object' ? r.userId?.avatar : null
+            const userId = typeof r.userId === 'object' ? r.userId?._id : r.userId
+            return (
+              <div key={`${userId}-${r.emoji}-${i}`} style={{
+                display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0',
+                borderBottom: '1px solid var(--color-border-subtle)'
+              }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'var(--color-hover-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {userAvatar ? (
+                    <img src={userAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                      {(userName || '?')[0]}
+                    </span>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text)' }}>
+                    {userName || 'Người dùng'}
+                  </div>
+                  {!isKicked && (
+                    <div
+                      style={{ fontSize: '12px', color: 'var(--color-primary)', cursor: 'pointer' }}
+                      onClick={() => onRemoveReaction(r.emoji)}
+                    >
+                      Nhấp để gỡ
+                    </div>
+                  )}
+                </div>
+                <span style={{ fontSize: '24px' }}>{r.emoji}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false }) {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showRecallModal, setShowRecallModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [recallOption, setRecallOption] = useState('everyone')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const [reactions, setReactions] = useState(message.reactions || [])
+  const [showReactionDetail, setShowReactionDetail] = useState(false)
+  const reactions = message.reactions || []
   const moreMenuRef = useRef(null)
   const emojiPickerRef = useRef(null)
 
@@ -68,15 +159,14 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     // TODO: integrate reply
   }
 
-  const handleSelectEmoji = (emoji) => {
-    const existing = reactions.find((r) => r.emoji === emoji)
-    if (existing) {
-      setReactions((prev) => prev.filter((r) => r.emoji !== emoji))
-    } else {
-      setReactions((prev) => [...prev, { emoji, userId: 'self' }])
-    }
+  const handleSelectEmoji = async (emoji) => {
+    if (isKicked) return
     setShowEmojiPicker(false)
-    // TODO: emit reaction via socket/API
+    try {
+      await messageService.toggleReaction(message._id, emoji)
+    } catch (err) {
+      console.error('Toggle reaction error:', err)
+    }
   }
 
   const handleRecall = () => {
@@ -108,7 +198,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     setShowMoreMenu(false)
   }
 
-  const actionButtons = !isRecalled && (
+  const actionButtons = !isRecalled && !isKicked && (
     <div className={`message-actions ${isOwn ? 'message-actions--own' : 'message-actions--other'}`}>
       <div className="message-actions__emoji-wrapper" ref={emojiPickerRef}>
         <button className="message-actions__btn" onClick={() => setShowEmojiPicker((v) => !v)} title="Bày tỏ cảm xúc">
@@ -282,15 +372,27 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         {!isOwn && actionButtons}
       </div>
       {/* Reactions display — below the bubble row */}
-      {!isRecalled && reactions.length > 0 && (
-        <div className={`message-reactions ${isOwn ? 'message-reactions--own' : ''}`}>
-          {reactions.map((r, i) => (
-            <span key={i} className="message-reactions__item" onClick={() => handleSelectEmoji(r.emoji)}>
-              {r.emoji}
-            </span>
-          ))}
-        </div>
-      )}
+      {!isRecalled && reactions.length > 0 && (() => {
+        const grouped = {}
+        reactions.forEach(r => {
+          if (!grouped[r.emoji]) grouped[r.emoji] = []
+          grouped[r.emoji].push(r)
+        })
+        return (
+          <div className={`message-reactions ${isOwn ? 'message-reactions--own' : ''}`}>
+            {Object.entries(grouped).map(([emoji, users]) => (
+              <span
+                key={emoji}
+                className="message-reactions__item"
+                onClick={() => setShowReactionDetail(true)}
+                style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+              >
+                {emoji} {users.length > 1 && <span style={{ fontSize: '11px' }}>{users.length}</span>}
+              </span>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Modal thu hồi tin nhắn (own message) */}
       {showRecallModal && (
@@ -371,6 +473,16 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
             </div>
           </div>
         </div>
+      )}
+
+      {/* Reaction detail modal */}
+      {showReactionDetail && reactions.length > 0 && (
+        <ReactionDetailModal
+          reactions={reactions}
+          onClose={() => setShowReactionDetail(false)}
+          onRemoveReaction={(emoji) => handleSelectEmoji(emoji)}
+          isKicked={isKicked}
+        />
       )}
     </>
   )

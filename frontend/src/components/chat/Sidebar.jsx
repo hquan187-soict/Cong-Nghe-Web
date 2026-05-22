@@ -161,6 +161,36 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!socket?.connected) return
+
+    const handleNewConversation = ({ conversation: newConv }) => {
+      if (!newConv) return
+      setConversations((prev) => {
+        const exists = prev.some((c) => c._id === newConv._id)
+        if (exists) return prev
+        return [newConv, ...prev]
+      })
+    }
+
+    const handleConversationUpdated = ({ conversation: updatedConv }) => {
+      if (!updatedConv) return
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === updatedConv._id ? { ...conv, ...updatedConv } : conv
+        )
+      )
+    }
+
+    socket.on('newConversation', handleNewConversation)
+    socket.on('conversationUpdated', handleConversationUpdated)
+
+    return () => {
+      socket.off('newConversation', handleNewConversation)
+      socket.off('conversationUpdated', handleConversationUpdated)
+    }
+  }, [socket])
+
   const handleSelectConversation = useCallback(async (conv) => {
     onSelectConversation(conv)
     setUnreadMap((prev) => {

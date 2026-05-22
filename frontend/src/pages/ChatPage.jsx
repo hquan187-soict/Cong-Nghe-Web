@@ -5,7 +5,8 @@ import {
   BellOff, Search, ChevronDown, Lock, Sparkles,
   Palette, AtSign, SmilePlus, Image, FileText,
   ShieldBan, Flag, ChevronRight, Users, LogOut,
-  Camera, Loader2, UserPlus, Plus
+  Camera, Loader2, UserPlus, Plus, MoreVertical,
+  MessageCircle, UserMinus, Shield, Check
 } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
@@ -154,7 +155,13 @@ function ChatPage() {
       try {
         const users = await userService.searchUsers(query.trim())
         const memberIds = selectedConversation.members.map(m => m._id?.toString())
-        const filtered = (Array.isArray(users) ? users : []).filter(u => !memberIds.includes(u._id?.toString()))
+        const pendingIds = (selectedConversation.pendingRequests || []).map(r => {
+          const uid = r.userId
+          return typeof uid === 'object' ? uid._id?.toString() : uid?.toString()
+        })
+        const filtered = (Array.isArray(users) ? users : []).filter(u =>
+          !memberIds.includes(u._id?.toString()) && !pendingIds.includes(u._id?.toString())
+        )
         setAddMemberResults(filtered)
       } catch (err) {
         console.error('Search users error:', err)
@@ -167,22 +174,189 @@ function ChatPage() {
   const handleAddMember = async (userId) => {
     setIsAddingMember(true)
     try {
-      const updatedConv = await conversationService.addMember(selectedConversation._id, userId)
+      const adminIds = (selectedConversation.admins || []).map(a => typeof a === 'object' ? a._id?.toString() : a?.toString())
+      const currentIsAdmin = adminIds.includes(currentUserId)
+      const needsApproval = selectedConversation.addMemberPermission === 'admin' && !currentIsAdmin
+
+      if (needsApproval) {
+        const updatedConv = await conversationService.requestAddMember(selectedConversation._id, userId)
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+        if (sidebarRef.current?.updateConversationDetails) {
+          sidebarRef.current.updateConversationDetails(updatedConv)
+        }
+        toast.success(t('chat.requestSent') || 'Đã gửi yêu cầu thêm thành viên!')
+      } else {
+        const updatedConv = await conversationService.addMember(selectedConversation._id, userId)
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+        if (sidebarRef.current?.updateConversationDetails) {
+          sidebarRef.current.updateConversationDetails(updatedConv)
+        }
+        toast.success(t('chat.memberAdded') || 'Đã thêm thành viên!')
+      }
+      setAddMemberQuery('')
+      setAddMemberResults([])
+    } catch (err) {
+      console.error('Add member error:', err)
+      toast.error(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi thêm thành viên.')
+    } finally {
+      setIsAddingMember(false)
+    }
+  }
+
+  const handleApproveRequest = async (userId) => {
+    try {
+      const updatedConv = await conversationService.approveRequest(selectedConversation._id, userId)
       setSelectedConversation(updatedConv)
       localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
       if (sidebarRef.current?.updateConversationDetails) {
         sidebarRef.current.updateConversationDetails(updatedConv)
       }
-      toast.success(t('chat.memberAdded') || 'Đã thêm thành viên!')
-      setAddMemberQuery('')
-      setAddMemberResults([])
+      toast.success(t('chat.requestApproved') || 'Đã duyệt yêu cầu!')
     } catch (err) {
-      console.error('Add member error:', err)
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi thêm thành viên.')
-    } finally {
-      setIsAddingMember(false)
+      toast.error(err.response?.data?.message || err.message || 'Có lỗi xảy ra')
     }
   }
+
+  const handleRejectRequest = async (userId) => {
+    try {
+      const updatedConv = await conversationService.rejectRequest(selectedConversation._id, userId)
+      setSelectedConversation(updatedConv)
+      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      toast.success(t('chat.requestRejected') || 'Đã từ chối yêu cầu!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Có lỗi xảy ra')
+    }
+  }
+
+  const currentUserId = user?._id?.toString()
+  const isGroup = selectedConversation?.isGroup
+
+  const [isKicked, setIsKicked] = useState(false)
+  const [memberMenuId, setMemberMenuId] = useState(null)
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(null)
+  const [isRemovingMember, setIsRemovingMember] = useState(false)
+  const memberMenuRef = useRef(null)
+
+  useEffect(() => {
+    if (!selectedConversation || !isGroup || !currentUserId) {
+      setIsKicked(false)
+      return
+    }
+    const isMember = selectedConversation.members?.some(
+      m => (m._id || m).toString() === currentUserId
+    )
+    const isRemoved = selectedConversation.removedMembers?.some(
+      id => (id._id || id).toString() === currentUserId
+    )
+    setIsKicked(!isMember && isRemoved)
+  }, [selectedConversation, isGroup, currentUserId])
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (memberMenuRef.current && !memberMenuRef.current.contains(e.target)) {
+        setMemberMenuId(null)
+      }
+    }
+    if (memberMenuId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [memberMenuId])
+
+  const handleRemoveMember = async (userId) => {
+    setIsRemovingMember(true)
+    try {
+      const updatedConv = await conversationService.removeMember(selectedConversation._id, userId)
+      setSelectedConversation(updatedConv)
+      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      toast.success(t('chat.memberRemoved') || 'Đã xóa thành viên!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Có lỗi xảy ra')
+    } finally {
+      setIsRemovingMember(false)
+      setShowRemoveConfirm(null)
+      setMemberMenuId(null)
+    }
+  }
+
+  const handleToggleAddMemberPermission = async () => {
+    if (!selectedConversation) return
+    const newPerm = selectedConversation.addMemberPermission === 'admin' ? 'anyone' : 'admin'
+    try {
+      const updatedConv = await conversationService.updateAddMemberPermission(selectedConversation._id, newPerm)
+      setSelectedConversation(updatedConv)
+      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      toast.success(newPerm === 'admin'
+        ? (t('chat.permissionAdminOnly') || 'Chỉ quản trị viên mới có thể thêm thành viên')
+        : (t('chat.permissionAnyone') || 'Ai cũng có thể thêm thành viên'))
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    }
+  }
+
+  const handleMessageMember = (member) => {
+    setMemberMenuId(null)
+    const createAndNavigate = async () => {
+      try {
+        const conv = await conversationService.createConversation(member._id)
+        handleSelectConversation(conv)
+        setShowInfoPanel(false)
+      } catch (err) {
+        toast.error('Không thể tạo cuộc trò chuyện')
+      }
+    }
+    createAndNavigate()
+  }
+
+  // Listen for real-time conversation updates and kicked events
+  useEffect(() => {
+    if (!socket?.connected) return
+
+    const handleConversationUpdated = ({ conversation: updatedConv }) => {
+      if (!updatedConv) return
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      if (selectedConvIdRef.current === updatedConv._id) {
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      }
+    }
+
+    const handleRemovedFromGroup = ({ conversationId: convId }) => {
+      if (selectedConvIdRef.current === convId) {
+        setIsKicked(true)
+      }
+    }
+
+    const handleNewConversation = ({ conversation: newConv }) => {
+      if (!newConv) return
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(newConv)
+      }
+    }
+
+    socket.on('conversationUpdated', handleConversationUpdated)
+    socket.on('removedFromGroup', handleRemovedFromGroup)
+    socket.on('newConversation', handleNewConversation)
+
+    return () => {
+      socket.off('conversationUpdated', handleConversationUpdated)
+      socket.off('removedFromGroup', handleRemovedFromGroup)
+      socket.off('newConversation', handleNewConversation)
+    }
+  }, [socket, isConnected])
 
   const [showInfoPanel, setShowInfoPanel] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
@@ -283,8 +457,6 @@ function ChatPage() {
 
   const sidebarRef = useRef(null)
 
-  const currentUserId = user?._id?.toString()
-  const isGroup = selectedConversation?.isGroup
   const otherMember = selectedConversation?.members?.find(
     (m) => m._id?.toString() !== currentUserId
   )
@@ -435,15 +607,13 @@ function ChatPage() {
                   ? (isGroup ? (selectedConversation.name || selectedConversation.groupName) : (otherMember?.fullName || t('chat.title')))
                   : t('chat.title')}
               </h2>
-              {selectedConversation && (
+              {selectedConversation && !isGroup && (
                 <span className="chat-header__status">
-                  {isGroup 
-                    ? t('chat.membersOnline').replace('{online}', groupMembersOnline) + ` (${selectedConversation.members.length} ${t('chat.members')})`
-                    : (isOtherOnline
-                      ? t('chat.activeNow')
-                      : lastSeen
-                        ? formatLastActive(lastSeen, lang)
-                        : '')}
+                  {isOtherOnline
+                    ? t('chat.activeNow')
+                    : lastSeen
+                      ? formatLastActive(lastSeen, lang)
+                      : ''}
                 </span>
               )}
             </div>
@@ -491,6 +661,7 @@ function ChatPage() {
               otherMember={otherMember}
               isGroup={isGroup}
               onMessageSent={handleMessageSent}
+              isKicked={isKicked}
             />
           ) : (
             <div className="chat-empty-state">
@@ -744,7 +915,13 @@ function ChatPage() {
                               }}
                             >
                               {isAddingMember ? <Loader2 className="animate-spin" size={12} /> : <Plus size={12} />}
-                              {t('chat.addBtn') || 'Thêm'}
+                              {(() => {
+                                const aIds = (selectedConversation.admins || []).map(a => typeof a === 'object' ? a._id?.toString() : a?.toString());
+                                const isAdm = aIds.includes(currentUserId);
+                                return (selectedConversation.addMemberPermission === 'admin' && !isAdm)
+                                  ? 'Yêu cầu'
+                                  : (t('chat.addBtn') || 'Thêm');
+                              })()}
                             </button>
                           </div>
                         ))}
@@ -756,22 +933,155 @@ function ChatPage() {
                       </div>
                     )}
 
+                    {/* Admin permission toggle */}
+                    {(() => {
+                      const adminIds = (selectedConversation.admins || []).map(a => typeof a === 'object' ? a._id?.toString() : a?.toString());
+                      const currentIsAdmin = adminIds.includes(currentUserId);
+                      if (!currentIsAdmin) return null;
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', borderRadius: '8px', background: 'var(--color-hover-bg)', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Shield size={14} color="var(--color-primary)" />
+                            <span style={{ fontSize: '12px', color: 'var(--color-text)' }}>
+                              {selectedConversation.addMemberPermission === 'admin'
+                                ? (t('chat.onlyAdminCanAdd') || 'Chỉ QTV thêm thành viên')
+                                : (t('chat.anyoneCanAdd') || 'Ai cũng có thể thêm')}
+                            </span>
+                          </div>
+                          <button
+                            onClick={handleToggleAddMemberPermission}
+                            style={{
+                              padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer',
+                              background: 'var(--color-primary)', color: 'white', fontSize: '11px', fontWeight: 600
+                            }}
+                          >
+                            {t('chat.toggle') || 'Đổi'}
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Pending requests (visible to admins) */}
+                    {(() => {
+                      const adminIds = (selectedConversation.admins || []).map(a => typeof a === 'object' ? a._id?.toString() : a?.toString());
+                      const currentIsAdmin = adminIds.includes(currentUserId);
+                      const pending = selectedConversation.pendingRequests || [];
+                      if (!currentIsAdmin || pending.length === 0) return null;
+                      return (
+                        <div style={{ marginBottom: '8px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-muted)', padding: '4px 8px', marginBottom: '4px' }}>
+                            {t('chat.pendingRequests') || 'Yêu cầu chờ duyệt'} ({pending.length})
+                          </div>
+                          {pending.map((req) => {
+                            const pendingUser = req.userId;
+                            const requester = req.requestedBy;
+                            const pendingName = typeof pendingUser === 'object' ? pendingUser.fullName : '';
+                            const pendingAvatar = typeof pendingUser === 'object' ? pendingUser.avatar : null;
+                            const pendingId = typeof pendingUser === 'object' ? pendingUser._id : pendingUser;
+                            const requesterName = typeof requester === 'object' ? requester.fullName : '';
+                            return (
+                              <div key={pendingId} style={{
+                                display: 'flex', alignItems: 'center', gap: '10px', padding: '8px',
+                                borderRadius: '8px', background: 'var(--color-hover-bg)', marginBottom: '4px'
+                              }}>
+                                <Avatar src={pendingAvatar} alt={pendingName} size="sm" />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {pendingName}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                                    {t('chat.requestedBy') || 'Được yêu cầu thêm bởi'} {requesterName}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handleApproveRequest(pendingId)}
+                                  title={t('chat.approveRequest') || 'Đồng ý'}
+                                  style={{
+                                    width: '28px', height: '28px', borderRadius: '50%', border: 'none',
+                                    background: '#27ae60', color: 'white', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}
+                                >
+                                  <Check size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleRejectRequest(pendingId)}
+                                  title={t('chat.rejectRequest') || 'Từ chối'}
+                                  style={{
+                                    width: '28px', height: '28px', borderRadius: '50%', border: 'none',
+                                    background: '#e74c3c', color: 'white', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
                     {/* Member list */}
                     {selectedConversation.members?.map((m) => {
                       const isOnline = onlineUsers.some(id => id.toString() === m._id.toString());
                       const adminIds = (selectedConversation.admins || []).map(a => typeof a === 'object' ? a._id?.toString() : a?.toString());
-                      const isAdmin = adminIds.includes(m._id?.toString());
+                      const isMemberAdmin = adminIds.includes(m._id?.toString());
+                      const currentIsAdmin = adminIds.includes(currentUserId);
+                      const isSelf = m._id?.toString() === currentUserId;
                       return (
-                        <div key={m._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}>
+                        <div key={m._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s', position: 'relative' }}>
                           <Avatar src={m.avatar} alt={m.fullName} size="sm" isOnline={isOnline} />
                           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {m.fullName}
                             </span>
-                            {isAdmin && (
+                            {isMemberAdmin && (
                               <span style={{ fontSize: '11px', color: 'var(--color-primary)', fontWeight: 600 }}>{t('chat.admin')}</span>
                             )}
                           </div>
+                          {!isSelf && (
+                            <div style={{ position: 'relative' }} ref={memberMenuId === m._id ? memberMenuRef : null}>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setMemberMenuId(memberMenuId === m._id ? null : m._id) }}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '4px', color: 'var(--color-text-muted)' }}
+                              >
+                                <MoreVertical size={16} />
+                              </button>
+                              {memberMenuId === m._id && (
+                                <div style={{
+                                  position: 'absolute', right: 0, top: '100%', zIndex: 100,
+                                  background: 'var(--color-surface)', borderRadius: '8px',
+                                  boxShadow: '0 4px 16px rgba(0,0,0,0.15)', minWidth: '180px',
+                                  border: '1px solid var(--color-border-subtle)', overflow: 'hidden'
+                                }}>
+                                  <button
+                                    onClick={() => handleMessageMember(m)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '13px', color: 'var(--color-text)' }}
+                                  >
+                                    <MessageCircle size={14} />
+                                    <span>{t('contacts.sendMessage') || 'Nhắn tin'}</span>
+                                  </button>
+                                  <button
+                                    onClick={() => { setMemberMenuId(null); navigate('/contacts') }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '13px', color: 'var(--color-text)' }}
+                                  >
+                                    <User size={14} />
+                                    <span>{t('chat.viewProfile') || 'Xem thông tin'}</span>
+                                  </button>
+                                  {currentIsAdmin && !isMemberAdmin && (
+                                    <button
+                                      onClick={() => { setMemberMenuId(null); setShowRemoveConfirm(m) }}
+                                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '13px', color: '#e74c3c' }}
+                                    >
+                                      <UserMinus size={14} />
+                                      <span>{t('chat.removeMember') || 'Xóa thành viên'}</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -879,6 +1189,50 @@ function ChatPage() {
             )}
           </div>
         </aside>
+      )}
+
+      {/* Remove member confirm modal */}
+      {showRemoveConfirm && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }} onClick={() => setShowRemoveConfirm(null)}>
+          <div style={{
+            background: 'var(--color-surface)', borderRadius: '12px', padding: '24px',
+            maxWidth: '400px', width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '16px', color: 'var(--color-text)' }}>
+              {t('chat.confirmRemoveMember') || 'Xóa thành viên'}
+            </h3>
+            <p style={{ margin: '0 0 20px', fontSize: '14px', color: 'var(--color-text-muted)' }}>
+              {t('chat.confirmRemoveDesc') || `Bạn có chắc chắn muốn xóa ${showRemoveConfirm.fullName} khỏi nhóm?`}
+            </p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowRemoveConfirm(null)}
+                style={{
+                  padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                  background: 'var(--color-hover-bg)', color: 'var(--color-text)', fontSize: '14px', fontWeight: 600
+                }}
+              >
+                {t('profile.cancel') || 'Không'}
+              </button>
+              <button
+                onClick={() => handleRemoveMember(showRemoveConfirm._id)}
+                disabled={isRemovingMember}
+                style={{
+                  padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                  background: '#e74c3c', color: 'white', fontSize: '14px', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                {isRemovingMember && <Loader2 className="animate-spin" size={14} />}
+                {t('chat.confirmYes') || 'Có'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <ProfileModal

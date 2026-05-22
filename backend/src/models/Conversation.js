@@ -38,6 +38,27 @@ const conversationSchema = new mongoose.Schema(
       ref: "Message",
       default: null,
     },
+
+    addMemberPermission: {
+      type: String,
+      enum: ["anyone", "admin"],
+      default: "anyone",
+    },
+
+    removedMembers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    pendingRequests: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );
