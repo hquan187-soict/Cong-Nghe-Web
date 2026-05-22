@@ -1640,6 +1640,27 @@ a:hover {
   color: var(--color-primary);
 }
 
+.info-panel__edit-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.info-panel__edit-btn:hover {
+  background: var(--color-hover-bg);
+  border-color: var(--color-text-muted);
+  color: var(--color-primary);
+}
+
 .info-panel__sections {
   display: flex;
   flex-direction: column;

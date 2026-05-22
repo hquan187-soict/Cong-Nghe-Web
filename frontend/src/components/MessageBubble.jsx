@@ -46,6 +46,8 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   const time = formatTime(message.createdAt)
   const status = message.status || 'sent'
   const file = message.file
+  const isRecalled = message.isRecalled;
+  const isEdited = message.isEdited;
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -106,7 +108,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     setShowMoreMenu(false)
   }
 
-  const actionButtons = (
+  const actionButtons = !isRecalled && (
     <div className={`message-actions ${isOwn ? 'message-actions--own' : 'message-actions--other'}`}>
       <div className="message-actions__emoji-wrapper" ref={emojiPickerRef}>
         <button className="message-actions__btn" onClick={() => setShowEmojiPicker((v) => !v)} title="Bày tỏ cảm xúc">
@@ -159,6 +161,82 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     </div>
   )
 
+  const renderMessageContent = () => {
+    if (isRecalled) {
+      return (
+        <p className="message-bubble__text message-bubble--recalled" style={{ fontStyle: 'italic', color: 'var(--color-text-muted)' }}>
+          Tin nhắn đã bị thu hồi
+        </p>
+      )
+    }
+
+    return (
+      <>
+        {message.replyTo && (
+          <div className="message-bubble__reply-preview" style={{
+            fontSize: '12px',
+            padding: '6px 8px',
+            background: 'var(--color-hover-bg)',
+            borderRadius: '4px',
+            marginBottom: '4px',
+            color: 'var(--color-text-secondary)',
+            borderLeft: '3px solid var(--color-primary)'
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '2px' }}>{message.replyTo.senderName || 'Người dùng'}</div>
+            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
+              {message.replyTo.text || 'Đã gửi một tệp/ảnh'}
+            </div>
+          </div>
+        )}
+
+        {message.image && (
+          <div className="message-bubble__image-wrapper">
+            {!imgLoaded && <div className="message-bubble__image-placeholder" />}
+            <img
+              src={message.image}
+              alt="attachment"
+              className={`message-bubble__image ${imgLoaded ? '' : 'message-bubble__image--loading'}`}
+              onLoad={() => setImgLoaded(true)}
+              onClick={() => window.open(message.image, '_blank')}
+            />
+          </div>
+        )}
+
+        {file && (file.url || file.name) && (
+          file.url ? (
+            <a
+              href={file.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`message-bubble__file ${isOwn ? 'message-bubble__file--own' : ''}`}
+            >
+              <FileText size={28} className="message-bubble__file-icon" />
+              <div className="message-bubble__file-info">
+                <span className="message-bubble__file-name">{file.name || 'file'}</span>
+                {file.size > 0 && (
+                  <span className="message-bubble__file-size">{formatFileSize(file.size)}</span>
+                )}
+              </div>
+              <Download size={16} className="message-bubble__file-download" />
+            </a>
+          ) : (
+            <div className={`message-bubble__file ${isOwn ? 'message-bubble__file--own' : ''}`}>
+              <FileText size={28} className="message-bubble__file-icon" />
+              <div className="message-bubble__file-info">
+                <span className="message-bubble__file-name">{file.name || 'file'}</span>
+                {file.size > 0 && (
+                  <span className="message-bubble__file-size">{formatFileSize(file.size)}</span>
+                )}
+              </div>
+            </div>
+          )
+        )}
+
+        {message.text && <p className="message-bubble__text">{message.text}</p>}
+      </>
+    )
+  }
+
   return (
     <>
       {showName && !isOwn && senderName && (
@@ -181,53 +259,13 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
             status === 'sending' ? 'message-bubble--sending' : ''
           }`}
         >
-          {message.image && (
-            <div className="message-bubble__image-wrapper">
-              {!imgLoaded && <div className="message-bubble__image-placeholder" />}
-              <img
-                src={message.image}
-                alt="attachment"
-                className={`message-bubble__image ${imgLoaded ? '' : 'message-bubble__image--loading'}`}
-                onLoad={() => setImgLoaded(true)}
-                onClick={() => window.open(message.image, '_blank')}
-              />
-            </div>
-          )}
-
-          {file && (file.url || file.name) && (
-            file.url ? (
-              <a
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`message-bubble__file ${isOwn ? 'message-bubble__file--own' : ''}`}
-              >
-                <FileText size={28} className="message-bubble__file-icon" />
-                <div className="message-bubble__file-info">
-                  <span className="message-bubble__file-name">{file.name || 'file'}</span>
-                  {file.size > 0 && (
-                    <span className="message-bubble__file-size">{formatFileSize(file.size)}</span>
-                  )}
-                </div>
-                <Download size={16} className="message-bubble__file-download" />
-              </a>
-            ) : (
-              <div className={`message-bubble__file ${isOwn ? 'message-bubble__file--own' : ''}`}>
-                <FileText size={28} className="message-bubble__file-icon" />
-                <div className="message-bubble__file-info">
-                  <span className="message-bubble__file-name">{file.name || 'file'}</span>
-                  {file.size > 0 && (
-                    <span className="message-bubble__file-size">{formatFileSize(file.size)}</span>
-                  )}
-                </div>
-              </div>
-            )
-          )}
-
-          {message.text && <p className="message-bubble__text">{message.text}</p>}
+          {renderMessageContent()}
 
           <div className="message-bubble__footer">
-            <span className="message-bubble__time">{time}</span>
+            <span className="message-bubble__time">
+              {isEdited && !isRecalled && <span className="message-bubble__edited" style={{ fontStyle: 'italic', marginRight: '4px' }}>(đã chỉnh sửa)</span>}
+              {time}
+            </span>
             {isOwn && (
               <span
                 className={`message-bubble__status message-bubble__status--${status}`}
@@ -244,7 +282,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         {!isOwn && actionButtons}
       </div>
       {/* Reactions display — below the bubble row */}
-      {reactions.length > 0 && (
+      {!isRecalled && reactions.length > 0 && (
         <div className={`message-reactions ${isOwn ? 'message-reactions--own' : ''}`}>
           {reactions.map((r, i) => (
             <span key={i} className="message-reactions__item" onClick={() => handleSelectEmoji(r.emoji)}>

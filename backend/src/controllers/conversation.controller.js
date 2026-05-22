@@ -2,6 +2,138 @@ import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import User from "../models/User.js";
 import Message from "../models/Message.js";
+import cloudinary from "../lib/cloudinary.js";
+
+export const addMember = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+      const error = new Error("ID không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation || !conversation.isGroup) {
+      const error = new Error("Nhóm không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không phải thành viên nhóm.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const alreadyMember = conversation.members.some(
+      (mId) => mId.toString() === userId.toString()
+    );
+    if (alreadyMember) {
+      const error = new Error("Người dùng đã là thành viên nhóm.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const userToAdd = await User.findById(userId);
+    if (!userToAdd) {
+      const error = new Error("Người dùng không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    conversation.members.push(userId);
+    await conversation.save();
+
+    const updated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    return res.status(200).json(updated);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const leaveGroup = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation || !conversation.isGroup) {
+      const error = new Error("Nhóm không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không phải thành viên nhóm.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    conversation.members = conversation.members.filter(
+      (mId) => mId.toString() !== currentUserId.toString()
+    );
+
+    const wasAdmin = conversation.admins.some(
+      (aId) => aId.toString() === currentUserId.toString()
+    );
+    if (wasAdmin) {
+      conversation.admins = conversation.admins.filter(
+        (aId) => aId.toString() !== currentUserId.toString()
+      );
+      if (conversation.admins.length === 0 && conversation.members.length > 0) {
+        conversation.admins.push(conversation.members[0]);
+      }
+    }
+
+    if (conversation.members.length < 2) {
+      await Conversation.findByIdAndDelete(id);
+      return res.status(200).json({ deleted: true, message: "Nhóm đã bị xóa vì không đủ thành viên." });
+    }
+
+    await conversation.save();
+
+    const updated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    return res.status(200).json(updated);
+  } catch (error) {
+    return next(error);
+  }
+};
 
 export const createConversation = async (req, res, next) => {
   try {
@@ -45,10 +177,13 @@ export const createConversation = async (req, res, next) => {
     const allMembers = [currentUserId, ...uniqueIds];
     const isGroup = allMembers.length > 2;
 
-    if (isGroup && !name?.trim()) {
-      const error = new Error("Tên nhóm là bắt buộc.");
-      error.statusCode = 400;
-      throw error;
+    let finalName = name?.trim();
+    if (isGroup && !finalName) {
+      const lastNames = [req.user, ...users].map(u => {
+        const parts = u.fullName?.trim().split(/\s+/);
+        return parts ? parts[parts.length - 1] : "";
+      }).filter(Boolean);
+      finalName = lastNames.join(", ");
     }
 
     if (!isGroup) {
@@ -68,7 +203,7 @@ export const createConversation = async (req, res, next) => {
     const conversation = await Conversation.create({
       members: allMembers,
       isGroup,
-      name: isGroup ? name.trim() : undefined,
+      name: isGroup ? finalName : undefined,
       avatar: avatar || null,
       admins: isGroup ? [currentUserId] : [],
     });
@@ -119,6 +254,89 @@ export const getConversations = async (req, res, next) => {
     );
 
     return res.status(200).json(conversationsWithUnreadCount);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateConversation = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { name, avatar } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (!conversation.isGroup) {
+      const error = new Error("Chỉ có thể cập nhật thông tin cho nhóm.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const updateData = {};
+    if (name !== undefined) {
+      if (typeof name !== "string") {
+        const error = new Error("Tên nhóm phải là chuỗi.");
+        error.statusCode = 400;
+        throw error;
+      }
+      updateData.name = name.trim();
+    }
+
+    if (avatar !== undefined) {
+      if (avatar === null || avatar === "") {
+        updateData.avatar = null;
+      } else {
+        const avatarUrl = await cloudinary.uploader.upload(avatar, {
+          folder: "avatars",
+          public_id: `group_avatar_${conversation._id}`,
+        });
+        updateData.avatar = avatarUrl.secure_url;
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      const error = new Error("Không có dữ liệu hợp lệ để cập nhật.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const updatedConversation = await Conversation.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    )
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    return res.status(200).json(updatedConversation);
   } catch (error) {
     return next(error);
   }

@@ -1,16 +1,19 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   User, MessageSquare, Phone, Video, Info, X,
   BellOff, Search, ChevronDown, Lock, Sparkles,
   Palette, AtSign, SmilePlus, Image, FileText,
-  ShieldBan, Flag, ChevronRight
+  ShieldBan, Flag, ChevronRight, Users, LogOut,
+  Camera, Loader2, UserPlus, Plus
 } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { formatLastActive } from '../utils/timeUtils'
 import { userService } from '../services/user.service'
+import { conversationService } from '../services/conversation.service'
+import { useToast } from '../context/ToastContext'
 
 import Sidebar from '../components/chat/Sidebar'
 import ChatWindow from '../components/ChatWindow'
@@ -24,6 +27,13 @@ function ChatPage() {
   const { conversationId: urlConversationId } = useParams()
   const navigate = useNavigate()
 
+  const toast = useToast()
+  const avatarInputRef = useRef(null)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editNameValue, setEditNameValue] = useState('')
+  const [isUpdatingName, setIsUpdatingName] = useState(false)
+  const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false)
+
   const [selectedConversation, setSelectedConversation] = useState(() => {
     try {
       const saved = localStorage.getItem('last_conversation')
@@ -32,6 +42,147 @@ function ChatPage() {
       return null
     }
   })
+
+  // Sync edit name state when selected conversation changes
+  useEffect(() => {
+    if (selectedConversation) {
+      setEditNameValue(selectedConversation.name || selectedConversation.groupName || '')
+      setIsEditingName(false)
+    }
+  }, [selectedConversation])
+
+  const handleSaveName = async () => {
+    if (!editNameValue.trim() || isUpdatingName) return
+    setIsUpdatingName(true)
+    try {
+      const updatedConv = await conversationService.updateGroup(selectedConversation._id, {
+        name: editNameValue.trim()
+      })
+      setSelectedConversation(updatedConv)
+      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      toast.success(t('chat.groupNameUpdated') || 'Cập nhật tên nhóm thành công!')
+      setIsEditingName(false)
+    } catch (err) {
+      console.error('Update group name error:', err)
+      const msg = err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật tên nhóm.'
+      toast.error(msg)
+    } finally {
+      setIsUpdatingName(false)
+    }
+  }
+
+  const handleTriggerAvatarUpload = () => {
+    avatarInputRef.current?.click()
+  }
+
+  const handleAvatarFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Limit file size to 5MB (similar to user avatar updates)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước ảnh tối đa là 5MB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const base64Image = reader.result
+      setIsUpdatingAvatar(true)
+      try {
+        const updatedConv = await conversationService.updateGroup(selectedConversation._id, {
+          avatar: base64Image
+        })
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+
+        if (sidebarRef.current?.updateConversationDetails) {
+          sidebarRef.current.updateConversationDetails(updatedConv)
+        }
+        toast.success(t('chat.groupAvatarUpdated') || 'Cập nhật ảnh nhóm thành công!')
+      } catch (err) {
+        console.error('Update group avatar error:', err)
+        const msg = err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật ảnh nhóm.'
+        toast.error(msg)
+      } finally {
+        setIsUpdatingAvatar(false)
+      }
+    }
+    reader.onerror = () => {
+      toast.error('Có lỗi xảy ra khi đọc tệp ảnh.')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleLeaveGroup = async () => {
+    if (!window.confirm(t('chat.leaveGroupConfirm') || 'Bạn có chắc chắn muốn rời nhóm?')) return
+    try {
+      await conversationService.leaveGroup(selectedConversation._id)
+      if (sidebarRef.current?.removeConversation) {
+        sidebarRef.current.removeConversation(selectedConversation._id)
+      }
+      setSelectedConversation(null)
+      localStorage.removeItem('last_conversation')
+      navigate('/chat', { replace: true })
+      toast.success(t('chat.leftGroup') || 'Đã rời nhóm thành công!')
+    } catch (err) {
+      console.error('Leave group error:', err)
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi rời nhóm.')
+    }
+  }
+
+  const [showAddMemberSearch, setShowAddMemberSearch] = useState(false)
+  const [addMemberQuery, setAddMemberQuery] = useState('')
+  const [addMemberResults, setAddMemberResults] = useState([])
+  const [isSearchingMember, setIsSearchingMember] = useState(false)
+  const [isAddingMember, setIsAddingMember] = useState(false)
+  const addMemberTimerRef = useRef(null)
+
+  const handleAddMemberSearch = (query) => {
+    setAddMemberQuery(query)
+    if (addMemberTimerRef.current) clearTimeout(addMemberTimerRef.current)
+    if (!query.trim() || query.trim().length < 2) {
+      setAddMemberResults([])
+      return
+    }
+    addMemberTimerRef.current = setTimeout(async () => {
+      setIsSearchingMember(true)
+      try {
+        const users = await userService.searchUsers(query.trim())
+        const memberIds = selectedConversation.members.map(m => m._id?.toString())
+        const filtered = (Array.isArray(users) ? users : []).filter(u => !memberIds.includes(u._id?.toString()))
+        setAddMemberResults(filtered)
+      } catch (err) {
+        console.error('Search users error:', err)
+      } finally {
+        setIsSearchingMember(false)
+      }
+    }, 300)
+  }
+
+  const handleAddMember = async (userId) => {
+    setIsAddingMember(true)
+    try {
+      const updatedConv = await conversationService.addMember(selectedConversation._id, userId)
+      setSelectedConversation(updatedConv)
+      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      toast.success(t('chat.memberAdded') || 'Đã thêm thành viên!')
+      setAddMemberQuery('')
+      setAddMemberResults([])
+    } catch (err) {
+      console.error('Add member error:', err)
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi thêm thành viên.')
+    } finally {
+      setIsAddingMember(false)
+    }
+  }
 
   const [showInfoPanel, setShowInfoPanel] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
@@ -133,6 +284,7 @@ function ChatPage() {
   const sidebarRef = useRef(null)
 
   const currentUserId = user?._id?.toString()
+  const isGroup = selectedConversation?.isGroup
   const otherMember = selectedConversation?.members?.find(
     (m) => m._id?.toString() !== currentUserId
   )
@@ -141,8 +293,14 @@ function ChatPage() {
   const isOtherOnline = otherMemberId ? onlineUsers.some((id) => id.toString() === otherMemberId) : false
   const [lastSeen, setLastSeen] = useState(null)
 
+  // Group calculations
+  const groupMembersOnline = useMemo(() => {
+    if (!isGroup || !selectedConversation.members) return 0;
+    return selectedConversation.members.filter(m => onlineUsers.some(id => id.toString() === m._id.toString())).length;
+  }, [isGroup, selectedConversation, onlineUsers]);
+
   useEffect(() => {
-    if (!otherMemberId) return
+    if (!otherMemberId || isGroup) return
     if (isOtherOnline) {
       setLastSeen(null)
       return
@@ -156,7 +314,7 @@ function ChatPage() {
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [otherMemberId, isOtherOnline])
+  }, [otherMemberId, isOtherOnline, isGroup])
 
   useEffect(() => {
     if (!socket?.connected) return
@@ -171,10 +329,10 @@ function ChatPage() {
 
   const [, forceUpdate] = useState(0)
   useEffect(() => {
-    if (isOtherOnline || !lastSeen) return
+    if (isOtherOnline || !lastSeen || isGroup) return
     const interval = setInterval(() => forceUpdate((n) => n + 1), 60000)
     return () => clearInterval(interval)
-  }, [isOtherOnline, lastSeen])
+  }, [isOtherOnline, lastSeen, isGroup])
 
   useEffect(() => {
     if (!socket?.connected) return
@@ -215,9 +373,39 @@ function ChatPage() {
   }
 
   const [infoChatOpen, setInfoChatOpen] = useState(false)
+  const [infoMembersOpen, setInfoMembersOpen] = useState(true) // For groups
   const [infoCustomizeOpen, setInfoCustomizeOpen] = useState(false)
   const [infoMediaOpen, setInfoMediaOpen] = useState(false)
   const [infoPrivacyOpen, setInfoPrivacyOpen] = useState(false)
+
+  const renderHeaderAvatar = () => {
+    const hasCustomAvatar = isGroup && !!(selectedConversation.avatar || selectedConversation.groupAvatar);
+    if (isGroup && !hasCustomAvatar) {
+      const membersToAvatar = selectedConversation.members.filter(m => m._id !== currentUserId).slice(0, 2);
+      if (membersToAvatar.length >= 2) {
+        return (
+          <div style={{ position: 'relative', width: '36px', height: '36px', marginRight: '8px' }}>
+            <div style={{ position: 'absolute', top: 0, right: 0, zIndex: 1, border: '2px solid var(--color-surface)', borderRadius: '50%' }}>
+              <Avatar src={membersToAvatar[0].avatar} alt={membersToAvatar[0].fullName} size="sm" style={{ width: '24px', height: '24px' }} />
+            </div>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, zIndex: 2, border: '2px solid var(--color-surface)', borderRadius: '50%' }}>
+              <Avatar src={membersToAvatar[1].avatar} alt={membersToAvatar[1].fullName} size="sm" style={{ width: '24px', height: '24px' }} />
+            </div>
+          </div>
+        );
+      }
+    }
+    return (
+      <div className="chat-header__avatar">
+        <Avatar
+          src={isGroup ? (selectedConversation.avatar || selectedConversation.groupAvatar) : otherMember?.avatar}
+          alt={isGroup ? (selectedConversation.name || selectedConversation.groupName) : (otherMember?.fullName || '?')}
+          size="sm"
+          isOnline={!isGroup && isOtherOnline}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="chat-layout">
@@ -228,7 +416,6 @@ function ChatPage() {
           onSelectConversation={handleSelectConversation}
           collapsed={sidebarCollapsed}
           onToggleCollapse={handleToggleCollapse}
-          onOpenProfile={() => setShowProfileModal(true)}
           onlineUsers={onlineUsers}
         />
         <div
@@ -241,53 +428,50 @@ function ChatPage() {
       <main className="chat-main">
         <header className="chat-header">
           <div className="chat-header__left">
-            {selectedConversation && otherMember ? (
-              <div className="chat-header__avatar">
-                <Avatar
-                  src={otherMember.avatar}
-                  alt={otherMember.fullName || '?'}
-                  size="sm"
-                  isOnline={isOtherOnline}
-                />
-              </div>
-            ) : null}
+            {selectedConversation && renderHeaderAvatar()}
             <div className="chat-header__user-info">
               <h2>
                 {selectedConversation
-                  ? otherMember?.fullName || t('chat.title')
+                  ? (isGroup ? (selectedConversation.name || selectedConversation.groupName) : (otherMember?.fullName || t('chat.title')))
                   : t('chat.title')}
               </h2>
-              {selectedConversation && otherMember && (
+              {selectedConversation && (
                 <span className="chat-header__status">
-                  {isOtherOnline
-                    ? t('chat.activeNow')
-                    : lastSeen
-                      ? formatLastActive(lastSeen, lang)
-                      : ''}
+                  {isGroup 
+                    ? t('chat.membersOnline').replace('{online}', groupMembersOnline) + ` (${selectedConversation.members.length} ${t('chat.members')})`
+                    : (isOtherOnline
+                      ? t('chat.activeNow')
+                      : lastSeen
+                        ? formatLastActive(lastSeen, lang)
+                        : '')}
                 </span>
               )}
             </div>
           </div>
           {selectedConversation && (
             <div className="chat-header__right">
-              <button
-                type="button"
-                className="chat-header__icon-btn tooltip-wrapper"
-                onClick={handleVoiceCall}
-                title={t('chat.comingSoon')}
-              >
-                <Phone size={20} />
-                <span className="tooltip">{t('chat.voiceCall')}</span>
-              </button>
-              <button
-                type="button"
-                className="chat-header__icon-btn tooltip-wrapper"
-                onClick={handleVideoCall}
-                title={t('chat.comingSoon')}
-              >
-                <Video size={20} />
-                <span className="tooltip">{t('chat.videoCall')}</span>
-              </button>
+              {!isGroup && (
+                <>
+                  <button
+                    type="button"
+                    className="chat-header__icon-btn tooltip-wrapper"
+                    onClick={handleVoiceCall}
+                    title={t('chat.comingSoon')}
+                  >
+                    <Phone size={20} />
+                    <span className="tooltip">{t('chat.voiceCall')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="chat-header__icon-btn tooltip-wrapper"
+                    onClick={handleVideoCall}
+                    title={t('chat.comingSoon')}
+                  >
+                    <Video size={20} />
+                    <span className="tooltip">{t('chat.videoCall')}</span>
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 className={`chat-header__icon-btn tooltip-wrapper ${showInfoPanel ? 'chat-header__icon-btn--active' : ''}`}
@@ -305,6 +489,7 @@ function ChatPage() {
             <ChatWindow
               conversationId={selectedConversation._id}
               otherMember={otherMember}
+              isGroup={isGroup}
               onMessageSent={handleMessageSent}
             />
           ) : (
@@ -334,29 +519,141 @@ function ChatPage() {
           </div>
 
           <div className="info-panel__profile">
-            <div className="info-panel__avatar">
-              <Avatar
-                src={otherMember?.avatar}
-                alt={otherMember?.fullName || '?'}
-                size="lg"
-                isOnline={isOtherOnline}
-              />
+            <div className="info-panel__avatar" style={{ display: 'flex', justifyContent: 'center' }}>
+              {isUpdatingAvatar ? (
+                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Loader2 className="animate-spin" size={28} color="var(--color-primary)" />
+                </div>
+              ) : isGroup ? (
+                (selectedConversation.avatar || selectedConversation.groupAvatar) ? (
+                  <Avatar
+                    src={selectedConversation.avatar || selectedConversation.groupAvatar}
+                    alt={selectedConversation.name || selectedConversation.groupName || '?'}
+                    size="lg"
+                  />
+                ) : (
+                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--color-primary-light)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Users size={40} />
+                  </div>
+                )
+              ) : (
+                <Avatar
+                  src={otherMember?.avatar}
+                  alt={otherMember?.fullName || '?'}
+                  size="lg"
+                  isOnline={isOtherOnline}
+                />
+              )}
             </div>
-            <h3 className="info-panel__name">{otherMember?.fullName || t('chat.unknownUser')}</h3>
+            {isEditingName ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', padding: '0 16px' }}>
+                <input
+                  type="text"
+                  value={editNameValue}
+                  onChange={(e) => setEditNameValue(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--color-primary)',
+                    background: 'var(--color-bg)',
+                    color: 'var(--color-text)',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                  autoFocus
+                  placeholder="Nhập tên nhóm..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveName();
+                    if (e.key === 'Escape') setIsEditingName(false);
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={handleSaveName}
+                    style={{
+                      padding: '6px 12px',
+                      background: 'var(--color-primary)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    disabled={isUpdatingName}
+                  >
+                    {isUpdatingName && <Loader2 className="animate-spin" size={12} />}
+                    Lưu
+                  </button>
+                  <button
+                    onClick={() => setIsEditingName(false)}
+                    style={{
+                      padding: '6px 12px',
+                      background: 'var(--color-hover-bg)',
+                      color: 'var(--color-text)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <h3 className="info-panel__name">
+                {isGroup ? (selectedConversation.name || selectedConversation.groupName) : (otherMember?.fullName || t('chat.unknownUser'))}
+              </h3>
+            )}
             <div className="info-panel__encryption">
               <Lock size={12} />
               <span>{t('chat.endToEndEncrypted')}</span>
             </div>
+            {isGroup && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>
+                <button
+                  className="info-panel__edit-btn"
+                  onClick={() => setIsEditingName(true)}
+                  title="Đổi tên nhóm"
+                >
+                  <Palette size={14} />
+                  <span>Đổi tên nhóm</span>
+                </button>
+                <button
+                  className="info-panel__edit-btn"
+                  onClick={handleTriggerAvatarUpload}
+                  title="Đổi avatar nhóm"
+                >
+                  <Camera size={14} />
+                  <span>Đổi avatar nhóm</span>
+                </button>
+                <input
+                  type="file"
+                  ref={avatarInputRef}
+                  style={{ display: 'none' }}
+                  accept="image/*"
+                  onChange={handleAvatarFileChange}
+                />
+              </div>
+            )}
           </div>
 
           <div className="info-panel__quick-actions">
-            <button
-              className="info-panel__quick-btn"
-              onClick={() => setShowProfileModal(true)}
-            >
-              <div className="info-panel__quick-icon"><User size={20} /></div>
-              <span>{t('chat.viewProfile')}</span>
-            </button>
+            {!isGroup && (
+              <button
+                className="info-panel__quick-btn"
+                onClick={() => setShowProfileModal(true)}
+              >
+                <div className="info-panel__quick-icon"><User size={20} /></div>
+                <span>{t('chat.viewProfile')}</span>
+              </button>
+            )}
             <button
               className="info-panel__quick-btn"
               title={t('chat.comingSoon')}
@@ -374,20 +671,133 @@ function ChatPage() {
           </div>
 
           <div className="info-panel__sections">
-            <button
-              className="info-panel__section-toggle"
-              onClick={() => setInfoChatOpen((v) => !v)}
-            >
-              <span>{t('chat.chatInfo')}</span>
-              <ChevronDown size={16} className={infoChatOpen ? 'info-panel__chevron--open' : ''} />
-            </button>
-            {infoChatOpen && (
-              <div className="info-panel__section-content">
-                <div className="info-panel__detail-row">
-                  <span className="info-panel__detail-label">{t('profile.email')}</span>
-                  <span className="info-panel__detail-value">{otherMember?.email || '—'}</span>
-                </div>
-              </div>
+            {isGroup && (
+              <>
+                <button
+                  className="info-panel__section-toggle"
+                  onClick={() => setInfoMembersOpen((v) => !v)}
+                >
+                  <span>{t('chat.groupMembers')} ({selectedConversation.members?.length || 0})</span>
+                  <ChevronDown size={16} className={infoMembersOpen ? 'info-panel__chevron--open' : ''} />
+                </button>
+                {infoMembersOpen && (
+                  <div className="info-panel__section-content" style={{ padding: '0 8px 16px' }}>
+                    {/* Add member button */}
+                    <button
+                      onClick={() => setShowAddMemberSearch(v => !v)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px', padding: '8px',
+                        borderRadius: '8px', cursor: 'pointer', border: 'none',
+                        background: 'transparent', width: '100%', transition: 'background 0.15s',
+                        color: 'var(--color-primary)'
+                      }}
+                    >
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        background: 'var(--color-primary-light)', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <UserPlus size={16} />
+                      </div>
+                      <span style={{ fontSize: '14px', fontWeight: 500 }}>
+                        {t('chat.addMember') || 'Thêm thành viên'}
+                      </span>
+                    </button>
+
+                    {showAddMemberSearch && (
+                      <div style={{ padding: '4px 8px 8px' }}>
+                        <input
+                          type="text"
+                          value={addMemberQuery}
+                          onChange={(e) => handleAddMemberSearch(e.target.value)}
+                          placeholder={t('chat.searchUser') || 'Tìm kiếm người dùng...'}
+                          autoFocus
+                          style={{
+                            width: '100%', padding: '8px 12px', borderRadius: '8px',
+                            border: '1px solid var(--color-border-subtle)',
+                            background: 'var(--color-bg)', color: 'var(--color-text)',
+                            fontSize: '13px', outline: 'none'
+                          }}
+                        />
+                        {isSearchingMember && (
+                          <div style={{ padding: '8px', textAlign: 'center' }}>
+                            <Loader2 className="animate-spin" size={16} color="var(--color-primary)" />
+                          </div>
+                        )}
+                        {addMemberResults.map(u => (
+                          <div key={u._id} style={{
+                            display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 4px',
+                            borderRadius: '6px', cursor: 'pointer'
+                          }}>
+                            <Avatar src={u.avatar} alt={u.fullName} size="sm" />
+                            <span style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {u.fullName}
+                            </span>
+                            <button
+                              onClick={() => handleAddMember(u._id)}
+                              disabled={isAddingMember}
+                              style={{
+                                padding: '4px 10px', borderRadius: '6px', border: 'none',
+                                background: 'var(--color-primary)', color: 'white',
+                                fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '4px'
+                              }}
+                            >
+                              {isAddingMember ? <Loader2 className="animate-spin" size={12} /> : <Plus size={12} />}
+                              {t('chat.addBtn') || 'Thêm'}
+                            </button>
+                          </div>
+                        ))}
+                        {addMemberQuery.trim().length >= 2 && !isSearchingMember && addMemberResults.length === 0 && (
+                          <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', padding: '8px', textAlign: 'center' }}>
+                            {t('chat.noResults')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Member list */}
+                    {selectedConversation.members?.map((m) => {
+                      const isOnline = onlineUsers.some(id => id.toString() === m._id.toString());
+                      const adminIds = (selectedConversation.admins || []).map(a => typeof a === 'object' ? a._id?.toString() : a?.toString());
+                      const isAdmin = adminIds.includes(m._id?.toString());
+                      return (
+                        <div key={m._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}>
+                          <Avatar src={m.avatar} alt={m.fullName} size="sm" isOnline={isOnline} />
+                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {m.fullName}
+                            </span>
+                            {isAdmin && (
+                              <span style={{ fontSize: '11px', color: 'var(--color-primary)', fontWeight: 600 }}>{t('chat.admin')}</span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {!isGroup && (
+              <>
+                <button
+                  className="info-panel__section-toggle"
+                  onClick={() => setInfoChatOpen((v) => !v)}
+                >
+                  <span>{t('chat.chatInfo')}</span>
+                  <ChevronDown size={16} className={infoChatOpen ? 'info-panel__chevron--open' : ''} />
+                </button>
+                {infoChatOpen && (
+                  <div className="info-panel__section-content">
+                    <div className="info-panel__detail-row">
+                      <span className="info-panel__detail-label">{t('profile.email')}</span>
+                      <span className="info-panel__detail-value">{otherMember?.email || '—'}</span>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <button
@@ -450,10 +860,17 @@ function ChatPage() {
             </button>
             {infoPrivacyOpen && (
               <div className="info-panel__section-content">
-                <button className="info-panel__action-row info-panel__action-row--danger">
-                  <ShieldBan size={16} />
-                  <span>{t('chat.blockUser')}</span>
-                </button>
+                {isGroup ? (
+                  <button className="info-panel__action-row info-panel__action-row--danger" onClick={handleLeaveGroup}>
+                    <LogOut size={16} />
+                    <span>{t('chat.leaveGroup')}</span>
+                  </button>
+                ) : (
+                  <button className="info-panel__action-row info-panel__action-row--danger">
+                    <ShieldBan size={16} />
+                    <span>{t('chat.blockUser')}</span>
+                  </button>
+                )}
                 <button className="info-panel__action-row info-panel__action-row--danger">
                   <Flag size={16} />
                   <span>{t('chat.reportConversation')}</span>

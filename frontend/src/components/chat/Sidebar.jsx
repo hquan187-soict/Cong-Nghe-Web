@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall } from 'lucide-react'
+import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus } from 'lucide-react'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
 import { useLang } from '../../context/LangContext'
@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext'
 import { userService } from '../../services/user.service'
 import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
+import CreateGroupModal from './CreateGroupModal'
 import '../../styles/sidebar.css'
 
 const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onlineUsers = [] }, ref) {
@@ -26,6 +27,8 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const [conversations, setConversations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showSearchModal, setShowSearchModal] = useState(false)
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
+  
   const [showSettings, setShowSettings] = useState(false)
   const [showAccessibility, setShowAccessibility] = useState(false)
   const [showActiveStatus, setShowActiveStatus] = useState(false)
@@ -33,6 +36,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     const saved = localStorage.getItem('active_status_enabled')
     return saved !== null ? saved === 'true' : true
   })
+  
   const settingsRef = useRef(null)
   const settingsBtnRef = useRef(null)
   const dropdownRef = useRef(null)
@@ -44,6 +48,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const [activeStatusPanelStyle, setActiveStatusPanelStyle] = useState({})
 
   const [unreadMap, setUnreadMap] = useState({})
+  const [pinMap, setPinMap] = useState({})
+  const [muteMap, setMuteMap] = useState({})
+  const [activeFilter, setActiveFilter] = useState('all') // 'all' | 'unread'
 
   useImperativeHandle(ref, () => ({
     updateLastMessage(conversationId, lastMessage) {
@@ -57,7 +64,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
               }
             : conv
         )
-        updated.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+        // Note: we don't need to sort here because useMemo handles the view sorting
         return updated
       })
     },
@@ -75,6 +82,18 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         ...prev,
         [conversationId]: (prev[conversationId] || 0) + 1,
       }))
+    },
+
+    updateConversationDetails(updatedConv) {
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === updatedConv._id ? { ...conv, ...updatedConv } : conv
+        )
+      )
+    },
+
+    removeConversation(conversationId) {
+      setConversations((prev) => prev.filter((conv) => conv._id !== conversationId))
     },
   }), [])
 
@@ -111,13 +130,22 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         if (!cancelled) {
           const list = Array.isArray(data) ? data : []
           setConversations(list)
+          
           const uMap = {}
+          const pMap = {}
+          const mMap = {}
+          
           list.forEach((conv) => {
             if (conv.unreadCount && conv.unreadCount > 0) {
               uMap[conv._id] = conv.unreadCount
             }
+            if (conv.isPinned) pMap[conv._id] = true
+            if (conv.isMuted) mMap[conv._id] = true
           })
+          
           setUnreadMap(uMap)
+          setPinMap(pMap)
+          setMuteMap(mMap)
         }
       } catch (err) {
         console.error('Fetch conversations error:', err)
@@ -141,7 +169,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       delete next[conv._id]
       return next
     })
-    if (!conv._id.startsWith('mock_')) {
+    if (!conv._id.startsWith('mock_') && !conv._id.startsWith('conv_')) {
       try {
         await messageService.markAsRead(conv._id)
       } catch (err) {
@@ -161,8 +189,36 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       }
       return [newConversation, ...prev]
     })
+    
+    // Copy initial pinned/muted status
+    if (newConversation.isPinned) setPinMap(prev => ({ ...prev, [newConversation._id]: true }))
+    if (newConversation.isMuted) setMuteMap(prev => ({ ...prev, [newConversation._id]: true }))
+    
     onSelectConversation(newConversation)
   }, [onSelectConversation])
+
+  const handlePin = useCallback((convId) => {
+    setPinMap(prev => ({ ...prev, [convId]: !prev[convId] }))
+  }, [])
+
+  const handleMute = useCallback((convId) => {
+    setMuteMap(prev => ({ ...prev, [convId]: !prev[convId] }))
+  }, [])
+
+  const handleLeaveGroup = useCallback(async (convId) => {
+    if (!window.confirm(t('chat.leaveGroupConfirm') || 'Bạn có chắc chắn muốn rời nhóm?')) return
+    try {
+      await conversationService.leaveGroup(convId)
+      setConversations(prev => prev.filter(c => c._id !== convId))
+      if (selectedConversation?._id === convId) {
+        onSelectConversation(null)
+      }
+      toast.success(t('chat.leftGroup') || 'Đã rời nhóm thành công!')
+    } catch (err) {
+      console.error('Leave group error:', err)
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi rời nhóm.')
+    }
+  }, [selectedConversation, onSelectConversation, t, toast])
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -221,10 +277,74 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     setShowSearchModal(true)
   }
 
+  // Filter and Sort logic
+  const displayedConversations = useMemo(() => {
+    let filtered = conversations
+    
+    // 1. Filter
+    if (activeFilter === 'unread') {
+      filtered = filtered.filter(conv => (unreadMap[conv._id] || 0) > 0)
+    }
+    
+    // 2. Map properties from local state maps for rendering
+    filtered = filtered.map(conv => ({
+      ...conv,
+      isPinned: !!pinMap[conv._id],
+      isMuted: !!muteMap[conv._id]
+    }))
+
+    // 3. Sort (pinned first, then by updatedAt)
+    return filtered.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1
+      if (!a.isPinned && b.isPinned) return 1
+      
+      const timeA = new Date(a.lastMessage?.createdAt || a.updatedAt || 0).getTime()
+      const timeB = new Date(b.lastMessage?.createdAt || b.updatedAt || 0).getTime()
+      return timeB - timeA
+    })
+  }, [conversations, unreadMap, pinMap, muteMap, activeFilter])
+
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
+      {/* Top Nav */}
+      {collapsed ? (
+        <div className="sidebar-nav-vertical" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)', width: '100%', alignItems: 'center' }}>
+          <button 
+            className="sidebar-nav__tab-vertical sidebar-nav__tab-vertical--active" 
+            style={{ width: '40px', height: '40px', background: 'var(--color-primary-light)', border: 'none', borderRadius: '50%', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title={t('chat.title')}
+          >
+            <MessageSquare size={20} />
+          </button>
+          <button 
+            className="sidebar-nav__tab-vertical"
+            style={{ width: '40px', height: '40px', background: 'transparent', border: 'none', borderRadius: '50%', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => navigate('/contacts')}
+            title={t('contacts.title')}
+          >
+            <Users size={20} />
+          </button>
+        </div>
+      ) : (
+        <div className="sidebar-nav" style={{ display: 'flex', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)' }}>
+          <button 
+            className="sidebar-nav__tab sidebar-nav__tab--active" 
+            style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid var(--color-primary)', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
+          >
+            <MessageSquare size={18} /> {t('chat.title')}
+          </button>
+          <button 
+            className="sidebar-nav__tab"
+            style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
+            onClick={() => navigate('/contacts')}
+          >
+            <Users size={18} /> {t('contacts.title')}
+          </button>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="sidebar__header">
+      <div className="sidebar__header" style={collapsed ? {} : { paddingBottom: '8px' }}>
         <div className="sidebar__header-left">
           <button
             className="sidebar__profile-btn"
@@ -244,23 +364,55 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           </button>
           {!collapsed && (
             <h2 className="sidebar__title">
-              <MessageCircle size={18} />
               {t('chat.conversations')}
             </h2>
           )}
         </div>
+        {!collapsed && (
+          <div className="sidebar__header-right" style={{ display: 'flex', gap: '4px' }}>
+            <button 
+              className="sidebar__icon-btn" 
+              onClick={() => setShowCreateGroupModal(true)}
+              title={t('chat.createGroup')}
+            >
+              <UserPlus size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Search bar */}
+      {/* Search bar & Filters */}
       {!collapsed && (
-        <div className="sidebar__search">
-          <div className="sidebar__search-bar" onClick={handleSearchBarClick}>
-            <Search size={16} className="sidebar__search-icon" />
-            <span className="sidebar__search-placeholder">
-              {t('chat.searchPlaceholder')}
-            </span>
+        <>
+          <div className="sidebar__search" style={{ paddingBottom: '8px' }}>
+            <div className="sidebar__search-bar" onClick={handleSearchBarClick}>
+              <Search size={16} className="sidebar__search-icon" />
+              <span className="sidebar__search-placeholder">
+                {t('chat.searchPlaceholder')}
+              </span>
+            </div>
           </div>
-        </div>
+          <div className="sidebar-filter" style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
+            <button 
+              onClick={() => setActiveFilter('all')}
+              style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                background: activeFilter === 'all' ? 'var(--color-primary-light)' : 'transparent',
+                color: activeFilter === 'all' ? 'var(--color-primary)' : 'var(--color-text-muted)'
+              }}
+            >
+              {t('chat.filterAll')}
+            </button>
+            <button 
+              onClick={() => setActiveFilter('unread')}
+              style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                background: activeFilter === 'unread' ? 'var(--color-primary-light)' : 'transparent',
+                color: activeFilter === 'unread' ? 'var(--color-primary)' : 'var(--color-text-muted)'
+              }}
+            >
+              {t('chat.filterUnread')}
+            </button>
+          </div>
+        </>
       )}
 
       <div className="sidebar__divider" />
@@ -283,7 +435,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           </div>
         )}
 
-        {!isLoading && conversations.length === 0 && (
+        {!isLoading && displayedConversations.length === 0 && (
           <div className="sidebar__empty">
             <MessageCircle size={40} className="sidebar__empty-icon" />
             {!collapsed && (
@@ -295,7 +447,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           </div>
         )}
 
-        {!isLoading && conversations.map((conv) => (
+        {!isLoading && displayedConversations.map((conv) => (
           <ConversationItem
             key={conv._id}
             conversation={conv}
@@ -304,6 +456,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             unreadCount={unreadMap[conv._id] || 0}
             collapsed={collapsed}
             onlineUsers={onlineUsers}
+            onPin={handlePin}
+            onMute={handleMute}
+            onLeaveGroup={handleLeaveGroup}
           />
         ))}
       </div>
@@ -422,7 +577,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
       )}
 
-      {/* Accessibility sub-panel — positioned to the right of settings */}
+      {/* Accessibility sub-panel */}
       {showAccessibility && showSettings && (
         <div className="sidebar__a11y-panel" ref={a11yPanelRef} style={a11yPanelStyle}>
           <div className="sidebar__settings-header">
@@ -474,7 +629,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
       )}
 
-      {/* Active Status sub-panel — positioned to the right of settings */}
+      {/* Active Status sub-panel */}
       {showActiveStatus && showSettings && (
         <div className="sidebar__active-status-panel" ref={activeStatusPanelRef} style={activeStatusPanelStyle}>
           <div className="sidebar__settings-header">
@@ -505,6 +660,13 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
         onConversationCreated={handleConversationCreated}
+      />
+      
+      {/* Create Group Modal */}
+      <CreateGroupModal 
+        isOpen={showCreateGroupModal}
+        onClose={() => setShowCreateGroupModal(false)}
+        onGroupCreated={handleConversationCreated}
       />
     </aside>
   )
