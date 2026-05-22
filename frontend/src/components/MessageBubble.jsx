@@ -122,14 +122,17 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
   )
 }
 
-function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false }) {
+function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, deleteMessage }) {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showRecallModal, setShowRecallModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [recallOption, setRecallOption] = useState('everyone')
+  const [recallOption, setRecallOption] = useState('me')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showReactionDetail, setShowReactionDetail] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState(message.text || '')
+  const [editLoading, setEditLoading] = useState(false)
   const reactions = message.reactions || []
   const moreMenuRef = useRef(null)
   const emojiPickerRef = useRef(null)
@@ -178,19 +181,45 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     }
   }
 
-  const handleConfirmRecall = () => {
-    console.log('[MessageBubble] Recall confirmed, messageId:', message._id, 'option:', recallOption)
+  const handleConfirmRecall = async () => {
+    const type = recallOption === 'all' ? 'all' : 'me'
+    await messageService.deleteMessage(message._id, type)
+    if (type === 'me') {
+      deleteMessage(message._id)
+    }
     setShowRecallModal(false)
   }
 
-  const handleConfirmDelete = () => {
-    console.log('[MessageBubble] Delete other\'s message confirmed, messageId:', message._id)
+  const handleConfirmDelete = async () => {
+    await messageService.deleteMessage(message._id, 'me')
+    deleteMessage(message._id)
     setShowDeleteConfirm(false)
   }
 
   const handleEdit = () => {
-    console.log('[MessageBubble] Edit clicked, messageId:', message._id)
+    setEditText(message.text || '')
+    setIsEditing(true)
     setShowMoreMenu(false)
+  }
+
+  const handleEditCancel = () => {
+    setIsEditing(false)
+    setEditText(message.text || '')
+  }
+
+  const handleEditSave = async () => {
+    if (!editText.trim() || editText === message.text) {
+      setIsEditing(false)
+      return
+    }
+    setEditLoading(true)
+    try {
+      await messageService.editMessage(message._id, editText.trim())
+      setIsEditing(false)
+    } catch (err) {
+      setEditLoading(false)
+      console.error('Edit message error:', err)
+    }
   }
 
   const handleReport = () => {
@@ -257,6 +286,30 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         <p className="message-bubble__text message-bubble--recalled" style={{ fontStyle: 'italic', color: 'var(--color-text-muted)' }}>
           Tin nhắn đã bị thu hồi
         </p>
+      )
+    }
+
+    if (isEditing) {
+      return (
+        <div className="message-bubble__edit-box">
+          <textarea
+            className="message-bubble__edit-input"
+            value={editText}
+            onChange={e => setEditText(e.target.value)}
+            rows={2}
+            autoFocus
+            disabled={editLoading}
+            style={{ width: '100%', resize: 'vertical', borderRadius: 6, padding: 8, fontSize: 15, border: '1px solid #ccc', background: '#fff' , color: '#333' }}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="message-bubble__edit-btn" onClick={handleEditSave} disabled={editLoading || !editText.trim() || editText === message.text} style={{ background: '#3c8ccd', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 16px', fontWeight: 600 }}>
+              Lưu
+            </button>
+            <button className="message-bubble__edit-btn" onClick={handleEditCancel} disabled={editLoading} style={{ background: '#eee', color: '#333', border: 'none', borderRadius: 4, padding: '4px 16px', fontWeight: 600 }}>
+              Hủy
+            </button>
+          </div>
+        </div>
       )
     }
 
@@ -409,9 +462,9 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
                 <input
                   type="radio"
                   name="recallOption"
-                  value="everyone"
-                  checked={recallOption === 'everyone'}
-                  onChange={() => setRecallOption('everyone')}
+                  value="all"
+                  checked={recallOption === 'all'}
+                  onChange={() => setRecallOption('all')}
                 />
                 <div className="recall-modal__option-content">
                   <span className="recall-modal__option-title">Thu hồi với mọi người</span>
@@ -424,9 +477,9 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
                 <input
                   type="radio"
                   name="recallOption"
-                  value="self"
-                  checked={recallOption === 'self'}
-                  onChange={() => setRecallOption('self')}
+                  value="me"
+                  checked={recallOption === 'me'}
+                  onChange={() => setRecallOption('me')}
                 />
                 <div className="recall-modal__option-content">
                   <span className="recall-modal__option-title">Thu hồi với bạn</span>

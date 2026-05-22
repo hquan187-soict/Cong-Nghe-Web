@@ -43,6 +43,20 @@ const messageSchema = new mongoose.Schema(
         userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
       },
     ],
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
+    isDeletedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    isRecalled: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

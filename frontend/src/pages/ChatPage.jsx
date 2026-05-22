@@ -313,7 +313,7 @@ function ChatPage() {
         handleSelectConversation(conv)
         setShowInfoPanel(false)
       } catch (err) {
-        toast.error('Không thể tạo cuộc trò chuyện')
+        toast.error('Không thể tạo cuộc trò chuyện', err)
       }
     }
     createAndNavigate()

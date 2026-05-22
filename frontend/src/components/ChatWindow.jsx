@@ -175,18 +175,54 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       )
     }
 
+    const handleRecallMessage = ({ conversationId: cId, messageId}) => {
+      if (cId !== conversationId) return;
+        // Thu hồi với mọi người: cập nhật message thành đã thu hồi
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg._id === messageId
+              ? {
+                  ...msg,
+                  text: '',
+                  image: null,
+                  file: null,
+                  isRecalled: true,
+                }
+              : msg
+          )
+        );
+    }
+
+    const handleEditMessage = ({ conversationId: cId, messageId, newText }) => {
+      if (cId !== conversationId) return;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId
+            ? {
+                ...msg,
+                text: newText,
+                isEdited: true,
+              }
+            : msg
+        )
+      );
+    }
+
     socket.on('sendMessage', handleNewMessage)
     socket.on('messagesRead', handleMessagesRead)
     socket.on('typing_start', handleTypingStart)
     socket.on('typing_stop', handleTypingStop)
     socket.on('messageReaction', handleMessageReaction)
-
+    socket.on('messageEdited', handleEditMessage)
+    socket.on('messageRecalled', handleRecallMessage)
     return () => {
       socket.off('sendMessage', handleNewMessage)
       socket.off('messagesRead', handleMessagesRead)
       socket.off('typing_start', handleTypingStart)
       socket.off('typing_stop', handleTypingStop)
       socket.off('messageReaction', handleMessageReaction)
+      socket.off('messageEdited', handleEditMessage)
+      socket.off('messageRecalled', handleRecallMessage)
       clearTimeout(typingAutoHideRef.current)
       setIsOtherTyping(false)
       leaveConversation(conversationId)
@@ -466,7 +502,6 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
             const prevMsg = messages[idx - 1]
             const prevSenderId = prevMsg && prevMsg.messageType !== 'system' ? getSenderId(prevMsg.senderId) : null
             const showName = isGroup && !isOwn && prevSenderId !== msgSenderId
-
             let senderAvatar, senderName
             if (isOwn) {
               senderAvatar = user?.avatar
@@ -490,6 +525,9 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
                 senderAvatar={senderAvatar}
                 senderName={senderName}
                 isKicked={isKicked}
+                deleteMessage={(messageId) => {
+                  setMessages((prev) => prev.filter((m) => m._id !== messageId))
+                }}
               />
             )
           })

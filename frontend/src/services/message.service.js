@@ -34,4 +34,12 @@ export const messageService = {
   async toggleReaction(messageId, emoji) {
     return await axiosInstance.post(`/api/messages/${messageId}/reaction`, { emoji });
   },
+
+  async editMessage(messageId, newText) {
+    return await axiosInstance.put(`/api/messages/${messageId}/edit`, { text: newText });
+  },
+
+  async deleteMessage(messageId, type = 'me') {
+    return await axiosInstance.put(`/api/messages/${messageId}/delete`, { type });
+    },
 };

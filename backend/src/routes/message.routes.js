@@ -5,6 +5,8 @@ import {
   sendMessage,
   markMessagesAsRead,
   toggleReaction,
+  editMessage,
+  deleteMessage,
 } from "../controllers/message.controller.js";
 
 const router = express.Router();
@@ -13,5 +15,7 @@ router.get("/:conversationId", protect, getMessages);
 router.post("/", protect, sendMessage);
 router.post("/:conversationId/read", protect, markMessagesAsRead);
 router.post("/:messageId/reaction", protect, toggleReaction);
+router.put("/:messageId/edit", protect, editMessage);
+router.put("/:messageId/delete", protect, deleteMessage);
 
 export default router;

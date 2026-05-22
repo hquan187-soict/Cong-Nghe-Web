@@ -53,7 +53,11 @@ export const getMessages = async (req, res, next) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
-    const messages = await Message.find({ conversationId })
+    // Lọc các message mà user đã xoá (chỉ mình tôi)
+    const messages = await Message.find({
+      conversationId,
+      isDeletedBy: { $ne: currentUserId },
+    })
       .populate("senderId", "-password")
       .populate("reactions.userId", "fullName avatar")
       .sort({ createdAt: -1 })
@@ -162,22 +166,22 @@ export const sendMessage = async (req, res, next) => {
     const populatedMessage = await Message.findById(message._id)
       .populate("senderId", "-password")
       .populate("readBy", "-password");
-    
+
     conversation.members.forEach((memberId) => {
-            // Không gửi lại cho người vừa gửi tin (dùng currentUserId, không phải senderId)
-            if (memberId.toString() === currentUserId.toString()) return;
-            const receiverSocketId = getReceiverSocketId(memberId.toString());
-            if (receiverSocketId) {
-                io.to(receiverSocketId).emit("sendMessage", {
-                    conversationId: conversation._id.toString(),
-                    message: populatedMessage,
-                    lastMessage: conversation.lastMessage,
-                    updatedAt: conversation.updatedAt,
-                });
-                console.log(`Tin nhắn đã được gửi đến socketId: ${receiverSocketId}`);
-            }
+      // Không gửi lại cho người vừa gửi tin (dùng currentUserId, không phải senderId)
+      if (memberId.toString() === currentUserId.toString()) return;
+      const receiverSocketId = getReceiverSocketId(memberId.toString());
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("sendMessage", {
+          conversationId: conversation._id.toString(),
+          message: populatedMessage,
+          lastMessage: conversation.lastMessage,
+          updatedAt: conversation.updatedAt,
         });
-      
+        console.log(`Tin nhắn đã được gửi đến socketId: ${receiverSocketId}`);
+      }
+    });
+
     return res.status(201).json(populatedMessage);
   } catch (error) {
     return next(error);
@@ -293,6 +297,129 @@ export const markMessagesAsRead = async (req, res, next) => {
       modifiedCount: result.modifiedCount,
       messages,
     });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const editMessage = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { messageId } = req.params;
+    const { text } = req.body;
+    console.log(`[editMessage] messageId: ${messageId}, newText: ${text}, currentUserId: ${currentUserId}`);
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+    if (!text || typeof text !== "string" || !text.trim()) {
+      const error = new Error("Text là bắt buộc và phải là chuỗi không rỗng.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const message = await Message.findById(messageId);
+    if (!message) {
+      const error = new Error("Tin nhắn không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+    if (message.text === "") {
+      const error = new Error("Không thể chỉnh sửa tin nhắn đã bị thu hồi hoặc không có nội dung.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (message.senderId.toString() !== currentUserId.toString()) {
+      const error = new Error("Bạn chỉ có thể chỉnh sửa tin nhắn của chính mình.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    message.text = text;
+    message.isEdited = true;
+    await message.save();
+
+    const conversation = await Conversation.findById(message.conversationId);
+    conversation.members.forEach((memberId) => {
+      const receiverSocketId = getReceiverSocketId(memberId.toString());
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("messageEdited", {
+          conversationId: message.conversationId.toString(),
+          messageId: messageId,
+          newText: text,
+        });
+      }
+    });
+
+    return res.status(200).json(message);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const deleteMessage = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { messageId } = req.params;
+    const { type } = req.body;
+    console.log(`[deleteMessage] messageId: ${messageId}, type: ${type}, currentUserId: ${currentUserId}`);
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      const error = new Error("messageId không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      const error = new Error("Tin nhắn không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (type === "all") {
+      // Xóa vĩnh viễn tin nhắn cho tất cả mọi người
+      if (message.senderId.toString() !== currentUserId.toString()) {
+        const error = new Error("Bạn chỉ có thể xóa tin nhắn của chính mình với loại 'all'.");
+        error.statusCode = 403;
+        throw error;
+      }
+      message.text = "";
+      message.image = null;
+      message.file = null;
+      message.isRecalled = true;
+      await message.save();
+
+      const conversation = await Conversation.findById(message.conversationId);
+      conversation.members.forEach((memberId) => {
+        const receiverSocketId = getReceiverSocketId(memberId.toString());
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit("messageRecalled", {
+            conversationId: message.conversationId.toString(),
+            messageId: messageId,
+          });
+        }
+      });
+    } else if (type === "me") {
+      // Chỉ xóa cho chính mình (ẩn với user này, người khác vẫn thấy) hoặc trường hợp người khác xoá tin nhắn của mình (chỉ xoá với người đó)
+      if (!message.isDeletedBy) message.isDeletedBy = [];
+      if (!message.isDeletedBy.map(id => id.toString()).includes(currentUserId.toString())) {
+        message.isDeletedBy.push(currentUserId);
+        await message.save();
+      }
+    } else {
+      // Trường hợp không xác định, trả về lỗi
+      const error = new Error("Loại xoá không hợp lệ. Chỉ hỗ trợ 'all' hoặc 'me'.");
+      error.statusCode = 400;
+      throw error;
+    }
+    return res.status(200).json({ message: "Tin nhắn đã được xóa." });
   } catch (error) {
     return next(error);
   }
