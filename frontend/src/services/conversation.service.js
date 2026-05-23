@@ -70,4 +70,16 @@ export const conversationService = {
   async rejectRequest(conversationId, userId) {
     return await axiosInstance.post(`/api/conversations/${conversationId}/reject-request`, { userId });
   },
+
+  async updateNickname(conversationId, forUserId, nickname) {
+    return await axiosInstance.put(`/api/conversations/${conversationId}/nickname`, { forUserId, nickname });
+  },
+
+  async toggleMuteConversation(conversationId) {
+    return await axiosInstance.post(`/api/conversations/${conversationId}/toggle-mute`);
+  },
+
+  async toggleArchiveConversation(conversationId) {
+    return await axiosInstance.post(`/api/conversations/${conversationId}/toggle-archive`);
+  }
 };

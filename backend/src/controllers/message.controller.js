@@ -83,7 +83,7 @@ export const getMessages = async (req, res, next) => {
 export const sendMessage = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
-    const { conversationId, text, image, file } = req.body;
+    const { conversationId, text, image, file, replyTo } = req.body;
 
     if (!currentUserId) {
       const error = new Error("Bạn chưa đăng nhập.");
@@ -123,6 +123,14 @@ export const sendMessage = async (req, res, next) => {
       throw error;
     }
 
+    if (replyTo) {
+      if (!mongoose.Types.ObjectId.isValid(replyTo)) {
+        const error = new Error("replyTo không hợp lệ.");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
     const conversation = await checkConversationAccess(
       conversationId,
       currentUserId
@@ -156,6 +164,7 @@ export const sendMessage = async (req, res, next) => {
       text: cleanText,
       image: imageUrl,
       file: fileData,
+      replyTo: replyTo || null,
       readBy: [currentUserId],
     });
 
@@ -165,7 +174,8 @@ export const sendMessage = async (req, res, next) => {
 
     const populatedMessage = await Message.findById(message._id)
       .populate("senderId", "-password")
-      .populate("readBy", "-password");
+      .populate("readBy", "-password")
+      .populate("replyTo", "text senderId");
 
     conversation.members.forEach((memberId) => {
       // Không gửi lại cho người vừa gửi tin (dùng currentUserId, không phải senderId)
@@ -302,6 +312,52 @@ export const markMessagesAsRead = async (req, res, next) => {
   }
 };
 
+export const togglePinMessage = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { messageId } = req.params;
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      const error = new Error("messageId không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      const error = new Error("Tin nhắn không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const conversation = await checkConversationAccess(message.conversationId, currentUserId);
+
+    message.isPinned = !message.isPinned;
+    await message.save();
+
+    conversation.members.forEach((memberId) => {
+      const receiverSocketId = getReceiverSocketId(memberId.toString());
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("messagePinned", {
+          conversationId: message.conversationId.toString(),
+          messageId: messageId,
+          isPinned: message.isPinned,
+        });
+      }
+    });
+
+    return res.status(200).json(message);
+
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const editMessage = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
@@ -340,7 +396,7 @@ export const editMessage = async (req, res, next) => {
     message.isEdited = true;
     await message.save();
 
-    const conversation = await Conversation.findById(message.conversationId);
+    const conversation = await checkConversationAccess(message.conversationId, currentUserId);
     conversation.members.forEach((memberId) => {
       const receiverSocketId = getReceiverSocketId(memberId.toString());
       if (receiverSocketId) {
@@ -396,7 +452,7 @@ export const deleteMessage = async (req, res, next) => {
       message.isRecalled = true;
       await message.save();
 
-      const conversation = await Conversation.findById(message.conversationId);
+      const conversation = await checkConversationAccess(message.conversationId, currentUserId);
       conversation.members.forEach((memberId) => {
         const receiverSocketId = getReceiverSocketId(memberId.toString());
         if (receiverSocketId) {

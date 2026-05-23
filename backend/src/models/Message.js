@@ -43,6 +43,18 @@ const messageSchema = new mongoose.Schema(
         userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
       },
     ],
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+    },
+    isPinned: {
+      type: Boolean,
+      default: false,
+    },
+    isForwarded: {
+      type: Boolean,
+      default: false,
+    },
     isEdited: {
       type: Boolean,
       default: false,
