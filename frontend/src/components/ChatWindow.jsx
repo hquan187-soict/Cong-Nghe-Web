@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Upload, ArrowDown } from 'lucide-react'
+import { Upload, ArrowDown, X, Reply } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { useToast } from '../context/ToastContext'
@@ -15,7 +15,7 @@ const LIMIT = 20
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
-function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKicked = false }) {
+function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKicked = false, conversation: convProp }) {
   const { user } = useAuth()
   const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
   const toast = useToast()
@@ -27,6 +27,9 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [sending, setSending] = useState(false)
+
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState(null)
 
   // Typing indicator state
   const [isOtherTyping, setIsOtherTyping] = useState(false)
@@ -208,6 +211,15 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       );
     }
 
+    const handleMessagePinned = ({ conversationId: cId, messageId, isPinned }) => {
+      if (cId !== conversationId) return;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId ? { ...msg, isPinned } : msg
+        )
+      );
+    }
+
     socket.on('sendMessage', handleNewMessage)
     socket.on('messagesRead', handleMessagesRead)
     socket.on('typing_start', handleTypingStart)
@@ -215,6 +227,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     socket.on('messageReaction', handleMessageReaction)
     socket.on('messageEdited', handleEditMessage)
     socket.on('messageRecalled', handleRecallMessage)
+    socket.on('messagePinned', handleMessagePinned)
     return () => {
       socket.off('sendMessage', handleNewMessage)
       socket.off('messagesRead', handleMessagesRead)
@@ -223,6 +236,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       socket.off('messageReaction', handleMessageReaction)
       socket.off('messageEdited', handleEditMessage)
       socket.off('messageRecalled', handleRecallMessage)
+      socket.off('messagePinned', handleMessagePinned)
       clearTimeout(typingAutoHideRef.current)
       setIsOtherTyping(false)
       leaveConversation(conversationId)
@@ -244,8 +258,12 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
 
     if (isNewConv) {
       doScroll()
-      requestAnimationFrame(doScroll)
-      setTimeout(doScroll, 50)
+      requestAnimationFrame(() => {
+        doScroll()
+        requestAnimationFrame(doScroll)
+      })
+      setTimeout(doScroll, 100)
+      setTimeout(doScroll, 300)
     } else {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
     }
@@ -277,6 +295,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
 
   useEffect(() => {
     setIsOtherTyping(false)
+    setReplyingTo(null)
     clearTimeout(typingAutoHideRef.current)
   }, [conversationId])
 
@@ -311,6 +330,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       if (text) payload.text = text
       if (imageBase64) payload.image = imageBase64
       if (fileData) payload.file = fileData
+      if (replyingTo) payload.replyTo = replyingTo._id
 
       const savedMsg = await messageService.sendMessage(payload)
 
@@ -319,6 +339,8 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
           msg._id === tempId ? { ...savedMsg, status: 'sent' } : msg
         )
       )
+
+      setReplyingTo(null)
 
       if (onMessageSent) {
         onMessageSent({ conversationId, lastMessage: savedMsg })
@@ -330,7 +352,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     } finally {
       setSending(false)
     }
-  }, [conversationId, currentUserId, onMessageSent, toast, t])
+  }, [conversationId, currentUserId, onMessageSent, toast, t, replyingTo])
 
   // Drag & Drop
   const readFileAsBase64 = (file) =>
@@ -503,16 +525,24 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
             const prevSenderId = prevMsg && prevMsg.messageType !== 'system' ? getSenderId(prevMsg.senderId) : null
             const showName = isGroup && !isOwn && prevSenderId !== msgSenderId
             let senderAvatar, senderName
+            const nicknames = convProp?.nicknames
+            const getNickname = (id) => {
+              if (!nicknames || !id) return null
+              if (nicknames instanceof Map) return nicknames.get(id.toString())
+              if (typeof nicknames === 'object') return nicknames[id.toString()]
+              return null
+            }
+
             if (isOwn) {
               senderAvatar = user?.avatar
-              senderName = user?.fullName
+              senderName = getNickname(currentUserId) || user?.fullName
             } else if (isGroup) {
               const member = membersMap[msgSenderId] || (typeof msg.senderId === 'object' ? msg.senderId : null)
               senderAvatar = member?.avatar
-              senderName = member?.fullName || otherMember?.fullName
+              senderName = getNickname(msgSenderId) || member?.fullName || otherMember?.fullName
             } else {
               senderAvatar = otherMember?.avatar
-              senderName = otherMember?.fullName
+              senderName = getNickname(otherMember?._id) || otherMember?.fullName
             }
 
             return (
@@ -525,6 +555,8 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
                 senderAvatar={senderAvatar}
                 senderName={senderName}
                 isKicked={isKicked}
+                onReply={(msg) => setReplyingTo(msg)}
+                scrollContainerRef={scrollContainerRef}
                 deleteMessage={(messageId) => {
                   setMessages((prev) => prev.filter((m) => m._id !== messageId))
                 }}
@@ -556,12 +588,43 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
           Bạn đã bị buộc rời khỏi nhóm. Bạn không thể thực hiện hành động nào.
         </div>
       ) : (
-        <MessageInput
-          ref={messageInputRef}
-          onSend={handleSendMessage}
-          disabled={sending}
-          conversationId={conversationId}
-        />
+        <>
+          {replyingTo && (
+            <div className="chat-window__reply-preview" style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '8px 16px', borderTop: '1px solid var(--color-border-subtle)',
+              background: 'var(--color-surface)'
+            }}>
+              <Reply size={16} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+              <div style={{
+                flex: 1, minWidth: 0, borderLeft: '3px solid var(--color-primary)',
+                paddingLeft: '8px'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-primary)' }}>
+                  {(() => {
+                    const sid = typeof replyingTo.senderId === 'object' ? replyingTo.senderId?._id : replyingTo.senderId
+                    return sid?.toString() === currentUserId ? 'Bạn' : (typeof replyingTo.senderId === 'object' ? replyingTo.senderId?.fullName : null) || 'Người dùng'
+                  })()}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {replyingTo.text || (replyingTo.image ? 'Đã gửi một ảnh' : replyingTo.file ? 'Đã gửi một tệp' : '')}
+                </div>
+              </div>
+              <button
+                onClick={() => setReplyingTo(null)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '4px' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          <MessageInput
+            ref={messageInputRef}
+            onSend={handleSendMessage}
+            disabled={sending}
+            conversationId={conversationId}
+          />
+        </>
       )}
     </div>
   )

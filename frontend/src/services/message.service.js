@@ -45,5 +45,13 @@ export const messageService = {
 
   async deleteMessage(messageId, type = 'me') {
     return await axiosInstance.put(`/api/messages/${messageId}/delete`, { type });
-    },
+  },
+
+  async getPinnedMessages(conversationId) {
+    return await axiosInstance.get(`/api/messages/${conversationId}/pinned`);
+  },
+
+  async forwardMessage(messageId, conversationIds) {
+    return await axiosInstance.post(`/api/messages/${messageId}/forward`, { conversationIds });
+  },
 };

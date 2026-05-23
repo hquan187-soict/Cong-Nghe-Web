@@ -60,6 +60,11 @@ export const getMessages = async (req, res, next) => {
     })
       .populate("senderId", "-password")
       .populate("reactions.userId", "fullName avatar")
+      .populate({
+        path: "replyTo",
+        select: "text senderId image file",
+        populate: { path: "senderId", select: "fullName avatar" },
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit + 1);
@@ -170,12 +175,23 @@ export const sendMessage = async (req, res, next) => {
 
     conversation.lastMessage = message._id;
     conversation.updatedAt = new Date();
+
+    if (conversation.archivedBy && conversation.archivedBy.length > 0) {
+      conversation.archivedBy = conversation.archivedBy.filter(
+        (id) => id.toString() !== currentUserId.toString()
+      );
+    }
+
     await conversation.save();
 
     const populatedMessage = await Message.findById(message._id)
       .populate("senderId", "-password")
       .populate("readBy", "-password")
-      .populate("replyTo", "text senderId");
+      .populate({
+        path: "replyTo",
+        select: "text senderId image file",
+        populate: { path: "senderId", select: "fullName avatar" },
+      });
 
     conversation.members.forEach((memberId) => {
       // Không gửi lại cho người vừa gửi tin (dùng currentUserId, không phải senderId)
@@ -353,6 +369,111 @@ export const togglePinMessage = async (req, res, next) => {
 
     return res.status(200).json(message);
 
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getPinnedMessages = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { conversationId } = req.params;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    await checkConversationAccess(conversationId, currentUserId, true);
+
+    const messages = await Message.find({
+      conversationId,
+      isPinned: true,
+      isDeletedBy: { $ne: currentUserId },
+    })
+      .populate("senderId", "fullName avatar")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json(messages);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const forwardMessage = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { messageId } = req.params;
+    const { conversationIds } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      const error = new Error("messageId không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
+      const error = new Error("conversationIds là bắt buộc.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const originalMessage = await Message.findById(messageId);
+    if (!originalMessage) {
+      const error = new Error("Tin nhắn không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    await checkConversationAccess(originalMessage.conversationId, currentUserId);
+
+    const results = [];
+
+    for (const convId of conversationIds) {
+      const conversation = await checkConversationAccess(convId, currentUserId);
+
+      const forwarded = await Message.create({
+        conversationId: convId,
+        senderId: currentUserId,
+        text: originalMessage.text || "",
+        image: originalMessage.image || null,
+        file: originalMessage.file || null,
+        isForwarded: true,
+        readBy: [currentUserId],
+      });
+
+      conversation.lastMessage = forwarded._id;
+      conversation.updatedAt = new Date();
+      await conversation.save();
+
+      const populatedMessage = await Message.findById(forwarded._id)
+        .populate("senderId", "-password")
+        .populate("readBy", "-password");
+
+      conversation.members.forEach((memberId) => {
+        if (memberId.toString() === currentUserId.toString()) return;
+        const receiverSocketId = getReceiverSocketId(memberId.toString());
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit("sendMessage", {
+            conversationId: convId,
+            message: populatedMessage,
+            lastMessage: conversation.lastMessage,
+            updatedAt: conversation.updatedAt,
+          });
+        }
+      });
+
+      results.push(populatedMessage);
+    }
+
+    return res.status(201).json(results);
   } catch (error) {
     return next(error);
   }

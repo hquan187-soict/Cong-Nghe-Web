@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus } from 'lucide-react'
+import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus, Archive } from 'lucide-react'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
 import { useLang } from '../../context/LangContext'
@@ -50,7 +50,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const [unreadMap, setUnreadMap] = useState({})
   const [pinMap, setPinMap] = useState({})
   const [muteMap, setMuteMap] = useState({})
-  const [activeFilter, setActiveFilter] = useState('all') // 'all' | 'unread'
+  const [activeFilter, setActiveFilter] = useState('all') // 'all' | 'unread' | 'archived'
 
   useImperativeHandle(ref, () => ({
     updateLastMessage(conversationId, lastMessage) {
@@ -235,6 +235,24 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     setMuteMap(prev => ({ ...prev, [convId]: !prev[convId] }))
   }, [])
 
+  const handleArchive = useCallback(async (convId) => {
+    try {
+      const updatedConv = await conversationService.toggleArchiveConversation(convId)
+      setConversations(prev =>
+        prev.map(c => c._id === convId ? { ...c, ...updatedConv } : c)
+      )
+      const isNowArchived = updatedConv.archivedBy?.some(
+        id => (id._id || id).toString() === user?._id?.toString()
+      )
+      toast.success(isNowArchived ? 'Đã lưu trữ cuộc trò chuyện' : 'Đã bỏ lưu trữ cuộc trò chuyện')
+      if (isNowArchived && selectedConversation?._id === convId) {
+        onSelectConversation(null)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    }
+  }, [selectedConversation, onSelectConversation, toast, user])
+
   const handleLeaveGroup = useCallback(async (convId) => {
     if (!window.confirm(t('chat.leaveGroupConfirm') || 'Bạn có chắc chắn muốn rời nhóm?')) return
     try {
@@ -307,15 +325,27 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     setShowSearchModal(true)
   }
 
+  const currentUserIdSidebar = user?._id?.toString()
+
   // Filter and Sort logic
   const displayedConversations = useMemo(() => {
     let filtered = conversations
-    
-    // 1. Filter
-    if (activeFilter === 'unread') {
-      filtered = filtered.filter(conv => (unreadMap[conv._id] || 0) > 0)
+
+    // Check archived status per conversation
+    const isConvArchived = (conv) => {
+      return conv.archivedBy?.some(id => (id._id || id).toString() === currentUserIdSidebar)
     }
-    
+
+    // 1. Filter
+    if (activeFilter === 'archived') {
+      filtered = filtered.filter(conv => isConvArchived(conv))
+    } else {
+      filtered = filtered.filter(conv => !isConvArchived(conv))
+      if (activeFilter === 'unread') {
+        filtered = filtered.filter(conv => (unreadMap[conv._id] || 0) > 0)
+      }
+    }
+
     // 2. Map properties from local state maps for rendering
     filtered = filtered.map(conv => ({
       ...conv,
@@ -327,12 +357,18 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     return filtered.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1
       if (!a.isPinned && b.isPinned) return 1
-      
+
       const timeA = new Date(a.lastMessage?.createdAt || a.updatedAt || 0).getTime()
       const timeB = new Date(b.lastMessage?.createdAt || b.updatedAt || 0).getTime()
       return timeB - timeA
     })
-  }, [conversations, unreadMap, pinMap, muteMap, activeFilter])
+  }, [conversations, unreadMap, pinMap, muteMap, activeFilter, currentUserIdSidebar])
+
+  const archivedCount = useMemo(() => {
+    return conversations.filter(conv =>
+      conv.archivedBy?.some(id => (id._id || id).toString() === currentUserIdSidebar)
+    ).length
+  }, [conversations, currentUserIdSidebar])
 
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
@@ -432,7 +468,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             >
               {t('chat.filterAll')}
             </button>
-            <button 
+            <button
               onClick={() => setActiveFilter('unread')}
               style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                 background: activeFilter === 'unread' ? 'var(--color-primary-light)' : 'transparent',
@@ -441,6 +477,19 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             >
               {t('chat.filterUnread')}
             </button>
+            {archivedCount > 0 && (
+              <button
+                onClick={() => setActiveFilter(activeFilter === 'archived' ? 'all' : 'archived')}
+                style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                  background: activeFilter === 'archived' ? 'var(--color-primary-light)' : 'transparent',
+                  color: activeFilter === 'archived' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                  display: 'flex', alignItems: 'center', gap: '4px'
+                }}
+              >
+                <Archive size={12} />
+                Lưu trữ ({archivedCount})
+              </button>
+            )}
           </div>
         </>
       )}
@@ -488,6 +537,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             onlineUsers={onlineUsers}
             onPin={handlePin}
             onMute={handleMute}
+            onArchive={handleArchive}
             onLeaveGroup={handleLeaveGroup}
           />
         ))}

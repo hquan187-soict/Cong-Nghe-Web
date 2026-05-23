@@ -2,11 +2,11 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   User, MessageSquare, Phone, Video, Info, X,
-  BellOff, Search, ChevronDown, Lock, Sparkles,
+  BellOff, Bell, Search, ChevronDown, Lock, Sparkles,
   Palette, AtSign, SmilePlus, Image, FileText,
   ShieldBan, Flag, ChevronRight, Users, LogOut,
   Camera, Loader2, UserPlus, Plus, MoreVertical,
-  MessageCircle, UserMinus, Shield, Check
+  MessageCircle, UserMinus, Shield, Check, Archive, Pin
 } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
@@ -14,6 +14,7 @@ import { useSocket } from '../context/SocketContext'
 import { formatLastActive } from '../utils/timeUtils'
 import { userService } from '../services/user.service'
 import { conversationService } from '../services/conversation.service'
+import { messageService } from '../services/message.service'
 import { useToast } from '../context/ToastContext'
 
 import Sidebar from '../components/chat/Sidebar'
@@ -29,6 +30,7 @@ function ChatPage() {
   const navigate = useNavigate()
 
   const toast = useToast()
+  const currentUserId = user?._id?.toString()
   const avatarInputRef = useRef(null)
   const [isEditingName, setIsEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState('')
@@ -136,6 +138,86 @@ function ChatPage() {
     }
   }
 
+  // Mute / Archive state
+  const isMuted = selectedConversation?.mutedBy?.some(
+    id => (id._id || id).toString() === currentUserId
+  )
+  const isArchived = selectedConversation?.archivedBy?.some(
+    id => (id._id || id).toString() === currentUserId
+  )
+
+  const handleToggleMute = async () => {
+    try {
+      const updatedConv = await conversationService.toggleMuteConversation(selectedConversation._id)
+      setSelectedConversation(updatedConv)
+      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      const nowMuted = updatedConv.mutedBy?.some(id => (id._id || id).toString() === currentUserId)
+      toast.success(nowMuted ? 'Đã tắt thông báo' : 'Đã bật thông báo')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    }
+  }
+
+  const handleToggleArchive = async () => {
+    try {
+      const updatedConv = await conversationService.toggleArchiveConversation(selectedConversation._id)
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      const nowArchived = updatedConv.archivedBy?.some(id => (id._id || id).toString() === currentUserId)
+      toast.success(nowArchived ? 'Đã lưu trữ cuộc trò chuyện' : 'Đã bỏ lưu trữ cuộc trò chuyện')
+      if (nowArchived) {
+        setSelectedConversation(null)
+        localStorage.removeItem('last_conversation')
+        navigate('/chat', { replace: true })
+      } else {
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    }
+  }
+
+  // Nickname modal
+  const [showNicknameModal, setShowNicknameModal] = useState(false)
+  const [nicknameTarget, setNicknameTarget] = useState(null)
+  const [nicknameValue, setNicknameValue] = useState('')
+  const [isUpdatingNickname, setIsUpdatingNickname] = useState(false)
+
+  const handleOpenNicknameModal = (member) => {
+    setNicknameTarget(member)
+    const existingNickname = selectedConversation?.nicknames?.[member._id] || ''
+    setNicknameValue(existingNickname)
+    setShowNicknameModal(true)
+  }
+
+  const handleSaveNickname = async () => {
+    if (!nicknameTarget) return
+    setIsUpdatingNickname(true)
+    try {
+      const updatedConv = await conversationService.updateNickname(
+        selectedConversation._id,
+        nicknameTarget._id,
+        nicknameValue.trim()
+      )
+      setSelectedConversation(updatedConv)
+      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      toast.success('Đã cập nhật biệt danh!')
+      setShowNicknameModal(false)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    } finally {
+      setIsUpdatingNickname(false)
+    }
+  }
+
   const [showAddMemberSearch, setShowAddMemberSearch] = useState(false)
   const [addMemberQuery, setAddMemberQuery] = useState('')
   const [addMemberResults, setAddMemberResults] = useState([])
@@ -233,7 +315,6 @@ function ChatPage() {
     }
   }
 
-  const currentUserId = user?._id?.toString()
   const isGroup = selectedConversation?.isGroup
 
   const [isKicked, setIsKicked] = useState(false)
@@ -347,18 +428,38 @@ function ChatPage() {
       }
     }
 
+    const handleNicknameUpdated = ({ conversation: updatedConv }) => {
+      if (!updatedConv) return
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      if (selectedConvIdRef.current === updatedConv._id) {
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      }
+    }
+
     socket.on('conversationUpdated', handleConversationUpdated)
     socket.on('removedFromGroup', handleRemovedFromGroup)
     socket.on('newConversation', handleNewConversation)
+    socket.on('nicknameUpdated', handleNicknameUpdated)
 
     return () => {
       socket.off('conversationUpdated', handleConversationUpdated)
       socket.off('removedFromGroup', handleRemovedFromGroup)
       socket.off('newConversation', handleNewConversation)
+      socket.off('nicknameUpdated', handleNicknameUpdated)
     }
   }, [socket, isConnected])
 
-  const [showInfoPanel, setShowInfoPanel] = useState(false)
+  const [showInfoPanel, setShowInfoPanel] = useState(() => {
+    try {
+      const saved = localStorage.getItem('show_info_panel')
+      return saved !== null ? saved === 'true' : true
+    } catch {
+      return true
+    }
+  })
   const [showProfileModal, setShowProfileModal] = useState(false)
 
   const SIDEBAR_MIN = 72
@@ -427,15 +528,26 @@ function ChatPage() {
   useEffect(() => {
     if (urlConversationId && (!selectedConversation || selectedConversation._id !== urlConversationId)) {
       const saved = localStorage.getItem('last_conversation')
-      if (saved) {
+      if (saved && saved !== 'null') {
         try {
           const parsed = JSON.parse(saved)
-          if (parsed._id === urlConversationId) {
+          if (parsed && parsed._id === urlConversationId) {
             setSelectedConversation(parsed)
             return
           }
         } catch { /* ignore */ }
       }
+      conversationService.getConversations().then(convs => {
+        const match = (Array.isArray(convs) ? convs : []).find(c => c._id === urlConversationId)
+        if (match) {
+          setSelectedConversation(match)
+          localStorage.setItem('last_conversation', JSON.stringify(match))
+        } else {
+          navigate('/chat', { replace: true })
+        }
+      }).catch(() => {
+        navigate('/chat', { replace: true })
+      })
     }
     if (!urlConversationId && selectedConversation?._id) {
       navigate(`/chat/${selectedConversation._id}`, { replace: true })
@@ -449,9 +561,12 @@ function ChatPage() {
 
   const handleSelectConversation = useCallback((conv) => {
     setSelectedConversation(conv)
-    localStorage.setItem('last_conversation', JSON.stringify(conv))
-    if (conv?._id) {
+    if (conv) {
+      localStorage.setItem('last_conversation', JSON.stringify(conv))
       navigate(`/chat/${conv._id}`, { replace: true })
+    } else {
+      localStorage.removeItem('last_conversation')
+      navigate('/chat', { replace: true })
     }
   }, [navigate])
 
@@ -526,9 +641,9 @@ function ChatPage() {
     }
   }, [socket, isConnected])
 
-  const handleMessageSent = useCallback(({ conversationId, lastMessage }) => {
+  const handleMessageSent = useCallback(({ conversationId: convId, lastMessage }) => {
     if (sidebarRef.current?.updateLastMessage) {
-      sidebarRef.current.updateLastMessage(conversationId, lastMessage)
+      sidebarRef.current.updateLastMessage(convId, lastMessage)
     }
   }, [])
 
@@ -541,8 +656,24 @@ function ChatPage() {
   }
 
   const handleToggleInfoPanel = () => {
-    setShowInfoPanel((v) => !v)
+    setShowInfoPanel((v) => {
+      localStorage.setItem('show_info_panel', String(!v))
+      return !v
+    })
   }
+
+  const [infoPinnedOpen, setInfoPinnedOpen] = useState(false)
+  const [pinnedMessages, setPinnedMessages] = useState([])
+  const [loadingPinned, setLoadingPinned] = useState(false)
+
+  useEffect(() => {
+    if (!infoPinnedOpen || !selectedConversation?._id) return
+    setLoadingPinned(true)
+    messageService.getPinnedMessages(selectedConversation._id)
+      .then(msgs => setPinnedMessages(Array.isArray(msgs) ? msgs : []))
+      .catch(() => setPinnedMessages([]))
+      .finally(() => setLoadingPinned(false))
+  }, [infoPinnedOpen, selectedConversation?._id])
 
   const [infoChatOpen, setInfoChatOpen] = useState(false)
   const [infoMembersOpen, setInfoMembersOpen] = useState(true) // For groups
@@ -662,6 +793,7 @@ function ChatPage() {
               isGroup={isGroup}
               onMessageSent={handleMessageSent}
               isKicked={isKicked}
+              conversation={selectedConversation}
             />
           ) : (
             <div className="chat-empty-state">
@@ -827,10 +959,19 @@ function ChatPage() {
             )}
             <button
               className="info-panel__quick-btn"
-              title={t('chat.comingSoon')}
+              onClick={handleToggleMute}
             >
-              <div className="info-panel__quick-icon"><BellOff size={20} /></div>
-              <span>{t('chat.muteNotifications')}</span>
+              <div className="info-panel__quick-icon">
+                {isMuted ? <Bell size={20} /> : <BellOff size={20} />}
+              </div>
+              <span>{isMuted ? 'Bật thông báo' : t('chat.muteNotifications')}</span>
+            </button>
+            <button
+              className="info-panel__quick-btn"
+              onClick={handleToggleArchive}
+            >
+              <div className="info-panel__quick-icon"><Archive size={20} /></div>
+              <span>{isArchived ? 'Bỏ lưu trữ' : 'Lưu trữ'}</span>
             </button>
             <button
               className="info-panel__quick-btn"
@@ -842,6 +983,62 @@ function ChatPage() {
           </div>
 
           <div className="info-panel__sections">
+            <button
+              className="info-panel__section-toggle"
+              onClick={() => setInfoPinnedOpen((v) => !v)}
+            >
+              <span><Pin size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Tin nhắn đã ghim</span>
+              <ChevronDown size={16} className={infoPinnedOpen ? 'info-panel__chevron--open' : ''} />
+            </button>
+            {infoPinnedOpen && (
+              <div className="info-panel__section-content" style={{ padding: '0 8px 16px' }}>
+                {loadingPinned ? (
+                  <div style={{ padding: '16px', textAlign: 'center' }}>
+                    <Loader2 className="animate-spin" size={20} color="var(--color-primary)" />
+                  </div>
+                ) : pinnedMessages.length === 0 ? (
+                  <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '12px 8px', textAlign: 'center' }}>
+                    Chưa có tin nhắn nào được ghim
+                  </p>
+                ) : (
+                  pinnedMessages.map((msg) => {
+                    const sender = typeof msg.senderId === 'object' ? msg.senderId : null
+                    return (
+                      <div key={msg._id} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 8px',
+                        borderRadius: '8px', borderBottom: '1px solid var(--color-border-subtle)',
+                        cursor: 'pointer'
+                      }}
+                        onClick={() => {
+                          setInfoPinnedOpen(false)
+                          setTimeout(() => {
+                            const el = document.getElementById(`msg-${msg._id}`)
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                              el.style.transition = 'background 0.3s'
+                              el.style.background = 'var(--color-primary-light)'
+                              setTimeout(() => { el.style.background = '' }, 1500)
+                            }
+                          }, 100)
+                        }}
+                      >
+                        <Avatar src={sender?.avatar} alt={sender?.fullName || '?'} size="sm" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
+                            {sender?.fullName || 'Người dùng'}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {msg.text || (msg.image ? 'Đã gửi một ảnh' : msg.file ? 'Đã gửi một tệp' : '')}
+                          </div>
+                        </div>
+                        <Pin size={12} style={{ flexShrink: 0, color: 'var(--color-primary)', marginTop: '2px' }} />
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
+
             {isGroup && (
               <>
                 <button
@@ -1124,11 +1321,40 @@ function ChatPage() {
                   <span>{t('chat.themeColor')}</span>
                   <ChevronRight size={14} className="info-panel__action-arrow" />
                 </button>
-                <button className="info-panel__action-row">
-                  <AtSign size={16} />
-                  <span>{t('chat.changeNickname')}</span>
-                  <ChevronRight size={14} className="info-panel__action-arrow" />
-                </button>
+                {isGroup ? (
+                  <>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-muted)', padding: '8px 0 4px' }}>
+                      <AtSign size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      {t('chat.changeNickname')}
+                    </div>
+                    {selectedConversation.members?.map((m) => {
+                      const nickname = selectedConversation.nicknames?.[m._id] || ''
+                      return (
+                        <button
+                          key={m._id}
+                          className="info-panel__action-row"
+                          onClick={() => handleOpenNicknameModal(m)}
+                          style={{ paddingLeft: '8px' }}
+                        >
+                          <Avatar src={m.avatar} alt={m.fullName} size="sm" />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text)' }}>{nickname || m.fullName}</div>
+                            {nickname && (
+                              <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{m.fullName}</div>
+                            )}
+                          </div>
+                          <ChevronRight size={14} className="info-panel__action-arrow" />
+                        </button>
+                      )
+                    })}
+                  </>
+                ) : (
+                  <button className="info-panel__action-row">
+                    <AtSign size={16} />
+                    <span>{t('chat.changeNickname')}</span>
+                    <ChevronRight size={14} className="info-panel__action-arrow" />
+                  </button>
+                )}
                 <button className="info-panel__action-row">
                   <SmilePlus size={16} />
                   <span>{t('chat.changeEmoji')}</span>
@@ -1239,6 +1465,64 @@ function ChatPage() {
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
       />
+
+      {/* Nickname modal */}
+      {showNicknameModal && nicknameTarget && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }} onClick={() => setShowNicknameModal(false)}>
+          <div style={{
+            background: 'var(--color-surface)', borderRadius: '12px', padding: '24px',
+            maxWidth: '400px', width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: 'var(--color-text)' }}>
+              Đặt biệt danh
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--color-text-muted)' }}>
+              {nicknameTarget.fullName}
+            </p>
+            <input
+              type="text"
+              value={nicknameValue}
+              onChange={(e) => setNicknameValue(e.target.value)}
+              placeholder="Nhập biệt danh..."
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveNickname() }}
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: '8px',
+                border: '1px solid var(--color-border-subtle)',
+                background: 'var(--color-bg)', color: 'var(--color-text)',
+                fontSize: '14px', outline: 'none', boxSizing: 'border-box'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button
+                onClick={() => setShowNicknameModal(false)}
+                style={{
+                  padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                  background: 'var(--color-hover-bg)', color: 'var(--color-text)', fontSize: '14px', fontWeight: 600
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveNickname}
+                disabled={isUpdatingNickname}
+                style={{
+                  padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                  background: 'var(--color-primary)', color: 'white', fontSize: '14px', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                {isUpdatingNickname && <Loader2 className="animate-spin" size={14} />}
+                Lưu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

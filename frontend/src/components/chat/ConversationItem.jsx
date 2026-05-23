@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 
-function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup }) {
+function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup, onArchive }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
   const { onlineUsers: contextOnlineUsers } = useSocket()
@@ -17,6 +17,9 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   const menuRef = useRef(null)
 
   const isGroup = conversation.isGroup;
+  const isArchivedByMe = conversation.archivedBy?.some(
+    id => (id._id || id).toString() === user?._id?.toString()
+  );
 
   const otherMember = conversation.members?.find(
     (m) => m._id !== user?._id
@@ -84,6 +87,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     setShowMenu(false)
     if (action === 'Pin' && onPin) onPin(conversation._id)
     if (action === 'Mute' && onMute) onMute(conversation._id)
+    if (action === 'Archive' && onArchive) onArchive(conversation._id)
     if (action === 'LeaveGroup' && onLeaveGroup) onLeaveGroup(conversation._id)
   }
 
@@ -214,7 +218,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
             )}
             <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Archive')}>
               <Archive size={14} />
-              <span>Lưu trữ đoạn chat</span>
+              <span>{isArchivedByMe ? 'Bỏ lưu trữ đoạn chat' : 'Lưu trữ đoạn chat'}</span>
             </button>
             {isGroup && (
               <button className="conversation-item__dropdown-item conversation-item__dropdown-item--danger" onClick={handleMenuAction('LeaveGroup')}>

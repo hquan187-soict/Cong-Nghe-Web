@@ -945,7 +945,12 @@ export const updateNickname = async (req, res, next) => {
 
 
     if (!conversation.nicknames) conversation.nicknames = new Map();
-    conversation.nicknames.set(forUserId, nickname.trim());
+
+    if (!nickname || !nickname.trim()) {
+      conversation.nicknames.delete(forUserId);
+    } else {
+      conversation.nicknames.set(forUserId, nickname.trim());
+    }
     await conversation.save();
 
     const updatedConversation = await Conversation.findById(id)

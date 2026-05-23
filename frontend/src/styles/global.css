@@ -1244,6 +1244,11 @@ a:hover {
   left: auto;
 }
 
+.message-actions__dropdown--up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
 .message-actions__dropdown-item {
   display: flex;
   align-items: center;

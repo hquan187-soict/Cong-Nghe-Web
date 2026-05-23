@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Check, CheckCheck, Clock, AlertCircle, FileText, Download,
-  MoreHorizontal, Reply, Smile, Trash2, Edit3, Flag, X
+  MoreHorizontal, Reply, Smile, Trash2, Edit3, Flag, X,
+  Pin, Forward
 } from 'lucide-react'
 import Avatar from './ui/Avatar'
 import { messageService } from '../services/message.service'
@@ -122,7 +123,7 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
   )
 }
 
-function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, deleteMessage }) {
+function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, deleteMessage, onReply, scrollContainerRef }) {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showRecallModal, setShowRecallModal] = useState(false)
@@ -133,6 +134,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(message.text || '')
   const [editLoading, setEditLoading] = useState(false)
+  const [dropdownUp, setDropdownUp] = useState(false)
   const reactions = message.reactions || []
   const moreMenuRef = useRef(null)
   const emojiPickerRef = useRef(null)
@@ -159,7 +161,8 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   }, [showMoreMenu, showEmojiPicker])
 
   const handleReply = () => {
-    // TODO: integrate reply
+    if (onReply) onReply(message)
+    setShowMoreMenu(false)
   }
 
   const handleSelectEmoji = async (emoji) => {
@@ -224,6 +227,15 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     }
   }
 
+  const handleTogglePin = async () => {
+    setShowMoreMenu(false)
+    try {
+      await messageService.togglePinMessage(message._id)
+    } catch (err) {
+      console.error('Toggle pin error:', err)
+    }
+  }
+
   const handleReport = () => {
     console.log('[MessageBubble] Report clicked, messageId:', message._id)
     setShowMoreMenu(false)
@@ -255,13 +267,33 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       <div className="message-actions__more-wrapper" ref={moreMenuRef}>
         <button
           className="message-actions__btn"
-          onClick={() => setShowMoreMenu((v) => !v)}
+          onClick={(e) => {
+            setShowMoreMenu((v) => {
+              if (!v) {
+                const btn = e.currentTarget
+                const container = scrollContainerRef?.current
+                if (btn && container) {
+                  const btnRect = btn.getBoundingClientRect()
+                  const containerRect = container.getBoundingClientRect()
+                  const spaceBelow = containerRect.bottom - btnRect.bottom
+                  setDropdownUp(spaceBelow < 200)
+                } else {
+                  setDropdownUp(false)
+                }
+              }
+              return !v
+            })
+          }}
           title="Xem thêm"
         >
           <MoreHorizontal size={16} />
         </button>
         {showMoreMenu && (
-          <div className={`message-actions__dropdown ${isOwn ? 'message-actions__dropdown--own' : ''}`}>
+          <div className={`message-actions__dropdown ${isOwn ? 'message-actions__dropdown--own' : ''} ${dropdownUp ? 'message-actions__dropdown--up' : ''}`}>
+            <button className="message-actions__dropdown-item" onClick={handleTogglePin}>
+              <Pin size={14} />
+              <span>{message.isPinned ? 'Bỏ ghim' : 'Ghim tin nhắn'}</span>
+            </button>
             <button className="message-actions__dropdown-item" onClick={handleRecall}>
               <Trash2 size={14} />
               <span>{isOwn ? 'Thu hồi tin nhắn' : 'Xóa tin nhắn'}</span>
@@ -318,18 +350,36 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     return (
       <>
         {message.replyTo && (
-          <div className="message-bubble__reply-preview" style={{
-            fontSize: '12px',
-            padding: '6px 8px',
-            background: 'var(--color-hover-bg)',
-            borderRadius: '4px',
-            marginBottom: '4px',
-            color: 'var(--color-text-secondary)',
-            borderLeft: '3px solid var(--color-primary)'
-          }}>
-            <div style={{ fontWeight: 600, marginBottom: '2px' }}>{message.replyTo.senderName || 'Người dùng'}</div>
+          <div
+            className="message-bubble__reply-preview"
+            style={{
+              fontSize: '12px',
+              padding: '6px 8px',
+              background: 'var(--color-hover-bg)',
+              borderRadius: '4px',
+              marginBottom: '4px',
+              color: 'var(--color-text-secondary)',
+              borderLeft: '3px solid var(--color-primary)',
+              cursor: 'pointer'
+            }}
+            onClick={() => {
+              const replyId = typeof message.replyTo === 'object' ? message.replyTo._id : message.replyTo
+              const el = document.getElementById(`msg-${replyId}`)
+              if (el && scrollContainerRef?.current) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                el.style.transition = 'background 0.3s'
+                el.style.background = 'var(--color-primary-light)'
+                setTimeout(() => { el.style.background = '' }, 1500)
+              }
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: '2px' }}>
+              {typeof message.replyTo?.senderId === 'object'
+                ? message.replyTo.senderId.fullName
+                : 'Người dùng'}
+            </div>
             <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-              {message.replyTo.text || 'Đã gửi một tệp/ảnh'}
+              {message.replyTo.text || (message.replyTo.image ? 'Đã gửi một ảnh' : message.replyTo.file ? 'Đã gửi một tệp' : '')}
             </div>
           </div>
         )}
@@ -389,7 +439,17 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           {senderName}
         </div>
       )}
-      <div className={`message-bubble-row ${isOwn ? 'message-bubble-row--own' : ''}`}>
+      {message.isPinned && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--color-text-muted)', padding: '2px 0', fontStyle: 'italic', justifyContent: isOwn ? 'flex-end' : 'flex-start', paddingLeft: isOwn ? '0' : '52px', paddingRight: isOwn ? '8px' : '0' }}>
+          <Pin size={10} /> Tin nhắn đã ghim
+        </div>
+      )}
+      {message.isForwarded && !isRecalled && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--color-text-muted)', padding: '2px 0', fontStyle: 'italic', justifyContent: isOwn ? 'flex-end' : 'flex-start', paddingLeft: isOwn ? '0' : '52px', paddingRight: isOwn ? '8px' : '0' }}>
+          <Forward size={10} /> Đã chuyển tiếp
+        </div>
+      )}
+      <div id={`msg-${message._id}`} className={`message-bubble-row ${isOwn ? 'message-bubble-row--own' : ''}`}>
         {/* Avatar bên trái (tin nhắn người khác) */}
         {!isOwn && (
           <div className="message-bubble-row__avatar-slot">
