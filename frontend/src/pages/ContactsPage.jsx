@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, ArrowLeft, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Sun, Moon, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall } from 'lucide-react';
+import { Search, Users, ArrowLeft, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Sun, Moon, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, Volume2, Play } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSocket } from '../context/SocketContext';
@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext';
 import { useDebounce } from '../hooks/useDebounce';
 import { useAccessibility } from '../context/AccessibilityContext';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
 import { userService } from '../services/user.service';
 import { conversationService } from '../services/conversation.service';
 import ContactItem from '../components/contacts/ContactItem';
@@ -23,6 +24,7 @@ export default function ContactsPage() {
   const { onlineUsers, socket } = useSocket();
   const { fontSize, setFontSize, fontFamily, setFontFamily, FONT_SIZES, FONT_FAMILIES } = useAccessibility();
   const { user, updateUser } = useAuth();
+  const { soundEnabled, setSoundEnabled, selectedSound, setSelectedSound, previewSound, SOUND_OPTIONS } = useNotification();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState(null);
@@ -98,6 +100,7 @@ export default function ContactsPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAccessibility, setShowAccessibility] = useState(false);
   const [showActiveStatus, setShowActiveStatus] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [activeStatusEnabled, setActiveStatusEnabled] = useState(() => {
     const saved = localStorage.getItem('active_status_enabled');
     return saved !== null ? saved === 'true' : true;
@@ -108,9 +111,12 @@ export default function ContactsPage() {
   const a11yPanelRef = useRef(null);
   const activeStatusPanelRef = useRef(null);
   const activeStatusBtnRef = useRef(null);
+  const notifPanelRef = useRef(null);
+  const notifBtnRef = useRef(null);
   const [dropdownStyle, setDropdownStyle] = useState({});
   const [a11yPanelStyle, setA11yPanelStyle] = useState({});
   const [activeStatusPanelStyle, setActiveStatusPanelStyle] = useState({});
+  const [notifPanelStyle, setNotifPanelStyle] = useState({});
 
   useEffect(() => {
     if (user?.showActiveStatus !== undefined) {
@@ -137,17 +143,19 @@ export default function ContactsPage() {
       const clickedInDropdown = dropdownRef.current?.contains(e.target);
       const clickedInA11y = a11yPanelRef.current?.contains(e.target);
       const clickedInActiveStatus = activeStatusPanelRef.current?.contains(e.target);
-      if (!clickedInSettings && !clickedInDropdown && !clickedInA11y && !clickedInActiveStatus) {
+      const clickedInNotif = notifPanelRef.current?.contains(e.target);
+      if (!clickedInSettings && !clickedInDropdown && !clickedInA11y && !clickedInActiveStatus && !clickedInNotif) {
         setShowSettings(false);
         setShowAccessibility(false);
         setShowActiveStatus(false);
+        setShowNotifications(false);
       }
     }
-    if (showSettings || showAccessibility || showActiveStatus) {
+    if (showSettings || showAccessibility || showActiveStatus || showNotifications) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showSettings, showAccessibility, showActiveStatus]);
+  }, [showSettings, showAccessibility, showActiveStatus, showNotifications]);
 
   useLayoutEffect(() => {
     if (!showSettings || !settingsBtnRef.current) return;
@@ -171,6 +179,13 @@ export default function ContactsPage() {
     const btnRect = activeStatusBtnRef.current?.getBoundingClientRect();
     setActiveStatusPanelStyle({ left: dropdownRect.right + 8, top: btnRect ? btnRect.top : dropdownRect.top });
   }, [showActiveStatus]);
+
+  useLayoutEffect(() => {
+    if (!showNotifications || !dropdownRef.current) return;
+    const dropdownRect = dropdownRef.current.getBoundingClientRect();
+    const btnRect = notifBtnRef.current?.getBoundingClientRect();
+    setNotifPanelStyle({ left: dropdownRect.right + 8, top: btnRect ? btnRect.top : dropdownRect.top });
+  }, [showNotifications]);
 
   // Fetch users from backend
   useEffect(() => {
@@ -393,7 +408,7 @@ export default function ContactsPage() {
                 <span className="sidebar__settings-value">{lang === 'vi' ? 'Tiếng Việt' : 'English'}</span>
               </button>
               <div className="sidebar__settings-divider" />
-              <button className="sidebar__settings-item">
+              <button ref={notifBtnRef} className="sidebar__settings-item" onClick={() => { setShowNotifications(true); setShowAccessibility(false); setShowActiveStatus(false); }}>
                 <Bell size={16} />
                 <div className="sidebar__settings-item-text">
                   <span>{t('settings.notifications')}</span>
@@ -401,7 +416,7 @@ export default function ContactsPage() {
                 </div>
                 <ChevronRight size={14} className="sidebar__settings-arrow" />
               </button>
-              <button ref={activeStatusBtnRef} className="sidebar__settings-item" onClick={() => { setShowActiveStatus(true); setShowAccessibility(false); }}>
+              <button ref={activeStatusBtnRef} className="sidebar__settings-item" onClick={() => { setShowActiveStatus(true); setShowAccessibility(false); setShowNotifications(false); }}>
                 <Eye size={16} />
                 <div className="sidebar__settings-item-text">
                   <span>{t('settings.activeStatus')}</span>
@@ -409,7 +424,7 @@ export default function ContactsPage() {
                 </div>
                 <ChevronRight size={14} className="sidebar__settings-arrow" />
               </button>
-              <button className="sidebar__settings-item" onClick={() => { setShowAccessibility(true); setShowActiveStatus(false); }}>
+              <button className="sidebar__settings-item" onClick={() => { setShowAccessibility(true); setShowActiveStatus(false); setShowNotifications(false); }}>
                 <Accessibility size={16} />
                 <div className="sidebar__settings-item-text">
                   <span>{t('settings.accessibility')}</span>
@@ -501,8 +516,72 @@ export default function ContactsPage() {
               </div>
             </div>
           )}
+
+          {/* Notifications sub-panel */}
+          {showNotifications && showSettings && (
+            <div className="sidebar__a11y-panel" ref={notifPanelRef} style={notifPanelStyle}>
+              <div className="sidebar__settings-header">
+                <button className="sidebar__a11y-back" onClick={() => setShowNotifications(false)}>
+                  <ChevronLeft size={16} />
+                </button>
+                <span>{t('settings.notifSoundTitle')}</span>
+              </div>
+              <div className="sidebar__settings-divider" />
+
+              <div className="sidebar__a11y-section">
+                <div className="sidebar__active-status-toggle">
+                  <span className="sidebar__active-status-label">{t('settings.notifSoundEnable')}</span>
+                  <button
+                    className={`sidebar__toggle-switch ${soundEnabled ? 'sidebar__toggle-switch--on' : ''}`}
+                    onClick={() => setSoundEnabled(!soundEnabled)}
+                  >
+                    <span className="sidebar__toggle-knob" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="sidebar__settings-divider" />
+
+              <div className="sidebar__a11y-section">
+                <div className="sidebar__a11y-label">
+                  <Volume2 size={15} />
+                  <span>{t('settings.notifSoundSelect')}</span>
+                </div>
+                <div className="sidebar__a11y-font-list">
+                  {SOUND_OPTIONS.map((opt) => {
+                    const labelKey = {
+                      none: 'settings.notifSoundNone',
+                      pop1: 'settings.notifSoundPop1',
+                      pop2: 'settings.notifSoundPop2',
+                      pop3: 'settings.notifSoundPop3',
+                    }[opt.value];
+                    return (
+                      <div key={opt.value} className="sidebar__notif-sound-row">
+                        <button
+                          className={`sidebar__a11y-font-item ${selectedSound === opt.value ? 'sidebar__a11y-font-item--active' : ''}`}
+                          onClick={() => setSelectedSound(opt.value)}
+                          style={{ flex: 1 }}
+                        >
+                          {t(labelKey)}
+                        </button>
+                        {opt.value !== 'none' && (
+                          <button
+                            className="sidebar__notif-preview-btn"
+                            onClick={() => previewSound(opt.value)}
+                            title={t('settings.notifSoundPreview')}
+                          >
+                            <Play size={14} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </aside>
-        
+
         {/* Resize handle */}
         <div
           className="sidebar-resize-handle"

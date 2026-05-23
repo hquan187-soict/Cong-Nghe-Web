@@ -16,6 +16,7 @@ import { userService } from '../services/user.service'
 import { conversationService } from '../services/conversation.service'
 import { messageService } from '../services/message.service'
 import { useToast } from '../context/ToastContext'
+import { useNotification } from '../context/NotificationContext'
 
 import Sidebar from '../components/chat/Sidebar'
 import ChatWindow from '../components/ChatWindow'
@@ -30,6 +31,7 @@ function ChatPage() {
   const navigate = useNavigate()
 
   const toast = useToast()
+  const { playSound } = useNotification()
   const currentUserId = user?._id?.toString()
   const avatarInputRef = useRef(null)
   const [isEditingName, setIsEditingName] = useState(false)
@@ -633,13 +635,19 @@ function ChatPage() {
           sidebarRef.current.incrementUnread(conversationId)
         }
       }
+      const senderId = message?.sender?._id || message?.sender
+      const isOwnMessage = senderId?.toString() === currentUserId
+      const isMutedConv = sidebarRef.current?.isConversationMuted?.(conversationId)
+      if (!isOwnMessage && !isMutedConv) {
+        playSound()
+      }
     }
 
     socket.on('sendMessage', handleGlobalMessage)
     return () => {
       socket.off('sendMessage', handleGlobalMessage)
     }
-  }, [socket, isConnected])
+  }, [socket, isConnected, currentUserId, playSound])
 
   const handleMessageSent = useCallback(({ conversationId: convId, lastMessage }) => {
     if (sidebarRef.current?.updateLastMessage) {
