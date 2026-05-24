@@ -51,6 +51,10 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
 
     const prefixStr = senderName === 'Bạn' || isGroup ? senderName + ': ' : ''
 
+    if (msg.messageType === 'like') {
+      return prefixStr + 'Đã gửi một biểu tượng cảm xúc'
+    }
+
     if (msg.text) {
       const text = msg.text
       const truncated = text.length > 30 ? text.slice(0, 30) + '…' : text

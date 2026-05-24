@@ -299,6 +299,42 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     clearTimeout(typingAutoHideRef.current)
   }, [conversationId])
 
+  const handleSendLike = useCallback(async (emojiName) => {
+    if (!conversationId || !currentUserId) return
+    const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
+    const optimisticMsg = {
+      _id: tempId,
+      conversationId,
+      senderId: currentUserId,
+      text: emojiName,
+      messageType: 'like',
+      createdAt: new Date().toISOString(),
+      readBy: [currentUserId],
+      status: 'sending',
+    }
+    setMessages((prev) => [...prev, optimisticMsg])
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 50)
+    try {
+      const savedMsg = await messageService.sendMessage({
+        conversationId,
+        text: emojiName,
+        messageType: 'like',
+      })
+      setMessages((prev) =>
+        prev.map((msg) => msg._id === tempId ? { ...savedMsg, status: 'sent' } : msg)
+      )
+      if (onMessageSent) {
+        onMessageSent({ conversationId, lastMessage: savedMsg })
+      }
+    } catch (err) {
+      console.error('Gửi like thất bại:', err)
+      setMessages((prev) => prev.filter((msg) => msg._id !== tempId))
+      toast.error(t('chat.sendError'))
+    }
+  }, [conversationId, currentUserId, onMessageSent, toast, t])
+
   // Gửi tin nhắn (text + image + file)
   const handleSendMessage = useCallback(async (text, imageBase64, fileData) => {
     if (!conversationId || !currentUserId) return
@@ -607,7 +643,9 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
                   })()}
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {replyingTo.text || (replyingTo.image ? 'Đã gửi một ảnh' : replyingTo.file ? 'Đã gửi một tệp' : '')}
+                  {replyingTo.messageType === 'like'
+                    ? 'Đã gửi biểu tượng cảm xúc'
+                    : (replyingTo.text || (replyingTo.image ? 'Đã gửi một ảnh' : replyingTo.file ? 'Đã gửi một tệp' : ''))}
                 </div>
               </div>
               <button
@@ -621,8 +659,10 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
           <MessageInput
             ref={messageInputRef}
             onSend={handleSendMessage}
+            onSendLike={handleSendLike}
             disabled={sending}
             conversationId={conversationId}
+            likeEmoji={convProp?.emoji || 'ThumbsUp'}
           />
         </>
       )}

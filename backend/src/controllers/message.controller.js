@@ -62,7 +62,7 @@ export const getMessages = async (req, res, next) => {
       .populate("reactions.userId", "fullName avatar")
       .populate({
         path: "replyTo",
-        select: "text senderId image file",
+        select: "text senderId image file messageType",
         populate: { path: "senderId", select: "fullName avatar" },
       })
       .sort({ createdAt: -1 })
@@ -88,7 +88,7 @@ export const getMessages = async (req, res, next) => {
 export const sendMessage = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
-    const { conversationId, text, image, file, replyTo } = req.body;
+    const { conversationId, text, image, file, replyTo, messageType: reqMsgType } = req.body;
 
     if (!currentUserId) {
       const error = new Error("Bạn chưa đăng nhập.");
@@ -100,6 +100,50 @@ export const sendMessage = async (req, res, next) => {
       const error = new Error("conversationId là bắt buộc.");
       error.statusCode = 400;
       throw error;
+    }
+
+    const conversation = await checkConversationAccess(
+      conversationId,
+      currentUserId
+    );
+
+    if (reqMsgType === "like") {
+      const likeIcon = typeof text === "string" && text.trim() ? text.trim() : "ThumbsUp";
+      const message = await Message.create({
+        conversationId,
+        senderId: currentUserId,
+        text: likeIcon,
+        messageType: "like",
+        readBy: [currentUserId],
+      });
+
+      conversation.lastMessage = message._id;
+      conversation.updatedAt = new Date();
+      if (conversation.archivedBy && conversation.archivedBy.length > 0) {
+        conversation.archivedBy = conversation.archivedBy.filter(
+          (id) => id.toString() !== currentUserId.toString()
+        );
+      }
+      await conversation.save();
+
+      const populatedMessage = await Message.findById(message._id)
+        .populate("senderId", "-password")
+        .populate("readBy", "-password");
+
+      conversation.members.forEach((memberId) => {
+        if (memberId.toString() === currentUserId.toString()) return;
+        const receiverSocketId = getReceiverSocketId(memberId.toString());
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit("sendMessage", {
+            conversationId: conversation._id.toString(),
+            message: populatedMessage,
+            lastMessage: conversation.lastMessage,
+            updatedAt: conversation.updatedAt,
+          });
+        }
+      });
+
+      return res.status(201).json(populatedMessage);
     }
 
     if (
@@ -135,11 +179,6 @@ export const sendMessage = async (req, res, next) => {
         throw error;
       }
     }
-
-    const conversation = await checkConversationAccess(
-      conversationId,
-      currentUserId
-    );
 
     let imageUrl = image || null;
     if (image && image.startsWith("data:")) {
@@ -189,7 +228,7 @@ export const sendMessage = async (req, res, next) => {
       .populate("readBy", "-password")
       .populate({
         path: "replyTo",
-        select: "text senderId image file",
+        select: "text senderId image file messageType",
         populate: { path: "senderId", select: "fullName avatar" },
       });
 
@@ -501,7 +540,7 @@ export const editMessage = async (req, res, next) => {
       error.statusCode = 404;
       throw error;
     }
-    if (message.text === "") {
+    if (message.text === "" || message.messageType === "like") {
       const error = new Error("Không thể chỉnh sửa tin nhắn đã bị thu hồi hoặc không có nội dung.");
       error.statusCode = 400;
       throw error;

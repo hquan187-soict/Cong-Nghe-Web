@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { Send, ImagePlus, Paperclip, X, FileText, Mic, ThumbsUp } from 'lucide-react'
+import { Send, ImagePlus, Paperclip, X, FileText, Mic, ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf } from 'lucide-react'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 
@@ -13,7 +13,11 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false, conversationId }, ref) {
+const LIKE_ICONS = {
+  ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf,
+}
+
+const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, disabled = false, conversationId, likeEmoji = 'ThumbsUp' }, ref) {
   const { t } = useLang()
   const { socket, isConnected } = useSocket()
   const [text, setText] = useState('')
@@ -277,12 +281,15 @@ const MessageInput = forwardRef(function MessageInput({ onSend, disabled = false
             type="button"
             className="message-input__like-btn"
             onClick={() => {
-              console.log('[MessageInput] Like (thumbs up) clicked')
+              if (onSendLike) onSendLike(likeEmoji)
             }}
             disabled={disabled}
             title="Gửi like"
           >
-            <ThumbsUp size={20} />
+            {(() => {
+              const Icon = LIKE_ICONS[likeEmoji] || ThumbsUp
+              return <Icon size={20} />
+            })()}
           </button>
         )}
       </div>

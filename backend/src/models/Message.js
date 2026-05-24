@@ -34,7 +34,7 @@ const messageSchema = new mongoose.Schema(
     ],
     messageType: {
       type: String,
-      enum: ["text", "system"],
+      enum: ["text", "system", "like"],
       default: "text",
     },
     reactions: [

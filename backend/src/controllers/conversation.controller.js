@@ -1080,3 +1080,69 @@ export const toggleArchiveConversation = async (req, res, next) => {
     return next(error);
   }
 };
+
+const ALLOWED_EMOJIS = [
+  "ThumbsUp", "Heart", "Smile", "Flame", "Star",
+  "Coffee", "Zap", "Sun", "Moon", "Music", "Leaf",
+];
+
+export const updateEmoji = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { emoji } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!emoji || !ALLOWED_EMOJIS.includes(emoji)) {
+      const error = new Error("Emoji không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    conversation.emoji = emoji;
+    await conversation.save();
+
+    const updatedConversation = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("conversationUpdated", { conversation: updatedConversation });
+      }
+    });
+
+    return res.status(200).json(updatedConversation);
+  } catch (error) {
+    return next(error);
+  }
+};

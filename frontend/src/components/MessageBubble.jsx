@@ -2,8 +2,12 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Check, CheckCheck, Clock, AlertCircle, FileText, Download,
   MoreHorizontal, Reply, Smile, Trash2, Edit3, Flag, X,
-  Pin, Forward
+  Pin, Forward, ThumbsUp, Heart, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf
 } from 'lucide-react'
+
+const LIKE_ICONS = {
+  ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf,
+}
 import Avatar from './ui/Avatar'
 import { messageService } from '../services/message.service'
 
@@ -144,6 +148,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   const file = message.file
   const isRecalled = message.isRecalled;
   const isEdited = message.isEdited;
+  const isLikeMessage = message.messageType === 'like'
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -298,7 +303,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               <Trash2 size={14} />
               <span>{isOwn ? 'Thu hồi tin nhắn' : 'Xóa tin nhắn'}</span>
             </button>
-            {isOwn && (((new Date() - new Date(message.createdAt))) < 5 * 60 * 1000) && (
+            {isOwn && !isLikeMessage && (((new Date() - new Date(message.createdAt))) < 5 * 60 * 1000) && (
               <button className="message-actions__dropdown-item" onClick={handleEdit}>
                 <Edit3 size={14} />
                 <span>Sửa tin nhắn</span>
@@ -320,6 +325,15 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         <p className="message-bubble__text message-bubble--recalled" style={{ fontStyle: 'italic', color: 'var(--color-text-muted)' }}>
           Tin nhắn đã bị thu hồi
         </p>
+      )
+    }
+
+    if (isLikeMessage) {
+      const LikeIcon = LIKE_ICONS[message.text] || ThumbsUp
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
+          <LikeIcon size={48} color="var(--color-primary)" strokeWidth={1.5} />
+        </div>
       )
     }
 
@@ -379,7 +393,9 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
                 : 'Người dùng'}
             </div>
             <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-              {message.replyTo.text || (message.replyTo.image ? 'Đã gửi một ảnh' : message.replyTo.file ? 'Đã gửi một tệp' : '')}
+              {message.replyTo.messageType === 'like'
+                ? 'Đã gửi biểu tượng cảm xúc'
+                : (message.replyTo.text || (message.replyTo.image ? 'Đã gửi một ảnh' : message.replyTo.file ? 'Đã gửi một tệp' : ''))}
             </div>
           </div>
         )}
@@ -462,12 +478,13 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         <div
           className={`message-bubble ${isOwn ? 'message-bubble--own' : 'message-bubble--other'} ${
             status === 'sending' ? 'message-bubble--sending' : ''
-          }`}
+          } ${isLikeMessage ? 'message-bubble--like' : ''}`}
+          style={isLikeMessage ? { background: 'transparent', boxShadow: 'none', padding: '2px 4px' } : undefined}
         >
           {renderMessageContent()}
 
-          <div className="message-bubble__footer">
-            <span className="message-bubble__time">
+          <div className="message-bubble__footer" style={isLikeMessage ? { color: 'var(--color-text-muted)' } : undefined}>
+            <span className="message-bubble__time" style={isLikeMessage ? { color: 'var(--color-text-muted)' } : undefined}>
               {isEdited && !isRecalled && <span className="message-bubble__edited" style={{ fontStyle: 'italic', marginRight: '4px' }}>(đã chỉnh sửa)</span>}
               {time}
             </span>
@@ -475,6 +492,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               <span
                 className={`message-bubble__status message-bubble__status--${status}`}
                 title={STATUS_LABELS[status] || ''}
+                style={isLikeMessage ? { color: 'var(--color-text-muted)' } : undefined}
               >
                 {status === 'sending' && <Clock size={12} />}
                 {status === 'sent' && <Check size={12} />}

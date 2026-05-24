@@ -80,6 +80,11 @@ const conversationSchema = new mongoose.Schema(
       of: String,
       default: {},
     },
+
+    emoji: {
+      type: String,
+      default: "ThumbsUp",
+    },
   },
   { timestamps: true }
 );

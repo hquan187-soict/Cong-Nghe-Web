@@ -75,6 +75,10 @@ export const conversationService = {
     return await axiosInstance.put(`/api/conversations/${conversationId}/nickname`, { forUserId, nickname });
   },
 
+  async updateEmoji(conversationId, emoji) {
+    return await axiosInstance.put(`/api/conversations/${conversationId}/emoji`, { emoji });
+  },
+
   async toggleMuteConversation(conversationId) {
     return await axiosInstance.post(`/api/conversations/${conversationId}/toggle-mute`);
   },

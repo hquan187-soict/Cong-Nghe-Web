@@ -6,8 +6,23 @@ import {
   Palette, AtSign, SmilePlus, Image, FileText,
   ShieldBan, Flag, ChevronRight, Users, LogOut,
   Camera, Loader2, UserPlus, Plus, MoreVertical,
-  MessageCircle, UserMinus, Shield, Check, Archive, Pin
+  MessageCircle, UserMinus, Shield, Check, Archive, Pin,
+  ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf
 } from 'lucide-react'
+
+const EMOJI_OPTIONS = [
+  { name: 'ThumbsUp', icon: ThumbsUp, label: 'Thích' },
+  { name: 'Heart', icon: Heart, label: 'Yêu thích' },
+  { name: 'Smile', icon: Smile, label: 'Cười' },
+  { name: 'Flame', icon: Flame, label: 'Lửa' },
+  { name: 'Star', icon: Star, label: 'Ngôi sao' },
+  { name: 'Coffee', icon: Coffee, label: 'Cà phê' },
+  { name: 'Zap', icon: Zap, label: 'Sấm sét' },
+  { name: 'Sun', icon: Sun, label: 'Mặt trời' },
+  { name: 'Moon', icon: Moon, label: 'Mặt trăng' },
+  { name: 'Music', icon: Music, label: 'Âm nhạc' },
+  { name: 'Leaf', icon: Leaf, label: 'Lá' },
+]
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
@@ -181,6 +196,28 @@ function ChatPage() {
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    }
+  }
+
+  // Emoji picker state
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [isUpdatingEmoji, setIsUpdatingEmoji] = useState(false)
+
+  const handleUpdateEmoji = async (emojiName) => {
+    setIsUpdatingEmoji(true)
+    try {
+      const updatedConv = await conversationService.updateEmoji(selectedConversation._id, emojiName)
+      setSelectedConversation(updatedConv)
+      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      toast.success('Đã cập nhật biểu tượng!')
+      setShowEmojiPicker(false)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    } finally {
+      setIsUpdatingEmoji(false)
     }
   }
 
@@ -1363,11 +1400,46 @@ function ChatPage() {
                     <ChevronRight size={14} className="info-panel__action-arrow" />
                   </button>
                 )}
-                <button className="info-panel__action-row">
-                  <SmilePlus size={16} />
+                <button
+                  className="info-panel__action-row"
+                  onClick={() => setShowEmojiPicker(v => !v)}
+                >
+                  {(() => {
+                    const current = EMOJI_OPTIONS.find(e => e.name === (selectedConversation?.emoji || 'ThumbsUp'))
+                    const Icon = current?.icon || ThumbsUp
+                    return <Icon size={16} />
+                  })()}
                   <span>{t('chat.changeEmoji')}</span>
-                  <ChevronRight size={14} className="info-panel__action-arrow" />
+                  <ChevronDown size={14} className={`info-panel__action-arrow ${showEmojiPicker ? 'info-panel__chevron--open' : ''}`} />
                 </button>
+                {showEmojiPicker && (
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px',
+                    padding: '8px', background: 'var(--color-hover-bg)', borderRadius: '8px', marginBottom: '4px'
+                  }}>
+                    {EMOJI_OPTIONS.map(({ name, icon: Icon, label }) => {
+                      const isActive = (selectedConversation?.emoji || 'ThumbsUp') === name
+                      return (
+                        <button
+                          key={name}
+                          onClick={() => handleUpdateEmoji(name)}
+                          disabled={isUpdatingEmoji}
+                          title={label}
+                          style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                            padding: '8px 4px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                            background: isActive ? 'var(--color-primary-light)' : 'transparent',
+                            color: isActive ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                            transition: 'background 0.15s'
+                          }}
+                        >
+                          <Icon size={22} />
+                          <span style={{ fontSize: '10px', lineHeight: 1 }}>{label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
