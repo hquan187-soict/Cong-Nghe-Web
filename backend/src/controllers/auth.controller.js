@@ -31,6 +31,11 @@ export const signup = async (req, res, next) => {
       error.statusCode = 400;
       throw error;
     }
+    if (password.length > 64) {
+      const error = new Error("Mật khẩu không được vượt quá 64 ký tự!");
+      error.statusCode = 400;
+      throw error;
+    }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email)) {
@@ -85,6 +90,11 @@ export const login = async (req, res, next) => {
       error.statusCode = 400;
       throw error;
     }
+    if (password.length > 64) {
+      const error = new Error("Email hoặc mật khẩu không đúng!");
+      error.statusCode = 400;
+      throw error;
+    }
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
@@ -107,7 +117,7 @@ export const login = async (req, res, next) => {
 };
 
 // Xóa cookie với options giống trong util.js :D
-export const logout = (_, res) => { 
+export const logout = (_, res) => {
   res.clearCookie("jwt", {
     httpOnly: true,
     sameSite: "strict",

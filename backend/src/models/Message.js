@@ -32,8 +32,27 @@ const messageSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    isDeletedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    isRecalled: {
+      type: Boolean,
+      default: false,
+    },
+    messageType: {
+      type: String,
+      enum: ["text", "image", "file", "system"],
+      default: "text",
+    },
+    editedAt: {
+      type: Date,
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 messageSchema.index({ conversationId: 1, createdAt: -1 });
