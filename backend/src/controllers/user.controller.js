@@ -1,4 +1,6 @@
 import User from "../models/User.js";
+import Conversation from "../models/Conversation.js";
+import Message from "../models/Message.js";
 import mongoose from "mongoose";
 import cloudinary from "../lib/cloudinary.js";
 
@@ -198,6 +200,18 @@ export const sendFriendRequest = async (req, res, next) => {
       throw error;
     }
 
+    if (currentUser.friends.some((id) => id.toString() === userId.toString())) {
+      const error = new Error("Hai người đã là bạn bè.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (targetUser.friendRequests.some((id) => id.toString() === currentUserId.toString())) {
+      const error = new Error("Lời mời kết bạn đã được gửi trước đó.");
+      error.statusCode = 400;
+      throw error;
+    }
+
     await User.findByIdAndUpdate(userId, {
       $addToSet: {
         friendRequests: currentUserId,
@@ -249,6 +263,17 @@ export const rejectFriendRequest = async (req, res, next) => {
     const { userId } = req.params;
     validateUserId(userId);
 
+    const currentUser = await User.findById(currentUserId);
+    const hasRequest = currentUser.friendRequests.some(
+      (id) => id.toString() === userId.toString()
+    );
+
+    if (!hasRequest) {
+      const error = new Error("Không tìm thấy lời mời kết bạn.");
+      error.statusCode = 404;
+      throw error;
+    }
+
     await User.findByIdAndUpdate(currentUserId, {
       $pull: {
         friendRequests: userId,
@@ -297,7 +322,7 @@ export const blockUser = async (req, res, next) => {
       throw error;
     }
 
-    await User.findByIdAndUpdate(currentUserId, {
+    const updatedUser = await User.findByIdAndUpdate(currentUserId, {
       $addToSet: {
         blockedUsers: userId,
       },
@@ -305,7 +330,7 @@ export const blockUser = async (req, res, next) => {
         friends: userId,
         friendRequests: userId,
       },
-    });
+    }, { new: true }).select("-password");
 
     await User.findByIdAndUpdate(userId, {
       $pull: {
@@ -314,7 +339,17 @@ export const blockUser = async (req, res, next) => {
       },
     });
 
-    return res.status(200).json({ message: "Đã chặn người dùng." });
+    await Conversation.findOneAndUpdate(
+      {
+        isGroup: false,
+        members: { $all: [currentUserId, userId] }
+      },
+      {
+        $addToSet: { archivedBy: currentUserId }
+      }
+    );
+
+    return res.status(200).json(updatedUser);
   } catch (error) {
     return next(error);
   }
@@ -326,13 +361,23 @@ export const unblockUser = async (req, res, next) => {
     const { userId } = req.params;
     validateUserId(userId);
     
-    await User.findByIdAndUpdate(currentUserId, {
+    const updatedUser = await User.findByIdAndUpdate(currentUserId, {
       $pull: {
         blockedUsers: userId,
       },
-    });
+    }, { new: true }).select("-password");
 
-    return res.status(200).json({ message: "Đã bỏ chặn người dùng." });
+    await Conversation.findOneAndUpdate(
+      {
+        isGroup: false,
+        members: { $all: [currentUserId, userId] }
+      },
+      {
+        $pull: { archivedBy: currentUserId }
+      }
+    );
+
+    return res.status(200).json(updatedUser);
   } catch (error) {
     return next(error);
   }

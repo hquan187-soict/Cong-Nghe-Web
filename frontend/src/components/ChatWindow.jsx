@@ -27,6 +27,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [sending, setSending] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
 
   // Reply state
   const [replyingTo, setReplyingTo] = useState(null)
@@ -87,6 +88,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       }
       setHasMore(data.pagination?.hasMore ?? data.count === LIMIT)
       setPage(pageNum)
+      setIsBlocked(!!data.blocked)
     } catch (err) {
       console.error('ChatWindow: lỗi load messages', err)
     } finally {
@@ -298,6 +300,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
   useEffect(() => {
     setIsOtherTyping(false)
     setReplyingTo(null)
+    setIsBlocked(false)
     clearTimeout(typingAutoHideRef.current)
   }, [conversationId])
 
@@ -631,6 +634,25 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
           color: 'var(--color-text-muted)', fontSize: '14px', background: 'var(--color-surface)'
         }}>
           Bạn đã bị buộc rời khỏi nhóm. Bạn không thể thực hiện hành động nào.
+        </div>
+      ) : isBlocked ? (
+        <div style={{
+          padding: '14px 16px',
+          textAlign: 'center',
+          borderTop: '1px solid var(--color-border-subtle)',
+          color: 'var(--color-text-muted)',
+          fontSize: '14px',
+          background: 'var(--color-surface)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+        }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+          </svg>
+          Bạn không thể trả lời cuộc trò chuyện này
         </div>
       ) : (
         <>

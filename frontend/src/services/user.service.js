@@ -40,4 +40,52 @@ export const userService = {
   async toggleActiveStatus(enabled) {
     return await axiosInstance.put('/api/users/active-status', { enabled });
   },
+
+  /**
+   * Gửi lời mời kết bạn
+   * POST /api/users/friend-requests/:userId
+   */
+  async sendFriendRequest(userId) {
+    return await axiosInstance.post(`/api/users/friend-requests/${userId}`);
+  },
+
+  /**
+   * Chấp nhận lời mời kết bạn
+   * PUT /api/users/friend-requests/:userId
+   */
+  async acceptFriendRequest(userId) {
+    return await axiosInstance.put(`/api/users/friend-requests/${userId}`);
+  },
+
+  /**
+   * Từ chối lời mời kết bạn
+   * DELETE /api/users/friend-requests/:userId
+   */
+  async rejectFriendRequest(userId) {
+    return await axiosInstance.delete(`/api/users/friend-requests/${userId}`);
+  },
+
+  /**
+   * Hủy kết bạn
+   * DELETE /api/users/friends/:userId
+   */
+  async unfriend(userId) {
+    return await axiosInstance.delete(`/api/users/friends/${userId}`);
+  },
+
+  /**
+   * Chặn người dùng
+   * POST /api/users/blocks/:userId
+   */
+  async blockUser(userId) {
+    return await axiosInstance.post(`/api/users/blocks/${userId}`);
+  },
+
+  /**
+   * Bỏ chặn người dùng
+   * DELETE /api/users/blocks/:userId
+   */
+  async unblockUser(userId) {
+    return await axiosInstance.delete(`/api/users/blocks/${userId}`);
+  },
 };

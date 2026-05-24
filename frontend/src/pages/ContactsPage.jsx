@@ -13,6 +13,7 @@ import { userService } from '../services/user.service';
 import { conversationService } from '../services/conversation.service';
 import ContactItem from '../components/contacts/ContactItem';
 import MiniProfile from '../components/contacts/MiniProfile';
+import FriendRequestItem from '../components/contacts/FriendRequestItem';
 import '../styles/contacts.css';
 import '../styles/sidebar.css';
 
@@ -228,6 +229,99 @@ export default function ContactsPage() {
     }
   };
 
+  const [friendActionLoading, setFriendActionLoading] = useState(false);
+
+  const handleAddFriend = async (contact) => {
+    if (friendActionLoading) return;
+    setFriendActionLoading(true);
+    try {
+      await userService.sendFriendRequest(contact._id);
+      toast.success('Đã gửi lời mời kết bạn!');
+      // Cập nhật trạng thái local để UI phản hồi ngay
+      setUsers(prev => prev.map(u => u._id === contact._id ? { ...u, requestSent: true } : u));
+      if (selectedContact?._id === contact._id) {
+        setSelectedContact(prev => ({ ...prev, requestSent: true }));
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Không thể gửi lời mời kết bạn';
+      toast.error(msg);
+    } finally {
+      setFriendActionLoading(false);
+    }
+  };
+
+  const handleUnfriend = async (contact) => {
+    if (friendActionLoading) return;
+    setFriendActionLoading(true);
+    try {
+      await userService.unfriend(contact._id);
+      toast.success('Đã hủy kết bạn!');
+      // Cập nhật trạng thái local
+      setUsers(prev => prev.map(u => u._id === contact._id ? { ...u, isFriend: false } : u));
+      if (selectedContact?._id === contact._id) {
+        setSelectedContact(prev => ({ ...prev, isFriend: false }));
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Không thể hủy kết bạn';
+      toast.error(msg);
+    } finally {
+      setFriendActionLoading(false);
+    }
+  };
+
+  const [friendRequests, setFriendRequests] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchFriendRequests = async () => {
+      if (!user?.friendRequests || user.friendRequests.length === 0) {
+        setFriendRequests([]);
+        return;
+      }
+      try {
+        const requests = await Promise.all(
+          user.friendRequests.map(id => userService.getUserById(id))
+        );
+        if (!cancelled) {
+          setFriendRequests(requests.filter(Boolean));
+        }
+      } catch (err) {
+        console.error('Fetch friend requests error:', err);
+      }
+    };
+    fetchFriendRequests();
+    return () => { cancelled = true; };
+  }, [user?.friendRequests]);
+
+  const handleAcceptRequest = async (userId) => {
+    try {
+      await userService.acceptFriendRequest(userId);
+      toast.success(t('contacts.acceptSuccess') || 'Đã chấp nhận kết bạn!');
+      setFriendRequests(prev => prev.filter(u => u._id !== userId));
+      if (user && user.friendRequests) {
+        updateUser({ ...user, friendRequests: user.friendRequests.filter(id => id !== userId) });
+      }
+      // Reload users to show new friend
+      const data = await userService.searchUsers(debouncedSearchQuery);
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
+    }
+  };
+
+  const handleRejectRequest = async (userId) => {
+    try {
+      await userService.rejectFriendRequest(userId);
+      toast.success(t('contacts.rejectSuccess') || 'Đã từ chối lời mời!');
+      setFriendRequests(prev => prev.filter(u => u._id !== userId));
+      if (user && user.friendRequests) {
+        updateUser({ ...user, friendRequests: user.friendRequests.filter(id => id !== userId) });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
+    }
+  };
+
   const isUserOnline = (userId) => {
     return onlineUsers.some(id => id.toString() === userId.toString());
   };
@@ -298,6 +392,24 @@ export default function ContactsPage() {
 
           {/* Contacts List */}
           <div className="contacts-list" style={sidebarCollapsed ? { padding: '8px 0' } : {}}>
+            {!sidebarCollapsed && friendRequests.length > 0 && (
+              <>
+                <div className="contacts-list__title" style={{ marginTop: '0', color: 'var(--color-primary)' }}>
+                  {t('contacts.friendRequests') || 'Lời mời kết bạn'} ({friendRequests.length})
+                </div>
+                {friendRequests.map(reqUser => (
+                  <FriendRequestItem
+                    key={reqUser._id}
+                    type="received"
+                    request={{ _id: reqUser._id, from: reqUser, createdAt: new Date().toISOString() }}
+                    onAccept={() => handleAcceptRequest(reqUser._id)}
+                    onDecline={() => handleRejectRequest(reqUser._id)}
+                  />
+                ))}
+                <div className="sidebar__divider" style={{ margin: '8px 16px' }} />
+              </>
+            )}
+
             {!sidebarCollapsed && (
               <div className="contacts-list__title">
                 {t('contacts.friends')} ({users.length})
@@ -605,8 +717,9 @@ export default function ContactsPage() {
               contact={selectedContact} 
               isOnline={isUserOnline(selectedContact._id)}
               onSendMessage={() => handleMessage(selectedContact)}
-              onUnfriend={() => console.log('Unfriend', selectedContact._id)}
-              onAddFriend={() => console.log('Add friend', selectedContact._id)}
+              onUnfriend={() => handleUnfriend(selectedContact)}
+              onAddFriend={() => handleAddFriend(selectedContact)}
+              isLoading={friendActionLoading}
             />
           </div>
         ) : (

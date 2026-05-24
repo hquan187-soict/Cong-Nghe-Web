@@ -11,6 +11,18 @@ const LIKE_ICONS = {
 import Avatar from './ui/Avatar'
 import { messageService } from '../services/message.service'
 
+/**
+ * Kiểm tra URL an toàn: chặn javascript: và data:text/html scheme
+ * React tự escape JSX text (đã an toàn), nhưng href/src cần validate.
+ */
+const isSafeUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.trim().toLowerCase();
+  if (lower.startsWith('javascript:')) return false;
+  if (lower.startsWith('data:text/html')) return false;
+  return true;
+};
+
 function formatTime(dateInput) {
   const date = new Date(dateInput)
   const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
@@ -190,18 +202,28 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   }
 
   const handleConfirmRecall = async () => {
-    const type = recallOption === 'all' ? 'all' : 'me'
-    await messageService.deleteMessage(message._id, type)
-    if (type === 'me') {
-      deleteMessage(message._id)
+    try {
+      const type = recallOption === 'all' ? 'all' : 'me'
+      await messageService.deleteMessage(message._id, type)
+      if (type === 'me') {
+        deleteMessage(message._id)
+      }
+      setShowRecallModal(false)
+    } catch (err) {
+      console.error('Recall message error:', err)
+      setShowRecallModal(false)
     }
-    setShowRecallModal(false)
   }
 
   const handleConfirmDelete = async () => {
-    await messageService.deleteMessage(message._id, 'me')
-    deleteMessage(message._id)
-    setShowDeleteConfirm(false)
+    try {
+      await messageService.deleteMessage(message._id, 'me')
+      deleteMessage(message._id)
+      setShowDeleteConfirm(false)
+    } catch (err) {
+      console.error('Delete message error:', err)
+      setShowDeleteConfirm(false)
+    }
   }
 
   const handleEdit = () => {
@@ -303,7 +325,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               <Trash2 size={14} />
               <span>{isOwn ? 'Thu hồi tin nhắn' : 'Xóa tin nhắn'}</span>
             </button>
-            {isOwn && !isLikeMessage && (((new Date() - new Date(message.createdAt))) < 5 * 60 * 1000) && (
+            {isOwn && !isLikeMessage && !isRecalled && (((new Date() - new Date(message.createdAt))) < 15 * 60 * 1000) && (
               <button className="message-actions__dropdown-item" onClick={handleEdit}>
                 <Edit3 size={14} />
                 <span>Sửa tin nhắn</span>
@@ -400,7 +422,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           </div>
         )}
 
-        {message.image && (
+        {message.image && isSafeUrl(message.image) && (
           <div className="message-bubble__image-wrapper">
             {!imgLoaded && <div className="message-bubble__image-placeholder" />}
             <img
@@ -408,13 +430,13 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               alt="attachment"
               className={`message-bubble__image ${imgLoaded ? '' : 'message-bubble__image--loading'}`}
               onLoad={() => setImgLoaded(true)}
-              onClick={() => window.open(message.image, '_blank')}
+              onClick={() => window.open(message.image, '_blank', 'noopener,noreferrer')}
             />
           </div>
         )}
 
         {file && (file.url || file.name) && (
-          file.url ? (
+          file.url && isSafeUrl(file.url) ? (
             <a
               href={file.url}
               target="_blank"

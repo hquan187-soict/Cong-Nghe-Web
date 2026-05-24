@@ -16,8 +16,14 @@ export function AuthProvider({ children }) {
       const savedToken = localStorage.getItem(STORAGE_KEY_TOKEN)
 
       if (savedUser && savedToken) {
-        setUser(JSON.parse(savedUser))
-        setToken(savedToken)
+        const parsed = JSON.parse(savedUser)
+        if (parsed && parsed._id) {
+          setUser(parsed)
+          setToken(savedToken)
+        } else {
+          localStorage.removeItem(STORAGE_KEY_USER)
+          localStorage.removeItem(STORAGE_KEY_TOKEN)
+        }
       }
     } catch (err) {
       console.error('AuthContext: lỗi khi restore session', err)
@@ -43,9 +49,9 @@ export function AuthProvider({ children }) {
   }, [])
 
   const updateUser = useCallback((newUserData) => {
+    if (!newUserData || !newUserData._id) return
     setUser(newUserData)
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUserData))
-    console.log('AuthContext: đã cập nhật user', newUserData)
   }, [])
 
   const logout = useCallback(() => {

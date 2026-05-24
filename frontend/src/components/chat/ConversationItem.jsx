@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   MoreHorizontal, BellOff, Bell, MailOpen, Phone, Video,
-  Archive, Trash2, Pin, PinOff, LogOut
+  Archive, Trash2, Pin, PinOff, LogOut, ShieldBan, ShieldCheck
 } from 'lucide-react'
 import Avatar from '../ui/Avatar'
 import { formatRelativeTime } from '../../utils/timeUtils'
@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 
-function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup, onArchive }) {
+function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup, onArchive, onBlock, onUnblock }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
   const { onlineUsers: contextOnlineUsers } = useSocket()
@@ -92,7 +92,11 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     if (action === 'Mute' && onMute) onMute(conversation._id)
     if (action === 'Archive' && onArchive) onArchive(conversation._id)
     if (action === 'LeaveGroup' && onLeaveGroup) onLeaveGroup(conversation._id)
+    if (action === 'Block' && onBlock) onBlock(conversation._id, otherMemberId)
+    if (action === 'Unblock' && onUnblock) onUnblock(conversation._id, otherMemberId)
   }
+
+  const isBlockedByMe = user?.blockedUsers?.some(id => id?.toString() === otherMemberId)
 
   const renderAvatar = () => {
     const hasCustomAvatar = isGroup && !!(conversation.avatar || conversation.groupAvatar);
@@ -227,6 +231,18 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
               <button className="conversation-item__dropdown-item conversation-item__dropdown-item--danger" onClick={handleMenuAction('LeaveGroup')}>
                 <LogOut size={14} />
                 <span>{t('chat.leaveGroup')}</span>
+              </button>
+            )}
+            {!isGroup && !isBlockedByMe && (
+              <button className="conversation-item__dropdown-item conversation-item__dropdown-item--danger" onClick={handleMenuAction('Block')}>
+                <ShieldBan size={14} />
+                <span>{t('chat.blockUser')}</span>
+              </button>
+            )}
+            {!isGroup && isBlockedByMe && (
+              <button className="conversation-item__dropdown-item conversation-item__dropdown-item--danger" onClick={handleMenuAction('Unblock')}>
+                <ShieldCheck size={14} />
+                <span>{t('chat.unblockUser')}</span>
               </button>
             )}
             <button className="conversation-item__dropdown-item conversation-item__dropdown-item--danger" onClick={handleMenuAction('Delete')}>

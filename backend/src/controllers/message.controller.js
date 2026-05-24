@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import xss from "xss";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
@@ -30,7 +31,7 @@ const hasBlockBetweenUsers = async (userAId, userBId) => {
   return aBlockedB || bBlockedA;
 };
 
-const checkConversationAccess = async (conversationId, currentUserId, allowRemoved = false) => {
+const checkConversationAccess = async (conversationId, currentUserId, { allowRemoved = false, checkBlock = true } = {}) => {
   if (!mongoose.Types.ObjectId.isValid(conversationId)) {
     const error = new Error("conversationId không hợp lệ.");
     error.statusCode = 400;
@@ -59,7 +60,7 @@ const checkConversationAccess = async (conversationId, currentUserId, allowRemov
     throw error;
   }
 
-  if (!conversation.isGroup) {
+  if (checkBlock && !conversation.isGroup) {
     const otherMemberId = conversation.members.find(
       (memberId) => memberId.toString() !== currentUserId.toString(),
     );
@@ -90,7 +91,17 @@ export const getMessages = async (req, res, next) => {
       throw error;
     }
 
-    await checkConversationAccess(conversationId, currentUserId, true);
+    const conversation = await checkConversationAccess(conversationId, currentUserId, { allowRemoved: true, checkBlock: false });
+
+    let blocked = false;
+    if (!conversation.isGroup) {
+      const otherMemberId = conversation.members.find(
+        (memberId) => memberId.toString() !== currentUserId.toString(),
+      );
+      if (otherMemberId) {
+        blocked = await hasBlockBetweenUsers(currentUserId, otherMemberId);
+      }
+    }
 
     const page = Math.max(Number(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
@@ -121,6 +132,7 @@ export const getMessages = async (req, res, next) => {
         limit,
         hasMore,
       },
+      blocked,
     });
   } catch (error) {
     return next(error);
@@ -200,7 +212,7 @@ export const sendMessage = async (req, res, next) => {
       throw error;
     }
 
-    const cleanText = typeof text === "string" ? text.trim() : "";
+    const cleanText = typeof text === "string" ? xss(text.trim()) : "";
 
     if (!cleanText && !image && !file) {
       const error = new Error("Message phải có text, image hoặc file.");
@@ -366,7 +378,7 @@ export const markMessagesAsRead = async (req, res, next) => {
       throw error;
     }
 
-    await checkConversationAccess(conversationId, currentUserId);
+    await checkConversationAccess(conversationId, currentUserId, { checkBlock: false });
 
     const result = await Message.updateMany(
       { conversationId },
@@ -467,7 +479,7 @@ export const getPinnedMessages = async (req, res, next) => {
       throw error;
     }
 
-    await checkConversationAccess(conversationId, currentUserId, true);
+    await checkConversationAccess(conversationId, currentUserId, { allowRemoved: true, checkBlock: false });
 
     const messages = await Message.find({
       conversationId,
@@ -621,7 +633,7 @@ export const editMessage = async (req, res, next) => {
       throw error;
     }
 
-    message.text = text.trim();
+    message.text = xss(text.trim());
     message.isEdited = true;
     message.editedAt = new Date();
     await message.save();
@@ -669,6 +681,8 @@ export const deleteMessage = async (req, res, next) => {
       throw error;
     }
 
+    const conversation = await checkConversationAccess(message.conversationId, currentUserId, { checkBlock: type === "all" });
+
     if (type === "all") {
       if (message.senderId.toString() !== currentUserId.toString()) {
         const error = new Error("Bạn chỉ có thể xóa tin nhắn của chính mình với loại 'all'.");
@@ -681,7 +695,6 @@ export const deleteMessage = async (req, res, next) => {
       message.isRecalled = true;
       await message.save();
 
-      const conversation = await checkConversationAccess(message.conversationId, currentUserId);
       conversation.members.forEach((memberId) => {
         const receiverSocketId = getReceiverSocketId(memberId.toString());
         if (receiverSocketId) {
@@ -692,11 +705,9 @@ export const deleteMessage = async (req, res, next) => {
         }
       });
     } else if (type === "me") {
-      if (!message.isDeletedBy) message.isDeletedBy = [];
-      if (!message.isDeletedBy.map(id => id.toString()).includes(currentUserId.toString())) {
-        message.isDeletedBy.push(currentUserId);
-        await message.save();
-      }
+      await Message.findByIdAndUpdate(messageId, {
+        $addToSet: { isDeletedBy: currentUserId },
+      });
     } else {
       const error = new Error("Loại xoá không hợp lệ. Chỉ hỗ trợ 'all' hoặc 'me'.");
       error.statusCode = 400;

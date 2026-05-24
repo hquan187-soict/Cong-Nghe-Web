@@ -7,7 +7,7 @@ import {
   ShieldBan, Flag, ChevronRight, Users, LogOut,
   Camera, Loader2, UserPlus, Plus, MoreVertical,
   MessageCircle, UserMinus, Shield, Check, Archive, Pin,
-  ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf
+  ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf, ShieldCheck
 } from 'lucide-react'
 
 const EMOJI_OPTIONS = [
@@ -37,6 +37,7 @@ import Sidebar from '../components/chat/Sidebar'
 import ChatWindow from '../components/ChatWindow'
 import Avatar from '../components/ui/Avatar'
 import ProfileModal from '../components/ProfileModal'
+import ConfirmModal from '../components/ui/ConfirmModal'
 
 function ChatPage() {
   const { t, lang } = useLang()
@@ -407,6 +408,66 @@ function ChatPage() {
     }
   }
 
+  const [isBlockingUser, setIsBlockingUser] = useState(false)
+  const [confirmModalData, setConfirmModalData] = useState({ isOpen: false, type: null })
+
+  const handleConfirmAction = async () => {
+    if (!otherMember?._id) return
+    const { type } = confirmModalData;
+    setConfirmModalData(prev => ({ ...prev, isOpen: false }))
+    setIsBlockingUser(true)
+
+    if (type === 'block') {
+      try {
+        const updatedUser = await userService.blockUser(otherMember._id)
+        if (updatedUser) updateUser(updatedUser)
+        if (sidebarRef.current?.updateConversationDetails && selectedConversation) {
+          const archivedBy = selectedConversation.archivedBy || []
+          const alreadyArchived = archivedBy.some(id => (id._id || id).toString() === currentUserId)
+          sidebarRef.current.updateConversationDetails({
+            ...selectedConversation,
+            archivedBy: alreadyArchived ? archivedBy : [...archivedBy, currentUserId]
+          })
+        }
+        toast.success(t('chat.blockSuccess') || 'Đã chặn người dùng')
+        setSelectedConversation(null)
+        localStorage.removeItem('last_conversation')
+        navigate('/chat', { replace: true })
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+      } finally {
+        setIsBlockingUser(false)
+      }
+    } else if (type === 'unblock') {
+      try {
+        const updatedUser = await userService.unblockUser(otherMember._id)
+        if (updatedUser) updateUser(updatedUser)
+        if (sidebarRef.current?.updateConversationDetails && selectedConversation) {
+          const filtered = (selectedConversation.archivedBy || []).filter(
+            id => (id._id || id).toString() !== currentUserId
+          )
+          sidebarRef.current.updateConversationDetails({
+            ...selectedConversation,
+            archivedBy: filtered
+          })
+        }
+        toast.success(t('chat.unblockSuccess') || 'Đã bỏ chặn người dùng')
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+      } finally {
+        setIsBlockingUser(false)
+      }
+    }
+  }
+
+  const handleBlockUser = () => {
+    setConfirmModalData({ isOpen: true, type: 'block' })
+  }
+
+  const handleUnblockUser = () => {
+    setConfirmModalData({ isOpen: true, type: 'unblock' })
+  }
+
   const handleToggleAddMemberPermission = async () => {
     if (!selectedConversation) return
     const newPerm = selectedConversation.addMemberPermission === 'admin' ? 'anyone' : 'admin'
@@ -689,6 +750,9 @@ function ChatPage() {
   const handleMessageSent = useCallback(({ conversationId: convId, lastMessage }) => {
     if (sidebarRef.current?.updateLastMessage) {
       sidebarRef.current.updateLastMessage(convId, lastMessage)
+    }
+    if (sidebarRef.current?.unarchiveConversation) {
+      sidebarRef.current.unarchiveConversation(convId)
     }
   }, [])
 
@@ -1481,10 +1545,25 @@ function ChatPage() {
                     <LogOut size={16} />
                     <span>{t('chat.leaveGroup')}</span>
                   </button>
+                ) : user?.blockedUsers?.some(id => id?.toString() === otherMember?._id?.toString()) ? (
+                  <button 
+                    className="info-panel__action-row info-panel__action-row--danger"
+                    onClick={handleUnblockUser}
+                    disabled={isBlockingUser}
+                    style={{ opacity: isBlockingUser ? 0.6 : 1 }}
+                  >
+                    <ShieldCheck size={16} />
+                    <span>{isBlockingUser ? 'Đang xử lý...' : t('chat.unblockUser') || 'Bỏ chặn người dùng'}</span>
+                  </button>
                 ) : (
-                  <button className="info-panel__action-row info-panel__action-row--danger">
+                  <button 
+                    className="info-panel__action-row info-panel__action-row--danger"
+                    onClick={handleBlockUser}
+                    disabled={isBlockingUser}
+                    style={{ opacity: isBlockingUser ? 0.6 : 1 }}
+                  >
                     <ShieldBan size={16} />
-                    <span>{t('chat.blockUser')}</span>
+                    <span>{isBlockingUser ? 'Đang xử lý...' : t('chat.blockUser')}</span>
                   </button>
                 )}
                 <button className="info-panel__action-row info-panel__action-row--danger">
@@ -1603,6 +1682,15 @@ function ChatPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal 
+        isOpen={confirmModalData.isOpen}
+        title={confirmModalData.type === 'block' ? (t('chat.blockUser') || 'Chặn người dùng') : (t('chat.unblockUser') || 'Bỏ chặn người dùng')}
+        message={confirmModalData.type === 'block' ? (t('chat.blockUserConfirm') || 'Bạn có chắc chắn muốn chặn người dùng này?') : (t('chat.unblockUserConfirm') || 'Bạn có chắc chắn muốn bỏ chặn người dùng này?')}
+        danger={confirmModalData.type === 'block'}
+        onConfirm={handleConfirmAction}
+        onCancel={() => setConfirmModalData(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   )
 }

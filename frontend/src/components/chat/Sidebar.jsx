@@ -14,6 +14,7 @@ import { userService } from '../../services/user.service'
 import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
 import CreateGroupModal from './CreateGroupModal'
+import ConfirmModal from '../ui/ConfirmModal'
 import '../../styles/sidebar.css'
 
 const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onlineUsers = [] }, ref) {
@@ -100,6 +101,20 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
 
     removeConversation(conversationId) {
       setConversations((prev) => prev.filter((conv) => conv._id !== conversationId))
+    },
+
+    unarchiveConversation(conversationId) {
+      const uid = user?._id?.toString()
+      if (!uid) return
+      setConversations((prev) =>
+        prev.map((conv) => {
+          if (conv._id !== conversationId) return conv
+          const filtered = (conv.archivedBy || []).filter(
+            id => (id._id || id).toString() !== uid
+          )
+          return { ...conv, archivedBy: filtered }
+        })
+      )
     },
 
     isConversationMuted(conversationId) {
@@ -248,11 +263,15 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const handleArchive = useCallback(async (convId) => {
     try {
       const updatedConv = await conversationService.toggleArchiveConversation(convId)
-      setConversations(prev =>
-        prev.map(c => c._id === convId ? { ...c, ...updatedConv } : c)
-      )
+      const uid = user?._id?.toString()
       const isNowArchived = updatedConv.archivedBy?.some(
-        id => (id._id || id).toString() === user?._id?.toString()
+        id => (id._id || id).toString() === uid
+      )
+      setConversations(prev =>
+        prev.map(c => {
+          if (c._id !== convId) return c
+          return { ...c, archivedBy: updatedConv.archivedBy }
+        })
       )
       toast.success(isNowArchived ? 'Đã lưu trữ cuộc trò chuyện' : 'Đã bỏ lưu trữ cuộc trò chuyện')
       if (isNowArchived && selectedConversation?._id === convId) {
@@ -277,6 +296,59 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi rời nhóm.')
     }
   }, [selectedConversation, onSelectConversation, t, toast])
+
+  const [confirmModalData, setConfirmModalData] = useState({ isOpen: false, type: null, convId: null, otherId: null })
+
+  const confirmBlockAction = async () => {
+    const { type, convId, otherId } = confirmModalData;
+    if (!otherId) return;
+
+    setConfirmModalData(prev => ({ ...prev, isOpen: false }));
+
+    if (type === 'block') {
+      try {
+        const updatedUser = await userService.blockUser(otherId)
+        if (updatedUser) updateUser(updatedUser)
+        const uid = user?._id?.toString()
+        setConversations(prev => prev.map(c => {
+          if (c._id !== convId) return c
+          const archivedBy = c.archivedBy || []
+          const alreadyArchived = archivedBy.some(id => (id._id || id).toString() === uid)
+          return { ...c, archivedBy: alreadyArchived ? archivedBy : [...archivedBy, uid] }
+        }))
+        if (selectedConversation?._id === convId) {
+          onSelectConversation(null)
+        }
+        toast.success(t('chat.blockSuccess') || 'Đã chặn người dùng')
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+      }
+    } else if (type === 'unblock') {
+      try {
+        const updatedUser = await userService.unblockUser(otherId)
+        if (updatedUser) updateUser(updatedUser)
+        const uid = user?._id?.toString()
+        setConversations(prev => prev.map(c => {
+          if (c._id !== convId) return c
+          const filtered = (c.archivedBy || []).filter(id => (id._id || id).toString() !== uid)
+          return { ...c, archivedBy: filtered }
+        }))
+        toast.success(t('chat.unblockSuccess') || 'Đã bỏ chặn người dùng')
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+      }
+    }
+  }
+
+  const handleBlock = useCallback((convId, otherMemberId) => {
+    if (!otherMemberId) return
+    setConfirmModalData({ isOpen: true, type: 'block', convId, otherId: otherMemberId })
+  }, [])
+
+  const handleUnblock = useCallback((convId, otherMemberId) => {
+    if (!otherMemberId) return
+    setConfirmModalData({ isOpen: true, type: 'unblock', convId, otherId: otherMemberId })
+  }, [])
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -561,6 +633,8 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             onMute={handleMute}
             onArchive={handleArchive}
             onLeaveGroup={handleLeaveGroup}
+            onBlock={handleBlock}
+            onUnblock={handleUnblock}
           />
         ))}
       </div>
@@ -833,6 +907,15 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         isOpen={showCreateGroupModal}
         onClose={() => setShowCreateGroupModal(false)}
         onGroupCreated={handleConversationCreated}
+      />
+
+      <ConfirmModal 
+        isOpen={confirmModalData.isOpen}
+        title={confirmModalData.type === 'block' ? (t('chat.blockUser') || 'Chặn người dùng') : (t('chat.unblockUser') || 'Bỏ chặn người dùng')}
+        message={confirmModalData.type === 'block' ? (t('chat.blockUserConfirm') || 'Bạn có chắc chắn muốn chặn người dùng này?') : (t('chat.unblockUserConfirm') || 'Bạn có chắc chắn muốn bỏ chặn người dùng này?')}
+        danger={confirmModalData.type === 'block'}
+        onConfirm={confirmBlockAction}
+        onCancel={() => setConfirmModalData(prev => ({ ...prev, isOpen: false }))}
       />
     </aside>
   )
