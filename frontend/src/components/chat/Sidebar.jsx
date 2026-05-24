@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall } from 'lucide-react'
+import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus, Archive, Volume2, Play } from 'lucide-react'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
 import { useLang } from '../../context/LangContext'
@@ -9,9 +9,11 @@ import { useToast } from '../../context/ToastContext'
 import { useAccessibility } from '../../context/AccessibilityContext'
 import { useSocket } from '../../context/SocketContext'
 import { useAuth } from '../../context/AuthContext'
+import { useNotification } from '../../context/NotificationContext'
 import { userService } from '../../services/user.service'
 import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
+import CreateGroupModal from './CreateGroupModal'
 import '../../styles/sidebar.css'
 
 const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onlineUsers = [] }, ref) {
@@ -22,28 +24,39 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const { fontSize, setFontSize, fontFamily, setFontFamily, FONT_SIZES, FONT_FAMILIES } = useAccessibility()
   const { socket } = useSocket()
   const { user, updateUser } = useAuth()
+  const { soundEnabled, setSoundEnabled, selectedSound, setSelectedSound, previewSound, SOUND_OPTIONS } = useNotification()
 
   const [conversations, setConversations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showSearchModal, setShowSearchModal] = useState(false)
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
+  
   const [showSettings, setShowSettings] = useState(false)
   const [showAccessibility, setShowAccessibility] = useState(false)
   const [showActiveStatus, setShowActiveStatus] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
   const [activeStatusEnabled, setActiveStatusEnabled] = useState(() => {
     const saved = localStorage.getItem('active_status_enabled')
     return saved !== null ? saved === 'true' : true
   })
+  
   const settingsRef = useRef(null)
   const settingsBtnRef = useRef(null)
   const dropdownRef = useRef(null)
   const a11yPanelRef = useRef(null)
   const activeStatusPanelRef = useRef(null)
   const activeStatusBtnRef = useRef(null)
+  const notifPanelRef = useRef(null)
+  const notifBtnRef = useRef(null)
   const [dropdownStyle, setDropdownStyle] = useState({})
   const [a11yPanelStyle, setA11yPanelStyle] = useState({})
   const [activeStatusPanelStyle, setActiveStatusPanelStyle] = useState({})
+  const [notifPanelStyle, setNotifPanelStyle] = useState({})
 
   const [unreadMap, setUnreadMap] = useState({})
+  const [pinMap, setPinMap] = useState({})
+  const [muteMap, setMuteMap] = useState({})
+  const [activeFilter, setActiveFilter] = useState('all') // 'all' | 'unread' | 'archived'
 
   useImperativeHandle(ref, () => ({
     updateLastMessage(conversationId, lastMessage) {
@@ -57,7 +70,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
               }
             : conv
         )
-        updated.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+        // Note: we don't need to sort here because useMemo handles the view sorting
         return updated
       })
     },
@@ -76,7 +89,23 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         [conversationId]: (prev[conversationId] || 0) + 1,
       }))
     },
-  }), [])
+
+    updateConversationDetails(updatedConv) {
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === updatedConv._id ? { ...conv, ...updatedConv } : conv
+        )
+      )
+    },
+
+    removeConversation(conversationId) {
+      setConversations((prev) => prev.filter((conv) => conv._id !== conversationId))
+    },
+
+    isConversationMuted(conversationId) {
+      return !!muteMap[conversationId]
+    },
+  }), [muteMap])
 
   useEffect(() => {
     if (user?.showActiveStatus !== undefined) {
@@ -111,13 +140,22 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         if (!cancelled) {
           const list = Array.isArray(data) ? data : []
           setConversations(list)
+          
           const uMap = {}
+          const pMap = {}
+          const mMap = {}
+          
           list.forEach((conv) => {
             if (conv.unreadCount && conv.unreadCount > 0) {
               uMap[conv._id] = conv.unreadCount
             }
+            if (conv.isPinned) pMap[conv._id] = true
+            if (conv.isMuted) mMap[conv._id] = true
           })
+          
           setUnreadMap(uMap)
+          setPinMap(pMap)
+          setMuteMap(mMap)
         }
       } catch (err) {
         console.error('Fetch conversations error:', err)
@@ -133,6 +171,36 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!socket?.connected) return
+
+    const handleNewConversation = ({ conversation: newConv }) => {
+      if (!newConv) return
+      setConversations((prev) => {
+        const exists = prev.some((c) => c._id === newConv._id)
+        if (exists) return prev
+        return [newConv, ...prev]
+      })
+    }
+
+    const handleConversationUpdated = ({ conversation: updatedConv }) => {
+      if (!updatedConv) return
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === updatedConv._id ? { ...conv, ...updatedConv } : conv
+        )
+      )
+    }
+
+    socket.on('newConversation', handleNewConversation)
+    socket.on('conversationUpdated', handleConversationUpdated)
+
+    return () => {
+      socket.off('newConversation', handleNewConversation)
+      socket.off('conversationUpdated', handleConversationUpdated)
+    }
+  }, [socket])
+
   const handleSelectConversation = useCallback(async (conv) => {
     onSelectConversation(conv)
     setUnreadMap((prev) => {
@@ -141,7 +209,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       delete next[conv._id]
       return next
     })
-    if (!conv._id.startsWith('mock_')) {
+    if (!conv._id.startsWith('mock_') && !conv._id.startsWith('conv_')) {
       try {
         await messageService.markAsRead(conv._id)
       } catch (err) {
@@ -161,8 +229,54 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       }
       return [newConversation, ...prev]
     })
+    
+    // Copy initial pinned/muted status
+    if (newConversation.isPinned) setPinMap(prev => ({ ...prev, [newConversation._id]: true }))
+    if (newConversation.isMuted) setMuteMap(prev => ({ ...prev, [newConversation._id]: true }))
+    
     onSelectConversation(newConversation)
   }, [onSelectConversation])
+
+  const handlePin = useCallback((convId) => {
+    setPinMap(prev => ({ ...prev, [convId]: !prev[convId] }))
+  }, [])
+
+  const handleMute = useCallback((convId) => {
+    setMuteMap(prev => ({ ...prev, [convId]: !prev[convId] }))
+  }, [])
+
+  const handleArchive = useCallback(async (convId) => {
+    try {
+      const updatedConv = await conversationService.toggleArchiveConversation(convId)
+      setConversations(prev =>
+        prev.map(c => c._id === convId ? { ...c, ...updatedConv } : c)
+      )
+      const isNowArchived = updatedConv.archivedBy?.some(
+        id => (id._id || id).toString() === user?._id?.toString()
+      )
+      toast.success(isNowArchived ? 'Đã lưu trữ cuộc trò chuyện' : 'Đã bỏ lưu trữ cuộc trò chuyện')
+      if (isNowArchived && selectedConversation?._id === convId) {
+        onSelectConversation(null)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    }
+  }, [selectedConversation, onSelectConversation, toast, user])
+
+  const handleLeaveGroup = useCallback(async (convId) => {
+    if (!window.confirm(t('chat.leaveGroupConfirm') || 'Bạn có chắc chắn muốn rời nhóm?')) return
+    try {
+      await conversationService.leaveGroup(convId)
+      setConversations(prev => prev.filter(c => c._id !== convId))
+      if (selectedConversation?._id === convId) {
+        onSelectConversation(null)
+      }
+      toast.success(t('chat.leftGroup') || 'Đã rời nhóm thành công!')
+    } catch (err) {
+      console.error('Leave group error:', err)
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi rời nhóm.')
+    }
+  }, [selectedConversation, onSelectConversation, t, toast])
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -170,17 +284,19 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       const clickedInDropdown = dropdownRef.current?.contains(e.target)
       const clickedInA11y = a11yPanelRef.current?.contains(e.target)
       const clickedInActiveStatus = activeStatusPanelRef.current?.contains(e.target)
-      if (!clickedInSettings && !clickedInDropdown && !clickedInA11y && !clickedInActiveStatus) {
+      const clickedInNotif = notifPanelRef.current?.contains(e.target)
+      if (!clickedInSettings && !clickedInDropdown && !clickedInA11y && !clickedInActiveStatus && !clickedInNotif) {
         setShowSettings(false)
         setShowAccessibility(false)
         setShowActiveStatus(false)
+        setShowNotifications(false)
       }
     }
-    if (showSettings || showAccessibility || showActiveStatus) {
+    if (showSettings || showAccessibility || showActiveStatus || showNotifications) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showSettings, showAccessibility, showActiveStatus])
+  }, [showSettings, showAccessibility, showActiveStatus, showNotifications])
 
   useLayoutEffect(() => {
     if (!showSettings || !settingsBtnRef.current) return
@@ -217,14 +333,106 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     })
   }, [showActiveStatus])
 
+  useLayoutEffect(() => {
+    if (!showNotifications || !dropdownRef.current) return
+    const dropdownRect = dropdownRef.current.getBoundingClientRect()
+    const btnRect = notifBtnRef.current?.getBoundingClientRect()
+    setNotifPanelStyle({
+      left: dropdownRect.right + 8,
+      top: btnRect ? btnRect.top : dropdownRect.top,
+    })
+  }, [showNotifications])
+
   const handleSearchBarClick = () => {
     setShowSearchModal(true)
   }
 
+  const currentUserIdSidebar = user?._id?.toString()
+
+  // Filter and Sort logic
+  const displayedConversations = useMemo(() => {
+    let filtered = conversations
+
+    // Check archived status per conversation
+    const isConvArchived = (conv) => {
+      return conv.archivedBy?.some(id => (id._id || id).toString() === currentUserIdSidebar)
+    }
+
+    // 1. Filter
+    if (activeFilter === 'archived') {
+      filtered = filtered.filter(conv => isConvArchived(conv))
+    } else {
+      filtered = filtered.filter(conv => !isConvArchived(conv))
+      if (activeFilter === 'unread') {
+        filtered = filtered.filter(conv => (unreadMap[conv._id] || 0) > 0)
+      }
+    }
+
+    // 2. Map properties from local state maps for rendering
+    filtered = filtered.map(conv => ({
+      ...conv,
+      isPinned: !!pinMap[conv._id],
+      isMuted: !!muteMap[conv._id]
+    }))
+
+    // 3. Sort (pinned first, then by updatedAt)
+    return filtered.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1
+      if (!a.isPinned && b.isPinned) return 1
+
+      const timeA = new Date(a.lastMessage?.createdAt || a.updatedAt || 0).getTime()
+      const timeB = new Date(b.lastMessage?.createdAt || b.updatedAt || 0).getTime()
+      return timeB - timeA
+    })
+  }, [conversations, unreadMap, pinMap, muteMap, activeFilter, currentUserIdSidebar])
+
+  const archivedCount = useMemo(() => {
+    return conversations.filter(conv =>
+      conv.archivedBy?.some(id => (id._id || id).toString() === currentUserIdSidebar)
+    ).length
+  }, [conversations, currentUserIdSidebar])
+
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
+      {/* Top Nav */}
+      {collapsed ? (
+        <div className="sidebar-nav-vertical" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)', width: '100%', alignItems: 'center' }}>
+          <button 
+            className="sidebar-nav__tab-vertical sidebar-nav__tab-vertical--active" 
+            style={{ width: '40px', height: '40px', background: 'var(--color-primary-light)', border: 'none', borderRadius: '50%', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title={t('chat.title')}
+          >
+            <MessageSquare size={20} />
+          </button>
+          <button 
+            className="sidebar-nav__tab-vertical"
+            style={{ width: '40px', height: '40px', background: 'transparent', border: 'none', borderRadius: '50%', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => navigate('/contacts')}
+            title={t('contacts.title')}
+          >
+            <Users size={20} />
+          </button>
+        </div>
+      ) : (
+        <div className="sidebar-nav" style={{ display: 'flex', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)' }}>
+          <button 
+            className="sidebar-nav__tab sidebar-nav__tab--active" 
+            style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid var(--color-primary)', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
+          >
+            <MessageSquare size={18} /> {t('chat.title')}
+          </button>
+          <button 
+            className="sidebar-nav__tab"
+            style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
+            onClick={() => navigate('/contacts')}
+          >
+            <Users size={18} /> {t('contacts.title')}
+          </button>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="sidebar__header">
+      <div className="sidebar__header" style={collapsed ? {} : { paddingBottom: '8px' }}>
         <div className="sidebar__header-left">
           <button
             className="sidebar__profile-btn"
@@ -244,23 +452,68 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           </button>
           {!collapsed && (
             <h2 className="sidebar__title">
-              <MessageCircle size={18} />
               {t('chat.conversations')}
             </h2>
           )}
         </div>
+        {!collapsed && (
+          <div className="sidebar__header-right" style={{ display: 'flex', gap: '4px' }}>
+            <button 
+              className="sidebar__icon-btn" 
+              onClick={() => setShowCreateGroupModal(true)}
+              title={t('chat.createGroup')}
+            >
+              <UserPlus size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Search bar */}
+      {/* Search bar & Filters */}
       {!collapsed && (
-        <div className="sidebar__search">
-          <div className="sidebar__search-bar" onClick={handleSearchBarClick}>
-            <Search size={16} className="sidebar__search-icon" />
-            <span className="sidebar__search-placeholder">
-              {t('chat.searchPlaceholder')}
-            </span>
+        <>
+          <div className="sidebar__search" style={{ paddingBottom: '8px' }}>
+            <div className="sidebar__search-bar" onClick={handleSearchBarClick}>
+              <Search size={16} className="sidebar__search-icon" />
+              <span className="sidebar__search-placeholder">
+                {t('chat.searchPlaceholder')}
+              </span>
+            </div>
           </div>
-        </div>
+          <div className="sidebar-filter" style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
+            <button 
+              onClick={() => setActiveFilter('all')}
+              style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                background: activeFilter === 'all' ? 'var(--color-primary-light)' : 'transparent',
+                color: activeFilter === 'all' ? 'var(--color-primary)' : 'var(--color-text-muted)'
+              }}
+            >
+              {t('chat.filterAll')}
+            </button>
+            <button
+              onClick={() => setActiveFilter('unread')}
+              style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                background: activeFilter === 'unread' ? 'var(--color-primary-light)' : 'transparent',
+                color: activeFilter === 'unread' ? 'var(--color-primary)' : 'var(--color-text-muted)'
+              }}
+            >
+              {t('chat.filterUnread')}
+            </button>
+            {archivedCount > 0 && (
+              <button
+                onClick={() => setActiveFilter(activeFilter === 'archived' ? 'all' : 'archived')}
+                style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                  background: activeFilter === 'archived' ? 'var(--color-primary-light)' : 'transparent',
+                  color: activeFilter === 'archived' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                  display: 'flex', alignItems: 'center', gap: '4px'
+                }}
+              >
+                <Archive size={12} />
+                Lưu trữ ({archivedCount})
+              </button>
+            )}
+          </div>
+        </>
       )}
 
       <div className="sidebar__divider" />
@@ -283,7 +536,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           </div>
         )}
 
-        {!isLoading && conversations.length === 0 && (
+        {!isLoading && displayedConversations.length === 0 && (
           <div className="sidebar__empty">
             <MessageCircle size={40} className="sidebar__empty-icon" />
             {!collapsed && (
@@ -295,7 +548,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           </div>
         )}
 
-        {!isLoading && conversations.map((conv) => (
+        {!isLoading && displayedConversations.map((conv) => (
           <ConversationItem
             key={conv._id}
             conversation={conv}
@@ -304,6 +557,10 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             unreadCount={unreadMap[conv._id] || 0}
             collapsed={collapsed}
             onlineUsers={onlineUsers}
+            onPin={handlePin}
+            onMute={handleMute}
+            onArchive={handleArchive}
+            onLeaveGroup={handleLeaveGroup}
           />
         ))}
       </div>
@@ -378,7 +635,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             <span className="sidebar__settings-value">{lang === 'vi' ? 'Tiếng Việt' : 'English'}</span>
           </button>
           <div className="sidebar__settings-divider" />
-          <button className="sidebar__settings-item">
+          <button ref={notifBtnRef} className="sidebar__settings-item" onClick={() => { setShowNotifications(true); setShowAccessibility(false); setShowActiveStatus(false) }}>
             <Bell size={16} />
             <div className="sidebar__settings-item-text">
               <span>{t('settings.notifications')}</span>
@@ -386,7 +643,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             </div>
             <ChevronRight size={14} className="sidebar__settings-arrow" />
           </button>
-          <button ref={activeStatusBtnRef} className="sidebar__settings-item" onClick={() => { setShowActiveStatus(true); setShowAccessibility(false) }}>
+          <button ref={activeStatusBtnRef} className="sidebar__settings-item" onClick={() => { setShowActiveStatus(true); setShowAccessibility(false); setShowNotifications(false) }}>
             <Eye size={16} />
             <div className="sidebar__settings-item-text">
               <span>{t('settings.activeStatus')}</span>
@@ -394,7 +651,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             </div>
             <ChevronRight size={14} className="sidebar__settings-arrow" />
           </button>
-          <button className="sidebar__settings-item" onClick={() => { setShowAccessibility(true); setShowActiveStatus(false) }}>
+          <button className="sidebar__settings-item" onClick={() => { setShowAccessibility(true); setShowActiveStatus(false); setShowNotifications(false) }}>
             <Accessibility size={16} />
             <div className="sidebar__settings-item-text">
               <span>{t('settings.accessibility')}</span>
@@ -422,7 +679,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
       )}
 
-      {/* Accessibility sub-panel — positioned to the right of settings */}
+      {/* Accessibility sub-panel */}
       {showAccessibility && showSettings && (
         <div className="sidebar__a11y-panel" ref={a11yPanelRef} style={a11yPanelStyle}>
           <div className="sidebar__settings-header">
@@ -474,7 +731,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
       )}
 
-      {/* Active Status sub-panel — positioned to the right of settings */}
+      {/* Active Status sub-panel */}
       {showActiveStatus && showSettings && (
         <div className="sidebar__active-status-panel" ref={activeStatusPanelRef} style={activeStatusPanelStyle}>
           <div className="sidebar__settings-header">
@@ -500,11 +757,82 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
       )}
 
+      {/* Notifications sub-panel */}
+      {showNotifications && showSettings && (
+        <div className="sidebar__a11y-panel" ref={notifPanelRef} style={notifPanelStyle}>
+          <div className="sidebar__settings-header">
+            <button className="sidebar__a11y-back" onClick={() => setShowNotifications(false)}>
+              <ChevronLeft size={16} />
+            </button>
+            <span>{t('settings.notifSoundTitle')}</span>
+          </div>
+          <div className="sidebar__settings-divider" />
+
+          <div className="sidebar__a11y-section">
+            <div className="sidebar__active-status-toggle">
+              <span className="sidebar__active-status-label">{t('settings.notifSoundEnable')}</span>
+              <button
+                className={`sidebar__toggle-switch ${soundEnabled ? 'sidebar__toggle-switch--on' : ''}`}
+                onClick={() => setSoundEnabled(!soundEnabled)}
+              >
+                <span className="sidebar__toggle-knob" />
+              </button>
+            </div>
+          </div>
+
+          <div className="sidebar__settings-divider" />
+
+          <div className="sidebar__a11y-section">
+            <div className="sidebar__a11y-label">
+              <Volume2 size={15} />
+              <span>{t('settings.notifSoundSelect')}</span>
+            </div>
+            <div className="sidebar__a11y-font-list">
+              {SOUND_OPTIONS.map((opt) => {
+                const labelKey = {
+                  none: 'settings.notifSoundNone',
+                  pop1: 'settings.notifSoundPop1',
+                  pop2: 'settings.notifSoundPop2',
+                  pop3: 'settings.notifSoundPop3',
+                }[opt.value]
+                return (
+                  <div key={opt.value} className="sidebar__notif-sound-row">
+                    <button
+                      className={`sidebar__a11y-font-item ${selectedSound === opt.value ? 'sidebar__a11y-font-item--active' : ''}`}
+                      onClick={() => setSelectedSound(opt.value)}
+                      style={{ flex: 1 }}
+                    >
+                      {t(labelKey)}
+                    </button>
+                    {opt.value !== 'none' && (
+                      <button
+                        className="sidebar__notif-preview-btn"
+                        onClick={() => previewSound(opt.value)}
+                        title={t('settings.notifSoundPreview')}
+                      >
+                        <Play size={14} />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search User Modal */}
       <SearchUserModal
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
         onConversationCreated={handleConversationCreated}
+      />
+      
+      {/* Create Group Modal */}
+      <CreateGroupModal 
+        isOpen={showCreateGroupModal}
+        onClose={() => setShowCreateGroupModal(false)}
+        onGroupCreated={handleConversationCreated}
       />
     </aside>
   )

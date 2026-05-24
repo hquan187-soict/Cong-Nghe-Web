@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Upload, ArrowDown } from 'lucide-react'
+import { Upload, ArrowDown, X, Reply } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { useToast } from '../context/ToastContext'
 import { useLang } from '../context/LangContext'
 import { messageService } from '../services/message.service'
+import { conversationService } from '../services/conversation.service'
 import MessageBubble from './MessageBubble'
 import MessageInput from './chat/MessageInput'
 import TypingIndicator from './chat/TypingIndicator'
@@ -14,7 +15,7 @@ const LIMIT = 20
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
-function ChatWindow({ conversationId, otherMember, onMessageSent }) {
+function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKicked = false, conversation: convProp }) {
   const { user } = useAuth()
   const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
   const toast = useToast()
@@ -27,10 +28,15 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   const [hasMore, setHasMore] = useState(false)
   const [sending, setSending] = useState(false)
 
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState(null)
+
   // Typing indicator state
   const [isOtherTyping, setIsOtherTyping] = useState(false)
   const typingAutoHideRef = useRef(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
+
+  const [membersMap, setMembersMap] = useState({})
 
   // Drag & drop state
   const [dragOver, setDragOver] = useState(false)
@@ -98,6 +104,22 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
   }, [conversationId, fetchMessages])
 
   useEffect(() => {
+    if (!isGroup) return
+    const fetchConv = async () => {
+      try {
+        const convs = await conversationService.getConversations()
+        const conv = (Array.isArray(convs) ? convs : []).find(c => c._id === conversationId)
+        if (conv?.members) {
+          const map = {}
+          conv.members.forEach(m => { map[m._id] = m })
+          setMembersMap(map)
+        }
+      } catch {}
+    }
+    fetchConv()
+  }, [conversationId, isGroup])
+
+  useEffect(() => {
     if (!conversationId || conversationId.startsWith('mock_')) return
     messageService.markAsRead(conversationId).catch(() => { })
   }, [conversationId])
@@ -132,27 +154,10 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       )
     }
 
-    socket.on('sendMessage', handleNewMessage)
-    socket.on('messagesRead', handleMessagesRead)
-
-    return () => {
-      socket.off('sendMessage', handleNewMessage)
-      socket.off('messagesRead', handleMessagesRead)
-      leaveConversation(conversationId)
-    }
-  }, [conversationId, socket, isConnected, joinConversation, leaveConversation])
-
-  // Lắng nghe typing_start / typing_stop từ đối phương
-  useEffect(() => {
-    if (!conversationId || !socket || !isConnected) return
-
     const handleTypingStart = (data) => {
-      // Guard: chỉ xử lý event của conversation đang mở
       if (data.conversationId !== conversationId) return
       if (data.userId?.toString() === currentUserId) return
       setIsOtherTyping(true)
-
-      // Auto-hide safety: 7s tự động ẩn nếu không nhận được typing_stop
       clearTimeout(typingAutoHideRef.current)
       typingAutoHideRef.current = setTimeout(() => {
         setIsOtherTyping(false)
@@ -166,22 +171,105 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       setIsOtherTyping(false)
     }
 
+    const handleMessageReaction = ({ conversationId: cId, messageId, reactions }) => {
+      if (cId !== conversationId) return
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId ? { ...msg, reactions } : msg
+        )
+      )
+    }
+
+    const handleRecallMessage = ({ conversationId: cId, messageId}) => {
+      if (cId !== conversationId) return;
+        // Thu hồi với mọi người: cập nhật message thành đã thu hồi
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg._id === messageId
+              ? {
+                  ...msg,
+                  text: '',
+                  image: null,
+                  file: null,
+                  isRecalled: true,
+                }
+              : msg
+          )
+        );
+    }
+
+    const handleEditMessage = ({ conversationId: cId, messageId, newText }) => {
+      if (cId !== conversationId) return;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId
+            ? {
+                ...msg,
+                text: newText,
+                isEdited: true,
+              }
+            : msg
+        )
+      );
+    }
+
+    const handleMessagePinned = ({ conversationId: cId, messageId, isPinned }) => {
+      if (cId !== conversationId) return;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId ? { ...msg, isPinned } : msg
+        )
+      );
+    }
+
+    socket.on('sendMessage', handleNewMessage)
+    socket.on('messagesRead', handleMessagesRead)
     socket.on('typing_start', handleTypingStart)
     socket.on('typing_stop', handleTypingStop)
-
+    socket.on('messageReaction', handleMessageReaction)
+    socket.on('messageEdited', handleEditMessage)
+    socket.on('messageRecalled', handleRecallMessage)
+    socket.on('messagePinned', handleMessagePinned)
     return () => {
+      socket.off('sendMessage', handleNewMessage)
+      socket.off('messagesRead', handleMessagesRead)
       socket.off('typing_start', handleTypingStart)
       socket.off('typing_stop', handleTypingStop)
+      socket.off('messageReaction', handleMessageReaction)
+      socket.off('messageEdited', handleEditMessage)
+      socket.off('messageRecalled', handleRecallMessage)
+      socket.off('messagePinned', handleMessagePinned)
       clearTimeout(typingAutoHideRef.current)
       setIsOtherTyping(false)
+      leaveConversation(conversationId)
     }
-  }, [conversationId, socket, isConnected, currentUserId])
+  }, [conversationId, socket, isConnected, joinConversation, leaveConversation, currentUserId])
+
+  const lastConvIdRef = useRef(null)
 
   useEffect(() => {
-    if (!loading && messages.length > 0 && page === 1) {
+    if (loading || messages.length === 0 || page !== 1) return
+    const isNewConv = lastConvIdRef.current !== conversationId
+    lastConvIdRef.current = conversationId
+
+    const doScroll = () => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
+      }
+    }
+
+    if (isNewConv) {
+      doScroll()
+      requestAnimationFrame(() => {
+        doScroll()
+        requestAnimationFrame(doScroll)
+      })
+      setTimeout(doScroll, 100)
+      setTimeout(doScroll, 300)
+    } else {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
     }
-  }, [loading, conversationId, messages.length])
+  }, [loading, conversationId, messages.length, page])
 
   useEffect(() => {
     if (!loadingMore && prevScrollHeightRef.current > 0 && scrollContainerRef.current) {
@@ -209,6 +297,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
 
   useEffect(() => {
     setIsOtherTyping(false)
+    setReplyingTo(null)
     clearTimeout(typingAutoHideRef.current)
   }, [conversationId])
 
@@ -218,6 +307,42 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     })
   }, [isOtherTyping])
+
+  const handleSendLike = useCallback(async (emojiName) => {
+    if (!conversationId || !currentUserId) return
+    const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
+    const optimisticMsg = {
+      _id: tempId,
+      conversationId,
+      senderId: currentUserId,
+      text: emojiName,
+      messageType: 'like',
+      createdAt: new Date().toISOString(),
+      readBy: [currentUserId],
+      status: 'sending',
+    }
+    setMessages((prev) => [...prev, optimisticMsg])
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 50)
+    try {
+      const savedMsg = await messageService.sendMessage({
+        conversationId,
+        text: emojiName,
+        messageType: 'like',
+      })
+      setMessages((prev) =>
+        prev.map((msg) => msg._id === tempId ? { ...savedMsg, status: 'sent' } : msg)
+      )
+      if (onMessageSent) {
+        onMessageSent({ conversationId, lastMessage: savedMsg })
+      }
+    } catch (err) {
+      console.error('Gửi like thất bại:', err)
+      setMessages((prev) => prev.filter((msg) => msg._id !== tempId))
+      toast.error(t('chat.sendError'))
+    }
+  }, [conversationId, currentUserId, onMessageSent, toast, t])
 
   // Gửi tin nhắn (text + image + file)
   const handleSendMessage = useCallback(async (text, imageBase64, fileData) => {
@@ -250,6 +375,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
       if (text) payload.text = text
       if (imageBase64) payload.image = imageBase64
       if (fileData) payload.file = fileData
+      if (replyingTo) payload.replyTo = replyingTo._id
 
       const savedMsg = await messageService.sendMessage(payload)
 
@@ -258,6 +384,8 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
           msg._id === tempId ? { ...savedMsg, status: 'sent' } : msg
         )
       )
+
+      setReplyingTo(null)
 
       if (onMessageSent) {
         onMessageSent({ conversationId, lastMessage: savedMsg })
@@ -269,7 +397,7 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
     } finally {
       setSending(false)
     }
-  }, [conversationId, currentUserId, onMessageSent, toast, t])
+  }, [conversationId, currentUserId, onMessageSent, toast, t, replyingTo])
 
   // Drag & Drop
   const readFileAsBase64 = (file) =>
@@ -421,18 +549,46 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
           </div>
         ) : (
           messages.map((msg, idx) => {
+            if (msg.messageType === 'system') {
+              return (
+                <div key={msg._id} className="message-system" style={{
+                  textAlign: 'center', padding: '8px 16px', margin: '4px 0',
+                  fontSize: '12px', color: 'var(--color-text-muted)', fontStyle: 'italic'
+                }}>
+                  {msg.text}
+                </div>
+              )
+            }
+
             const msgSenderId = getSenderId(msg.senderId)
             const isOwn = msgSenderId === currentUserId
             const nextMsg = messages[idx + 1]
-            const nextSenderId = nextMsg ? getSenderId(nextMsg.senderId) : null
+            const nextSenderId = nextMsg && nextMsg.messageType !== 'system' ? getSenderId(nextMsg.senderId) : null
             const showAvatar = nextSenderId !== msgSenderId
 
             const prevMsg = messages[idx - 1]
-            const prevSenderId = prevMsg ? getSenderId(prevMsg.senderId) : null
-            const showName = prevSenderId !== msgSenderId
+            const prevSenderId = prevMsg && prevMsg.messageType !== 'system' ? getSenderId(prevMsg.senderId) : null
+            const showName = isGroup && !isOwn && prevSenderId !== msgSenderId
+            let senderAvatar, senderName
+            const nicknames = convProp?.nicknames
+            const getNickname = (id) => {
+              if (!nicknames || !id) return null
+              if (nicknames instanceof Map) return nicknames.get(id.toString())
+              if (typeof nicknames === 'object') return nicknames[id.toString()]
+              return null
+            }
 
-            const senderAvatar = isOwn ? user?.avatar : otherMember?.avatar
-            const senderName = isOwn ? user?.fullName : otherMember?.fullName
+            if (isOwn) {
+              senderAvatar = user?.avatar
+              senderName = getNickname(currentUserId) || user?.fullName
+            } else if (isGroup) {
+              const member = membersMap[msgSenderId] || (typeof msg.senderId === 'object' ? msg.senderId : null)
+              senderAvatar = member?.avatar
+              senderName = getNickname(msgSenderId) || member?.fullName || otherMember?.fullName
+            } else {
+              senderAvatar = otherMember?.avatar
+              senderName = getNickname(otherMember?._id) || otherMember?.fullName
+            }
 
             return (
               <MessageBubble
@@ -443,6 +599,12 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
                 showName={showName}
                 senderAvatar={senderAvatar}
                 senderName={senderName}
+                isKicked={isKicked}
+                onReply={(msg) => setReplyingTo(msg)}
+                scrollContainerRef={scrollContainerRef}
+                deleteMessage={(messageId) => {
+                  setMessages((prev) => prev.filter((m) => m._id !== messageId))
+                }}
               />
             )
           })
@@ -463,12 +625,56 @@ function ChatWindow({ conversationId, otherMember, onMessageSent }) {
         </button>
       )}
 
-      <MessageInput
-        ref={messageInputRef}
-        onSend={handleSendMessage}
-        disabled={sending}
-        conversationId={conversationId}
-      />
+      {isKicked ? (
+        <div style={{
+          padding: '16px', textAlign: 'center', borderTop: '1px solid var(--color-border-subtle)',
+          color: 'var(--color-text-muted)', fontSize: '14px', background: 'var(--color-surface)'
+        }}>
+          Bạn đã bị buộc rời khỏi nhóm. Bạn không thể thực hiện hành động nào.
+        </div>
+      ) : (
+        <>
+          {replyingTo && (
+            <div className="chat-window__reply-preview" style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '8px 16px', borderTop: '1px solid var(--color-border-subtle)',
+              background: 'var(--color-surface)'
+            }}>
+              <Reply size={16} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+              <div style={{
+                flex: 1, minWidth: 0, borderLeft: '3px solid var(--color-primary)',
+                paddingLeft: '8px'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-primary)' }}>
+                  {(() => {
+                    const sid = typeof replyingTo.senderId === 'object' ? replyingTo.senderId?._id : replyingTo.senderId
+                    return sid?.toString() === currentUserId ? 'Bạn' : (typeof replyingTo.senderId === 'object' ? replyingTo.senderId?.fullName : null) || 'Người dùng'
+                  })()}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {replyingTo.messageType === 'like'
+                    ? 'Đã gửi biểu tượng cảm xúc'
+                    : (replyingTo.text || (replyingTo.image ? 'Đã gửi một ảnh' : replyingTo.file ? 'Đã gửi một tệp' : ''))}
+                </div>
+              </div>
+              <button
+                onClick={() => setReplyingTo(null)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '4px' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          <MessageInput
+            ref={messageInputRef}
+            onSend={handleSendMessage}
+            onSendLike={handleSendLike}
+            disabled={sending}
+            conversationId={conversationId}
+            likeEmoji={convProp?.emoji || 'ThumbsUp'}
+          />
+        </>
+      )}
     </div>
   )
 }

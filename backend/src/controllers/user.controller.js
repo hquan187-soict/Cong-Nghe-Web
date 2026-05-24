@@ -13,17 +13,15 @@ export const searchUsers = async (req, res, next) => {
       throw error;
     }
 
-    if (!q) {
-      return res.status(200).json([]);
-    }
-
-    const users = await User.find({
-      _id: { $ne: currentUserId },
-      $or: [
+    const filter = { _id: { $ne: currentUserId } };
+    if (q) {
+      filter.$or = [
         { fullName: { $regex: q, $options: "i" } },
         { email: { $regex: q, $options: "i" } },
-      ],
-    }).select("-password");
+      ];
+    }
+
+    const users = await User.find(filter).select("-password");
 
     return res.status(200).json(users);
   } catch (error) {

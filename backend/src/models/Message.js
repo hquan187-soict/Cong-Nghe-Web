@@ -32,6 +32,43 @@ const messageSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    messageType: {
+      type: String,
+      enum: ["text", "system", "like"],
+      default: "text",
+    },
+    reactions: [
+      {
+        emoji: { type: String, required: true },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+      },
+    ],
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+    },
+    isPinned: {
+      type: Boolean,
+      default: false,
+    },
+    isForwarded: {
+      type: Boolean,
+      default: false,
+    },
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
+    isDeletedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    isRecalled: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

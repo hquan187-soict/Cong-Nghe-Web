@@ -30,4 +30,28 @@ export const messageService = {
   async markAsRead(conversationId) {
     return await axiosInstance.post(`/api/messages/${conversationId}/read`);
   },
+
+  async toggleReaction(messageId, emoji) {
+    return await axiosInstance.post(`/api/messages/${messageId}/reaction`, { emoji });
+  },
+
+  async togglePinMessage(messageId) {
+    return await axiosInstance.put(`/api/messages/${messageId}/pin`);
+  },
+
+  async editMessage(messageId, newText) {
+    return await axiosInstance.put(`/api/messages/${messageId}/edit`, { text: newText });
+  },
+
+  async deleteMessage(messageId, type = 'me') {
+    return await axiosInstance.put(`/api/messages/${messageId}/delete`, { type });
+  },
+
+  async getPinnedMessages(conversationId) {
+    return await axiosInstance.get(`/api/messages/${conversationId}/pinned`);
+  },
+
+  async forwardMessage(messageId, conversationIds) {
+    return await axiosInstance.post(`/api/messages/${messageId}/forward`, { conversationIds });
+  },
 };

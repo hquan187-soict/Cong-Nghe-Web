@@ -2,6 +2,679 @@ import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import User from "../models/User.js";
 import Message from "../models/Message.js";
+import cloudinary from "../lib/cloudinary.js";
+import { io, getReceiverSocketId } from "../lib/socket.js";
+
+export const addMember = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+      const error = new Error("ID không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation || !conversation.isGroup) {
+      const error = new Error("Nhóm không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không phải thành viên nhóm.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (conversation.addMemberPermission === "admin") {
+      const isAdmin = conversation.admins.some(
+        (aId) => aId.toString() === currentUserId.toString()
+      );
+      if (!isAdmin) {
+        const error = new Error("Chỉ quản trị viên mới có quyền thêm thành viên. Hãy gửi yêu cầu thay thế.");
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+
+    const alreadyMember = conversation.members.some(
+      (mId) => mId.toString() === userId.toString()
+    );
+    if (alreadyMember) {
+      const error = new Error("Người dùng đã là thành viên nhóm.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const userToAdd = await User.findById(userId);
+    if (!userToAdd) {
+      const error = new Error("Người dùng không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    conversation.members.push(userId);
+    conversation.removedMembers = conversation.removedMembers.filter(
+      (mId) => mId.toString() !== userId.toString()
+    );
+    await conversation.save();
+
+    const systemMsg = await Message.create({
+      conversationId: id,
+      senderId: currentUserId,
+      text: `${userToAdd.fullName} đã tham gia đoạn chat nhóm`,
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    conversation.lastMessage = systemMsg._id;
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "-password");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("sendMessage", {
+          conversationId: id,
+          message: populatedSystemMsg,
+        });
+      }
+    });
+
+    const updated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    // Notify existing members
+    conversation.members.forEach((memberId) => {
+      if (memberId.toString() === userId.toString()) return;
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("conversationUpdated", { conversation: updated });
+      }
+    });
+
+    // Notify the newly added member so conversation appears in their sidebar
+    const newMemberSocketId = getReceiverSocketId(userId.toString());
+    if (newMemberSocketId) {
+      io.to(newMemberSocketId).emit("newConversation", { conversation: updated });
+    }
+
+    return res.status(200).json(updated);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const leaveGroup = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation || !conversation.isGroup) {
+      const error = new Error("Nhóm không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không phải thành viên nhóm.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const leavingUser = await User.findById(currentUserId);
+
+    conversation.members = conversation.members.filter(
+      (mId) => mId.toString() !== currentUserId.toString()
+    );
+
+    const wasAdmin = conversation.admins.some(
+      (aId) => aId.toString() === currentUserId.toString()
+    );
+    if (wasAdmin) {
+      conversation.admins = conversation.admins.filter(
+        (aId) => aId.toString() !== currentUserId.toString()
+      );
+      if (conversation.admins.length === 0 && conversation.members.length > 0) {
+        conversation.admins.push(conversation.members[0]);
+      }
+    }
+
+    if (conversation.members.length < 2) {
+      await Conversation.findByIdAndDelete(id);
+      return res.status(200).json({ deleted: true, message: "Nhóm đã bị xóa vì không đủ thành viên." });
+    }
+
+    const systemMsg = await Message.create({
+      conversationId: id,
+      senderId: currentUserId,
+      text: `${leavingUser?.fullName || "Người dùng"} đã rời khỏi đoạn chat nhóm`,
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    conversation.lastMessage = systemMsg._id;
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "-password");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("sendMessage", {
+          conversationId: id,
+          message: populatedSystemMsg,
+        });
+      }
+    });
+
+    const updated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("conversationUpdated", { conversation: updated });
+      }
+    });
+
+    return res.status(200).json(updated);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const removeMember = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+      const error = new Error("ID không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation || !conversation.isGroup) {
+      const error = new Error("Nhóm không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isAdmin = conversation.admins.some(
+      (aId) => aId.toString() === currentUserId.toString()
+    );
+    if (!isAdmin) {
+      const error = new Error("Chỉ quản trị viên mới có quyền xóa thành viên.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (userId.toString() === currentUserId.toString()) {
+      const error = new Error("Không thể tự xóa chính mình.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const targetIsMember = conversation.members.some(
+      (mId) => mId.toString() === userId.toString()
+    );
+    if (!targetIsMember) {
+      const error = new Error("Người dùng không phải thành viên nhóm.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const removedUser = await User.findById(userId);
+
+    conversation.members = conversation.members.filter(
+      (mId) => mId.toString() !== userId.toString()
+    );
+    conversation.admins = conversation.admins.filter(
+      (aId) => aId.toString() !== userId.toString()
+    );
+    if (!conversation.removedMembers) conversation.removedMembers = [];
+    conversation.removedMembers.push(userId);
+    await conversation.save();
+
+    const systemMsg = await Message.create({
+      conversationId: id,
+      senderId: currentUserId,
+      text: `${removedUser?.fullName || "Người dùng"} đã rời khỏi đoạn chat nhóm`,
+      messageType: "system",
+      readBy: [...conversation.members, userId],
+    });
+    conversation.lastMessage = systemMsg._id;
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "-password");
+
+    [...conversation.members, mongoose.Types.ObjectId.createFromHexString(userId)].forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("sendMessage", {
+          conversationId: id,
+          message: populatedSystemMsg,
+        });
+      }
+    });
+
+    const removedSocketId = getReceiverSocketId(userId.toString());
+    if (removedSocketId) {
+      io.to(removedSocketId).emit("removedFromGroup", {
+        conversationId: id,
+        message: "Bạn đã bị buộc rời khỏi nhóm",
+      });
+    }
+
+    const updated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("conversationUpdated", { conversation: updated });
+      }
+    });
+
+    return res.status(200).json(updated);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateAddMemberPermission = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { permission } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!["anyone", "admin"].includes(permission)) {
+      const error = new Error("Giá trị permission không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation || !conversation.isGroup) {
+      const error = new Error("Nhóm không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isAdmin = conversation.admins.some(
+      (aId) => aId.toString() === currentUserId.toString()
+    );
+    if (!isAdmin) {
+      const error = new Error("Chỉ quản trị viên mới có quyền thay đổi.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    conversation.addMemberPermission = permission;
+    await conversation.save();
+
+    const updated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    return res.status(200).json(updated);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const requestAddMember = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+      const error = new Error("ID không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation || !conversation.isGroup) {
+      const error = new Error("Nhóm không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không phải thành viên nhóm.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const alreadyMember = conversation.members.some(
+      (mId) => mId.toString() === userId.toString()
+    );
+    if (alreadyMember) {
+      const error = new Error("Người dùng đã là thành viên nhóm.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const alreadyPending = conversation.pendingRequests?.some(
+      (r) => r.userId.toString() === userId.toString()
+    );
+    if (alreadyPending) {
+      const error = new Error("Yêu cầu đã tồn tại.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const userToAdd = await User.findById(userId);
+    if (!userToAdd) {
+      const error = new Error("Người dùng không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const requestingUser = await User.findById(currentUserId);
+
+    conversation.pendingRequests.push({
+      userId,
+      requestedBy: currentUserId,
+    });
+    await conversation.save();
+
+    const systemMsg = await Message.create({
+      conversationId: id,
+      senderId: currentUserId,
+      text: `${requestingUser?.fullName || "Người dùng"} muốn thêm ${userToAdd.fullName} vào trong đoạn chat nhóm`,
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    conversation.lastMessage = systemMsg._id;
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "-password");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("sendMessage", {
+          conversationId: id,
+          message: populatedSystemMsg,
+        });
+      }
+    });
+
+    const updated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage")
+      .populate("pendingRequests.userId", "-password")
+      .populate("pendingRequests.requestedBy", "-password");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("conversationUpdated", { conversation: updated });
+      }
+    });
+
+    return res.status(200).json(updated);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const approveRequest = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation || !conversation.isGroup) {
+      const error = new Error("Nhóm không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isAdmin = conversation.admins.some(
+      (aId) => aId.toString() === currentUserId.toString()
+    );
+    if (!isAdmin) {
+      const error = new Error("Chỉ quản trị viên mới có quyền duyệt yêu cầu.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const pendingIdx = conversation.pendingRequests.findIndex(
+      (r) => r.userId.toString() === userId.toString()
+    );
+    if (pendingIdx === -1) {
+      const error = new Error("Không tìm thấy yêu cầu.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    conversation.pendingRequests.splice(pendingIdx, 1);
+
+    const userToAdd = await User.findById(userId);
+    if (!userToAdd) {
+      const error = new Error("Người dùng không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    conversation.members.push(userId);
+    conversation.removedMembers = conversation.removedMembers.filter(
+      (mId) => mId.toString() !== userId.toString()
+    );
+    await conversation.save();
+
+    const systemMsg = await Message.create({
+      conversationId: id,
+      senderId: currentUserId,
+      text: `${userToAdd.fullName} đã tham gia đoạn chat nhóm`,
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    conversation.lastMessage = systemMsg._id;
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "-password");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("sendMessage", {
+          conversationId: id,
+          message: populatedSystemMsg,
+        });
+      }
+    });
+
+    const updated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage")
+      .populate("pendingRequests.userId", "-password")
+      .populate("pendingRequests.requestedBy", "-password");
+
+    conversation.members.forEach((memberId) => {
+      if (memberId.toString() === userId.toString()) return;
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("conversationUpdated", { conversation: updated });
+      }
+    });
+
+    const newMemberSocketId = getReceiverSocketId(userId.toString());
+    if (newMemberSocketId) {
+      io.to(newMemberSocketId).emit("newConversation", { conversation: updated });
+    }
+
+    return res.status(200).json(updated);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const rejectRequest = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation || !conversation.isGroup) {
+      const error = new Error("Nhóm không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isAdmin = conversation.admins.some(
+      (aId) => aId.toString() === currentUserId.toString()
+    );
+    if (!isAdmin) {
+      const error = new Error("Chỉ quản trị viên mới có quyền từ chối yêu cầu.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const pendingIdx = conversation.pendingRequests.findIndex(
+      (r) => r.userId.toString() === userId.toString()
+    );
+    if (pendingIdx === -1) {
+      const error = new Error("Không tìm thấy yêu cầu.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    conversation.pendingRequests.splice(pendingIdx, 1);
+    await conversation.save();
+
+    const systemMsg = await Message.create({
+      conversationId: id,
+      senderId: currentUserId,
+      text: "Yêu cầu bị từ chối bởi quản trị viên",
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    conversation.lastMessage = systemMsg._id;
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "-password");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("sendMessage", {
+          conversationId: id,
+          message: populatedSystemMsg,
+        });
+      }
+    });
+
+    const updated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage")
+      .populate("pendingRequests.userId", "-password")
+      .populate("pendingRequests.requestedBy", "-password");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("conversationUpdated", { conversation: updated });
+      }
+    });
+
+    return res.status(200).json(updated);
+  } catch (error) {
+    return next(error);
+  }
+};
 
 export const createConversation = async (req, res, next) => {
   try {
@@ -45,10 +718,13 @@ export const createConversation = async (req, res, next) => {
     const allMembers = [currentUserId, ...uniqueIds];
     const isGroup = allMembers.length > 2;
 
-    if (isGroup && !name?.trim()) {
-      const error = new Error("Tên nhóm là bắt buộc.");
-      error.statusCode = 400;
-      throw error;
+    let finalName = name?.trim();
+    if (isGroup && !finalName) {
+      const lastNames = [req.user, ...users].map(u => {
+        const parts = u.fullName?.trim().split(/\s+/);
+        return parts ? parts[parts.length - 1] : "";
+      }).filter(Boolean);
+      finalName = lastNames.join(", ");
     }
 
     if (!isGroup) {
@@ -68,7 +744,7 @@ export const createConversation = async (req, res, next) => {
     const conversation = await Conversation.create({
       members: allMembers,
       isGroup,
-      name: isGroup ? name.trim() : undefined,
+      name: isGroup ? finalName : undefined,
       avatar: avatar || null,
       admins: isGroup ? [currentUserId] : [],
     });
@@ -96,11 +772,16 @@ export const getConversations = async (req, res, next) => {
     }
 
     const conversations = await Conversation.find({
-      members: currentUserId,
+      $or: [
+        { members: currentUserId },
+        { removedMembers: currentUserId },
+      ],
     })
       .populate("members", "-password")
       .populate("admins", "-password")
       .populate("lastMessage")
+      .populate("pendingRequests.userId", "-password")
+      .populate("pendingRequests.requestedBy", "-password")
       .sort({ updatedAt: -1 });
 
     const conversationsWithUnreadCount = await Promise.all(
@@ -119,6 +800,348 @@ export const getConversations = async (req, res, next) => {
     );
 
     return res.status(200).json(conversationsWithUnreadCount);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateConversation = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { name, avatar } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (!conversation.isGroup) {
+      const error = new Error("Chỉ có thể cập nhật thông tin cho nhóm.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const updateData = {};
+    if (name !== undefined) {
+      if (typeof name !== "string") {
+        const error = new Error("Tên nhóm phải là chuỗi.");
+        error.statusCode = 400;
+        throw error;
+      }
+      updateData.name = name.trim();
+    }
+
+    if (avatar !== undefined) {
+      if (avatar === null || avatar === "") {
+        updateData.avatar = null;
+      } else {
+        const avatarUrl = await cloudinary.uploader.upload(avatar, {
+          folder: "avatars",
+          public_id: `group_avatar_${conversation._id}`,
+        });
+        updateData.avatar = avatarUrl.secure_url;
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      const error = new Error("Không có dữ liệu hợp lệ để cập nhật.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const updatedConversation = await Conversation.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    )
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    return res.status(200).json(updatedConversation);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateNickname = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { nickname, forUserId } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (!forUserId) {
+      const error = new Error("Vui lòng cung cấp ID người dùng để cập nhật biệt danh.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!conversation.isGroup) {
+      const error = new Error("Chỉ có thể cập nhật biệt danh cho nhóm.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const userIndex = conversation.members.findIndex(
+      (mId) => mId.toString() === forUserId.toString()
+    );
+    if (userIndex === -1) {
+      const error = new Error("Người dùng không tồn tại trong nhóm.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+
+    if (!conversation.nicknames) conversation.nicknames = new Map();
+
+    if (!nickname || !nickname.trim()) {
+      conversation.nicknames.delete(forUserId);
+    } else {
+      conversation.nicknames.set(forUserId, nickname.trim());
+    }
+    await conversation.save();
+
+    const updatedConversation = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("nicknameUpdated", { conversation: updatedConversation });
+      }
+    });
+
+    return res.status(200).json(updatedConversation);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const toggleMuteConversation = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+    const isMuted = conversation.mutedBy?.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (isMuted) {
+      conversation.mutedBy = conversation.mutedBy.filter(
+        (mId) => mId.toString() !== currentUserId.toString()
+      );
+    }
+    else {
+      if (!conversation.mutedBy) conversation.mutedBy = [];
+      conversation.mutedBy.push(currentUserId);
+    }
+    await conversation.save();
+    const updatedConversation = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+    return res.status(200).json(updatedConversation);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const toggleArchiveConversation = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+    if (!conversation.archivedBy) conversation.archivedBy = [];
+    const isArchived = conversation.archivedBy.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (isArchived) {
+      conversation.archivedBy = conversation.archivedBy.filter(
+        (mId) => mId.toString() !== currentUserId.toString()
+      );
+    }
+    else {
+      if (!conversation.archivedBy) conversation.archivedBy = [];
+      conversation.archivedBy.push(currentUserId);
+    }
+    await conversation.save();
+
+    const updatedConversation = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+    return res.status(200).json(updatedConversation);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const ALLOWED_EMOJIS = [
+  "ThumbsUp", "Heart", "Smile", "Flame", "Star",
+  "Coffee", "Zap", "Sun", "Moon", "Music", "Leaf",
+];
+
+export const updateEmoji = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { emoji } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!emoji || !ALLOWED_EMOJIS.includes(emoji)) {
+      const error = new Error("Emoji không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    conversation.emoji = emoji;
+    await conversation.save();
+
+    const updatedConversation = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("conversationUpdated", { conversation: updatedConversation });
+      }
+    });
+
+    return res.status(200).json(updatedConversation);
   } catch (error) {
     return next(error);
   }
