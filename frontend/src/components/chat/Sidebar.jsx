@@ -209,10 +209,12 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
 
     socket.on('newConversation', handleNewConversation)
     socket.on('conversationUpdated', handleConversationUpdated)
+    socket.on('nicknameUpdated', handleConversationUpdated)
 
     return () => {
       socket.off('newConversation', handleNewConversation)
       socket.off('conversationUpdated', handleConversationUpdated)
+      socket.off('nicknameUpdated', handleConversationUpdated)
     }
   }, [socket])
 
@@ -316,9 +318,6 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           const alreadyArchived = archivedBy.some(id => (id._id || id).toString() === uid)
           return { ...c, archivedBy: alreadyArchived ? archivedBy : [...archivedBy, uid] }
         }))
-        if (selectedConversation?._id === convId) {
-          onSelectConversation(null)
-        }
         toast.success(t('chat.blockSuccess') || 'Đã chặn người dùng')
       } catch (err) {
         toast.error(err.response?.data?.message || 'Có lỗi xảy ra')

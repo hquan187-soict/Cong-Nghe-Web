@@ -41,7 +41,7 @@ import ConfirmModal from '../components/ui/ConfirmModal'
 
 function ChatPage() {
   const { t, lang } = useLang()
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const { socket, isConnected, onlineUsers } = useSocket()
   const { conversationId: urlConversationId } = useParams()
   const navigate = useNavigate()
@@ -421,18 +421,18 @@ function ChatPage() {
       try {
         const updatedUser = await userService.blockUser(otherMember._id)
         if (updatedUser) updateUser(updatedUser)
-        if (sidebarRef.current?.updateConversationDetails && selectedConversation) {
-          const archivedBy = selectedConversation.archivedBy || []
-          const alreadyArchived = archivedBy.some(id => (id._id || id).toString() === currentUserId)
-          sidebarRef.current.updateConversationDetails({
-            ...selectedConversation,
-            archivedBy: alreadyArchived ? archivedBy : [...archivedBy, currentUserId]
-          })
+        const archivedBy = selectedConversation.archivedBy || []
+        const alreadyArchived = archivedBy.some(id => (id._id || id).toString() === currentUserId)
+        const updatedConv = {
+          ...selectedConversation,
+          archivedBy: alreadyArchived ? archivedBy : [...archivedBy, currentUserId]
+        }
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+        if (sidebarRef.current?.updateConversationDetails) {
+          sidebarRef.current.updateConversationDetails(updatedConv)
         }
         toast.success(t('chat.blockSuccess') || 'Đã chặn người dùng')
-        setSelectedConversation(null)
-        localStorage.removeItem('last_conversation')
-        navigate('/chat', { replace: true })
       } catch (err) {
         toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
       } finally {
@@ -442,14 +442,17 @@ function ChatPage() {
       try {
         const updatedUser = await userService.unblockUser(otherMember._id)
         if (updatedUser) updateUser(updatedUser)
-        if (sidebarRef.current?.updateConversationDetails && selectedConversation) {
-          const filtered = (selectedConversation.archivedBy || []).filter(
-            id => (id._id || id).toString() !== currentUserId
-          )
-          sidebarRef.current.updateConversationDetails({
-            ...selectedConversation,
-            archivedBy: filtered
-          })
+        const filtered = (selectedConversation.archivedBy || []).filter(
+          id => (id._id || id).toString() !== currentUserId
+        )
+        const updatedConv = {
+          ...selectedConversation,
+          archivedBy: filtered
+        }
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+        if (sidebarRef.current?.updateConversationDetails) {
+          sidebarRef.current.updateConversationDetails(updatedConv)
         }
         toast.success(t('chat.unblockSuccess') || 'Đã bỏ chặn người dùng')
       } catch (err) {
@@ -844,7 +847,9 @@ function ChatPage() {
             <div className="chat-header__user-info">
               <h2>
                 {selectedConversation
-                  ? (isGroup ? (selectedConversation.name || selectedConversation.groupName) : (otherMember?.fullName || t('chat.title')))
+                  ? (isGroup
+                    ? (selectedConversation.name || selectedConversation.groupName)
+                    : (selectedConversation.nicknames?.[otherMember?._id] || otherMember?.fullName || t('chat.title')))
                   : t('chat.title')}
               </h2>
               {selectedConversation && !isGroup && (
@@ -1020,7 +1025,9 @@ function ChatPage() {
               </div>
             ) : (
               <h3 className="info-panel__name">
-                {isGroup ? (selectedConversation.name || selectedConversation.groupName) : (otherMember?.fullName || t('chat.unknownUser'))}
+                {isGroup
+                  ? (selectedConversation.name || selectedConversation.groupName)
+                  : (selectedConversation.nicknames?.[otherMember?._id] || otherMember?.fullName || t('chat.unknownUser'))}
               </h3>
             )}
             <div className="info-panel__encryption">
@@ -1430,40 +1437,32 @@ function ChatPage() {
                   <span>{t('chat.themeColor')}</span>
                   <ChevronRight size={14} className="info-panel__action-arrow" />
                 </button>
-                {isGroup ? (
-                  <>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-muted)', padding: '8px 0 4px' }}>
-                      <AtSign size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                      {t('chat.changeNickname')}
-                    </div>
-                    {selectedConversation.members?.map((m) => {
-                      const nickname = selectedConversation.nicknames?.[m._id] || ''
-                      return (
-                        <button
-                          key={m._id}
-                          className="info-panel__action-row"
-                          onClick={() => handleOpenNicknameModal(m)}
-                          style={{ paddingLeft: '8px' }}
-                        >
-                          <Avatar src={m.avatar} alt={m.fullName} size="sm" />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text)' }}>{nickname || m.fullName}</div>
-                            {nickname && (
-                              <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{m.fullName}</div>
-                            )}
-                          </div>
-                          <ChevronRight size={14} className="info-panel__action-arrow" />
-                        </button>
-                      )
-                    })}
-                  </>
-                ) : (
-                  <button className="info-panel__action-row">
-                    <AtSign size={16} />
-                    <span>{t('chat.changeNickname')}</span>
-                    <ChevronRight size={14} className="info-panel__action-arrow" />
-                  </button>
-                )}
+                <>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-muted)', padding: '8px 0 4px' }}>
+                    <AtSign size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                    {t('chat.changeNickname')}
+                  </div>
+                  {selectedConversation.members?.map((m) => {
+                    const nickname = selectedConversation.nicknames?.[m._id] || ''
+                    return (
+                      <button
+                        key={m._id}
+                        className="info-panel__action-row"
+                        onClick={() => handleOpenNicknameModal(m)}
+                        style={{ paddingLeft: '8px' }}
+                      >
+                        <Avatar src={m.avatar} alt={m.fullName} size="sm" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text)' }}>{nickname || m.fullName}</div>
+                          {nickname && (
+                            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{m.fullName}</div>
+                          )}
+                        </div>
+                        <ChevronRight size={14} className="info-panel__action-arrow" />
+                      </button>
+                    )
+                  })}
+                </>
                 <button
                   className="info-panel__action-row"
                   onClick={() => setShowEmojiPicker(v => !v)}

@@ -32,7 +32,14 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     ? conversation.members.some(m => m._id !== user?._id && effectiveOnlineUsers.some(id => id.toString() === m._id.toString()))
     : (otherMemberId ? effectiveOnlineUsers.some((id) => id.toString() === otherMemberId) : false);
 
-  const displayTitle = isGroup ? (conversation.name || conversation.groupName) : (otherMember?.fullName || t('chat.unknownUser'));
+  const getNickname = (id) => {
+    if (!conversation.nicknames || !id) return null
+    if (conversation.nicknames instanceof Map) return conversation.nicknames.get(id.toString())
+    if (typeof conversation.nicknames === 'object') return conversation.nicknames[id.toString()]
+    return null
+  }
+
+  const displayTitle = isGroup ? (conversation.name || conversation.groupName) : (getNickname(otherMember?._id) || otherMember?.fullName || t('chat.unknownUser'));
 
   const lastMessagePreview = (() => {
     const msg = conversation.lastMessage
@@ -41,11 +48,11 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     const senderName = (() => {
       if (!msg.senderId) return ''
       if (typeof msg.senderId === 'object') {
-        return msg.senderId._id === user?._id
-          ? 'Bạn'
-          : (msg.senderId.fullName || '')
+        if (msg.senderId._id === user?._id) return 'Bạn'
+        return getNickname(msg.senderId._id) || msg.senderId.fullName || ''
       }
-      return msg.senderId === user?._id ? 'Bạn' : ''
+      if (msg.senderId === user?._id) return 'Bạn'
+      return getNickname(msg.senderId) || ''
     })()
 
     const prefixStr = senderName === 'Bạn' || isGroup ? senderName + ': ' : ''

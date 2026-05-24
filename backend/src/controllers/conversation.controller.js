@@ -792,8 +792,9 @@ export const getConversations = async (req, res, next) => {
           readBy: { $ne: currentUserId },
         });
 
+        const obj = conversation.toJSON();
         return {
-          ...conversation.toObject(),
+          ...obj,
           unreadCount,
         };
       })
@@ -928,17 +929,11 @@ export const updateNickname = async (req, res, next) => {
       throw error;
     }
 
-    if (!conversation.isGroup) {
-      const error = new Error("Chỉ có thể cập nhật biệt danh cho nhóm.");
-      error.statusCode = 400;
-      throw error;
-    }
-
     const userIndex = conversation.members.findIndex(
       (mId) => mId.toString() === forUserId.toString()
     );
     if (userIndex === -1) {
-      const error = new Error("Người dùng không tồn tại trong nhóm.");
+      const error = new Error("Người dùng không tồn tại trong cuộc trò chuyện.");
       error.statusCode = 404;
       throw error;
     }

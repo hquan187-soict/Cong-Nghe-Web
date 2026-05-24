@@ -571,7 +571,6 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
 
             const prevMsg = messages[idx - 1]
             const prevSenderId = prevMsg && prevMsg.messageType !== 'system' ? getSenderId(prevMsg.senderId) : null
-            const showName = isGroup && !isOwn && prevSenderId !== msgSenderId
             let senderAvatar, senderName
             const nicknames = convProp?.nicknames
             const getNickname = (id) => {
@@ -580,6 +579,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
               if (typeof nicknames === 'object') return nicknames[id.toString()]
               return null
             }
+            const showName = !isOwn && prevSenderId !== msgSenderId
 
             if (isOwn) {
               senderAvatar = user?.avatar
