@@ -10,6 +10,7 @@ const LIKE_ICONS = {
 }
 import Avatar from './ui/Avatar'
 import AudioPlayer from './chat/AudioPlayer'
+import ImageLightbox from './chat/ImageLightbox'
 import { messageService } from '../services/message.service'
 
 /**
@@ -142,6 +143,7 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
 
 function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, deleteMessage, onReply, scrollContainerRef }) {
   const [imgLoaded, setImgLoaded] = useState(false)
+  const [lightboxSrc, setLightboxSrc] = useState(null)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showRecallModal, setShowRecallModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -384,8 +386,25 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       )
     }
 
+    const isVideoFile = file && file.type && file.type.startsWith('video/')
+    const isAudioType = message.messageType === 'audio'
+    const isGenericFile = file && !isVideoFile && !isAudioType
+
+    const replyPreviewText = () => {
+      if (!message.replyTo) return ''
+      const rt = message.replyTo
+      if (rt.messageType === 'like') return 'Đã gửi biểu tượng cảm xúc'
+      if (rt.messageType === 'audio') return '🎤 Tin nhắn thoại'
+      if (rt.file && rt.file.type && rt.file.type.startsWith('video/')) return '🎬 Đã gửi một video'
+      if (rt.text) return rt.text
+      if (rt.image) return 'Đã gửi một ảnh'
+      if (rt.file) return 'Đã gửi một tệp'
+      return ''
+    }
+
     return (
       <>
+        {/* Reply preview */}
         {message.replyTo && (
           <div
             className="message-bubble__reply-preview"
@@ -416,15 +435,12 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
                 : 'Người dùng'}
             </div>
             <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-              {message.replyTo.messageType === 'like'
-                ? 'Đã gửi biểu tượng cảm xúc'
-                : message.replyTo.messageType === 'audio'
-                  ? '🎤 Tin nhắn thoại'
-                  : (message.replyTo.text || (message.replyTo.image ? 'Đã gửi một ảnh' : message.replyTo.file ? 'Đã gửi một tệp' : ''))}
+              {replyPreviewText()}
             </div>
           </div>
         )}
 
+        {/* 1. Image */}
         {message.image && isSafeUrl(message.image) && (
           <div className="message-bubble__image-wrapper">
             {!imgLoaded && <div className="message-bubble__image-placeholder" />}
@@ -433,12 +449,25 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               alt="attachment"
               className={`message-bubble__image ${imgLoaded ? '' : 'message-bubble__image--loading'}`}
               onLoad={() => setImgLoaded(true)}
-              onClick={() => window.open(message.image, '_blank', 'noopener,noreferrer')}
+              onClick={() => setLightboxSrc(message.image)}
             />
           </div>
         )}
 
-        {message.messageType === 'audio' && file && (
+        {/* 2. Video */}
+        {isVideoFile && file.url && isSafeUrl(file.url) && (
+          <div className="message-bubble__video-wrapper">
+            <video
+              className="message-bubble__video"
+              src={file.url}
+              controls
+              preload="metadata"
+            />
+          </div>
+        )}
+
+        {/* 3. Audio */}
+        {isAudioType && file && (
           file.url && isSafeUrl(file.url) ? (
             <AudioPlayer src={file.url} duration={file.duration} isOwn={isOwn} />
           ) : (
@@ -451,7 +480,8 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           )
         )}
 
-        {message.messageType !== 'audio' && file && (file.url || file.name) && (
+        {/* 4. Generic file (not video, not audio) */}
+        {isGenericFile && (file.url || file.name) && (
           file.url && isSafeUrl(file.url) ? (
             <a
               href={file.url}
@@ -481,6 +511,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           )
         )}
 
+        {/* 5. Text */}
         {message.text && <p className="message-bubble__text">{message.text}</p>}
       </>
     )
@@ -653,6 +684,15 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           onClose={() => setShowReactionDetail(false)}
           onRemoveReaction={(emoji) => handleSelectEmoji(emoji)}
           isKicked={isKicked}
+        />
+      )}
+
+      {/* Image Lightbox */}
+      {lightboxSrc && (
+        <ImageLightbox
+          src={lightboxSrc}
+          alt="attachment"
+          onClose={() => setLightboxSrc(null)}
         />
       )}
     </>
