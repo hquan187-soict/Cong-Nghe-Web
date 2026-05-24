@@ -1141,3 +1141,68 @@ export const updateEmoji = async (req, res, next) => {
     return next(error);
   }
 };
+
+const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+
+export const updateThemeColor = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { themeColor } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (themeColor !== null && themeColor !== undefined) {
+      if (typeof themeColor !== "string" || !HEX_COLOR_REGEX.test(themeColor)) {
+        const error = new Error("Mã màu không hợp lệ. Vui lòng sử dụng định dạng hex (vd: #FF0000).");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    conversation.themeColor = themeColor || null;
+    await conversation.save();
+
+    const updatedConversation = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("admins", "-password")
+      .populate("lastMessage");
+
+    conversation.members.forEach((memberId) => {
+      const socketId = getReceiverSocketId(memberId.toString());
+      if (socketId) {
+        io.to(socketId).emit("themeColorUpdated", { conversation: updatedConversation });
+      }
+    });
+
+    return res.status(200).json(updatedConversation);
+  } catch (error) {
+    return next(error);
+  }
+};

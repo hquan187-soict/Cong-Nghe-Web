@@ -85,6 +85,11 @@ const conversationSchema = new mongoose.Schema(
       type: String,
       default: "ThumbsUp",
     },
+
+    themeColor: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

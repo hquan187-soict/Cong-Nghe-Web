@@ -13,6 +13,7 @@ import {
   rejectRequest,
   updateNickname,
   updateEmoji,
+  updateThemeColor,
   toggleMuteConversation,
   toggleArchiveConversation,
 } from "../controllers/conversation.controller.js";
@@ -28,6 +29,7 @@ router.post("/:id/remove-member", protect, removeMember);
 router.put("/:id/add-member-permission", protect, updateAddMemberPermission);
 router.put("/:id/nickname", protect, updateNickname);
 router.put("/:id/emoji", protect, updateEmoji);
+router.put("/:id/theme-color", protect, updateThemeColor);
 router.post("/:id/toggle-mute", protect, toggleMuteConversation);
 router.post("/:id/toggle-archive", protect, toggleArchiveConversation);
 router.post("/:id/request-add-member", protect, requestAddMember);

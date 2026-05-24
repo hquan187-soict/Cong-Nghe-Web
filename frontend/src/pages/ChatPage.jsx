@@ -10,6 +10,17 @@ import {
   ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf, ShieldCheck
 } from 'lucide-react'
 
+const THEME_COLOR_PRESETS = [
+  { name: 'Mặc định', color: null },
+  { name: 'Tím', color: '#7c3aed' },
+  { name: 'Xanh lá', color: '#16a34a' },
+  { name: 'Đỏ', color: '#dc2626' },
+  { name: 'Hồng', color: '#db2777' },
+  { name: 'Cam', color: '#ea580c' },
+  { name: 'Vàng', color: '#ca8a04' },
+  { name: 'Xanh dương đậm', color: '#2563eb' },
+]
+
 const EMOJI_OPTIONS = [
   { name: 'ThumbsUp', icon: ThumbsUp, label: 'Thích' },
   { name: 'Heart', icon: Heart, label: 'Yêu thích' },
@@ -219,6 +230,28 @@ function ChatPage() {
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
     } finally {
       setIsUpdatingEmoji(false)
+    }
+  }
+
+  // Theme color picker state
+  const [showThemeColorPicker, setShowThemeColorPicker] = useState(false)
+  const [isUpdatingThemeColor, setIsUpdatingThemeColor] = useState(false)
+
+  const handleUpdateThemeColor = async (color) => {
+    setIsUpdatingThemeColor(true)
+    try {
+      const updatedConv = await conversationService.updateThemeColor(selectedConversation._id, color)
+      setSelectedConversation(updatedConv)
+      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      toast.success('Đã cập nhật màu chủ đề!')
+      setShowThemeColorPicker(false)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    } finally {
+      setIsUpdatingThemeColor(false)
     }
   }
 
@@ -542,16 +575,29 @@ function ChatPage() {
       }
     }
 
+    const handleThemeColorUpdated = ({ conversation: updatedConv }) => {
+      if (!updatedConv) return
+      if (sidebarRef.current?.updateConversationDetails) {
+        sidebarRef.current.updateConversationDetails(updatedConv)
+      }
+      if (selectedConvIdRef.current === updatedConv._id) {
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
+      }
+    }
+
     socket.on('conversationUpdated', handleConversationUpdated)
     socket.on('removedFromGroup', handleRemovedFromGroup)
     socket.on('newConversation', handleNewConversation)
     socket.on('nicknameUpdated', handleNicknameUpdated)
+    socket.on('themeColorUpdated', handleThemeColorUpdated)
 
     return () => {
       socket.off('conversationUpdated', handleConversationUpdated)
       socket.off('removedFromGroup', handleRemovedFromGroup)
       socket.off('newConversation', handleNewConversation)
       socket.off('nicknameUpdated', handleNicknameUpdated)
+      socket.off('themeColorUpdated', handleThemeColorUpdated)
     }
   }, [socket, isConnected])
 
@@ -1432,11 +1478,56 @@ function ChatPage() {
             </button>
             {infoCustomizeOpen && (
               <div className="info-panel__section-content">
-                <button className="info-panel__action-row">
+                <button
+                  className="info-panel__action-row"
+                  onClick={() => setShowThemeColorPicker(v => !v)}
+                >
                   <Palette size={16} />
                   <span>{t('chat.themeColor')}</span>
-                  <ChevronRight size={14} className="info-panel__action-arrow" />
+                  {selectedConversation?.themeColor && (
+                    <span style={{
+                      width: '14px', height: '14px', borderRadius: '50%',
+                      background: selectedConversation.themeColor,
+                      border: '1px solid var(--color-border)', flexShrink: 0
+                    }} />
+                  )}
+                  <ChevronDown size={14} className={`info-panel__action-arrow ${showThemeColorPicker ? 'info-panel__chevron--open' : ''}`} />
                 </button>
+                {showThemeColorPicker && (
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px',
+                    padding: '8px', background: 'var(--color-hover-bg)', borderRadius: '8px', marginBottom: '4px'
+                  }}>
+                    {THEME_COLOR_PRESETS.map(({ name, color }) => {
+                      const isActive = (selectedConversation?.themeColor || null) === color
+                      return (
+                        <button
+                          key={name}
+                          onClick={() => handleUpdateThemeColor(color)}
+                          disabled={isUpdatingThemeColor}
+                          title={name}
+                          style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                            padding: '8px 4px', borderRadius: '8px', border: isActive ? '2px solid var(--color-primary)' : '2px solid transparent',
+                            cursor: 'pointer',
+                            background: isActive ? 'var(--color-primary-light)' : 'transparent',
+                            transition: 'background 0.15s, border-color 0.15s'
+                          }}
+                        >
+                          <span style={{
+                            width: '28px', height: '28px', borderRadius: '50%',
+                            background: color || 'var(--color-primary)',
+                            border: '2px solid var(--color-border-subtle)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}>
+                            {isActive && <Check size={14} color="#fff" />}
+                          </span>
+                          <span style={{ fontSize: '10px', lineHeight: 1, color: 'var(--color-text-muted)' }}>{name}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
                 <>
                   <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-muted)', padding: '8px 0 4px' }}>
                     <AtSign size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />

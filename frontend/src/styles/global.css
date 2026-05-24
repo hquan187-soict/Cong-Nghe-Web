@@ -510,6 +510,11 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  background-color: var(--conv-theme-tint-light, transparent);
+}
+
+[data-theme="dark"] .chat-window__messages {
+  background-color: var(--conv-theme-tint-dark, transparent);
 }
 
 .chat-window__messages::-webkit-scrollbar {
@@ -745,9 +750,14 @@ a:hover {
 }
 
 .message-bubble--own {
-  background: var(--color-primary);
-  color: #ffffff;
+  background: var(--conv-theme, var(--color-primary));
+  color: var(--conv-theme-text, #ffffff);
   border-bottom-right-radius: 4px;
+}
+
+[data-theme="dark"] .message-bubble--own {
+  background: var(--conv-theme-dark, var(--color-primary));
+  color: #ffffff;
 }
 
 .message-bubble__text {
@@ -825,6 +835,10 @@ a:hover {
   color: #bfdbfe;
 }
 
+[data-theme="dark"] .message-bubble--own .message-bubble__status--read {
+  color: #bfdbfe;
+}
+
 .message-bubble__status--error {
   color: #ef4444;
   opacity: 1;
@@ -874,6 +888,7 @@ a:hover {
 
 .message-bubble__file--own {
   background: rgba(255, 255, 255, 0.15);
+  color: inherit;
 }
 
 .message-bubble__file:hover {
@@ -882,6 +897,11 @@ a:hover {
 
 .message-bubble__file--own:hover {
   background: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="dark"] .message-bubble__file--own {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
 }
 
 .message-bubble__file-icon {
@@ -1151,15 +1171,24 @@ a:hover {
   justify-content: center;
   border: none;
   border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: #ffffff;
+  background: var(--conv-theme, var(--color-primary));
+  color: var(--conv-theme-text, #ffffff);
   cursor: pointer;
   transition: background var(--transition-fast), transform var(--transition-fast);
   flex-shrink: 0;
 }
 
 .message-input__send-btn:hover:not(:disabled) {
-  background: var(--color-primary-hover);
+  background: var(--conv-theme-hover, var(--color-primary-hover));
+}
+
+[data-theme="dark"] .message-input__send-btn {
+  background: var(--conv-theme-dark, var(--color-primary));
+  color: #ffffff;
+}
+
+[data-theme="dark"] .message-input__send-btn:hover:not(:disabled) {
+  background: var(--conv-theme-dark-hover, var(--color-primary-hover));
 }
 
 .message-input__send-btn:active:not(:disabled) {
@@ -1180,15 +1209,23 @@ a:hover {
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-primary);
+  color: var(--conv-theme, var(--color-primary));
   cursor: pointer;
   transition: color var(--transition-fast), background var(--transition-fast);
   flex-shrink: 0;
 }
 
 .message-input__like-btn:hover:not(:disabled) {
-  color: var(--color-primary-hover);
+  color: var(--conv-theme-hover, var(--color-primary-hover));
   background: var(--color-primary-light);
+}
+
+[data-theme="dark"] .message-input__like-btn {
+  color: var(--conv-theme-dark, var(--color-primary));
+}
+
+[data-theme="dark"] .message-input__like-btn:hover:not(:disabled) {
+  color: var(--conv-theme-dark-hover, var(--color-primary-hover));
 }
 
 .message-input__like-btn:active:not(:disabled) {

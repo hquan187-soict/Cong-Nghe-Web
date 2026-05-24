@@ -15,6 +15,35 @@ const LIMIT = 20
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
+function hexToRgb(hex) {
+  const num = parseInt(hex.slice(1), 16)
+  return [(num >> 16) & 0xFF, (num >> 8) & 0xFF, num & 0xFF]
+}
+
+function darkenHex(hex, amount = 20) {
+  const [r, g, b] = hexToRgb(hex)
+  const dr = Math.max(0, r - amount)
+  const dg = Math.max(0, g - amount)
+  const db = Math.max(0, b - amount)
+  return `#${(1 << 24 | dr << 16 | dg << 8 | db).toString(16).slice(1)}`
+}
+
+function relativeLuminance(hex) {
+  const [r, g, b] = hexToRgb(hex).map(c => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function softenForDark(hex) {
+  const [r, g, b] = hexToRgb(hex)
+  const sr = Math.round(r * 0.78)
+  const sg = Math.round(g * 0.78)
+  const sb = Math.round(b * 0.78)
+  return `#${(1 << 24 | sr << 16 | sg << 8 | sb).toString(16).slice(1)}`
+}
+
 function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKicked = false, conversation: convProp }) {
   const { user } = useAuth()
   const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
@@ -545,9 +574,27 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     )
   }
 
+  const themeColor = convProp?.themeColor || null
+  const themeStyle = themeColor ? (() => {
+    const [r, g, b] = hexToRgb(themeColor)
+    const lum = relativeLuminance(themeColor)
+    const isLightColor = lum > 0.4
+    const darkSoftened = softenForDark(themeColor)
+    return {
+      '--conv-theme': themeColor,
+      '--conv-theme-hover': darkenHex(themeColor),
+      '--conv-theme-text': isLightColor ? '#1f2937' : '#ffffff',
+      '--conv-theme-tint-light': `rgba(${r}, ${g}, ${b}, 0.07)`,
+      '--conv-theme-tint-dark': `rgba(${r}, ${g}, ${b}, 0.03)`,
+      '--conv-theme-dark': darkSoftened,
+      '--conv-theme-dark-hover': darkenHex(darkSoftened),
+    }
+  })() : undefined
+
   return (
     <div
       className="chat-window"
+      style={themeStyle}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}

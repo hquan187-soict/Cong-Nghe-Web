@@ -85,5 +85,9 @@ export const conversationService = {
 
   async toggleArchiveConversation(conversationId) {
     return await axiosInstance.post(`/api/conversations/${conversationId}/toggle-archive`);
+  },
+
+  async updateThemeColor(conversationId, themeColor) {
+    return await axiosInstance.put(`/api/conversations/${conversationId}/theme-color`, { themeColor });
   }
 };
