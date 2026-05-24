@@ -1,8 +1,34 @@
 import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import User from "../models/User.js";
 import cloudinary from "../lib/cloudinary.js";
 import { io, getReceiverSocketId } from "../lib/socket.js";
+
+const hasBlockBetweenUsers = async (userAId, userBId) => {
+  const users = await User.find({
+    _id: { $in: [userAId, userBId] },
+  }).select("blockedUsers");
+
+  const userA = users.find(
+    (user) => user._id.toString() === userAId.toString(),
+  );
+  const userB = users.find(
+    (user) => user._id.toString() === userBId.toString(),
+  );
+
+  if (!userA || !userB) return false;
+
+  const aBlockedB = userA.blockedUsers.some(
+    (id) => id.toString() === userBId.toString(),
+  );
+
+  const bBlockedA = userB.blockedUsers.some(
+    (id) => id.toString() === userAId.toString(),
+  );
+
+  return aBlockedB || bBlockedA;
+};
 
 const checkConversationAccess = async (conversationId, currentUserId, allowRemoved = false) => {
   if (!mongoose.Types.ObjectId.isValid(conversationId)) {
@@ -20,7 +46,7 @@ const checkConversationAccess = async (conversationId, currentUserId, allowRemov
   }
 
   const isMember = conversation.members.some(
-    (memberId) => memberId.toString() === currentUserId.toString()
+    (memberId) => memberId.toString() === currentUserId.toString(),
   );
 
   const isRemovedMember = allowRemoved && (conversation.removedMembers || []).some(
@@ -31,6 +57,23 @@ const checkConversationAccess = async (conversationId, currentUserId, allowRemov
     const error = new Error("Bạn không có quyền truy cập conversation này.");
     error.statusCode = 403;
     throw error;
+  }
+
+  if (!conversation.isGroup) {
+    const otherMemberId = conversation.members.find(
+      (memberId) => memberId.toString() !== currentUserId.toString(),
+    );
+
+    if (
+      otherMemberId &&
+      (await hasBlockBetweenUsers(currentUserId, otherMemberId))
+    ) {
+      const error = new Error(
+        "Không thể truy cập conversation do một trong hai người đã chặn người còn lại.",
+      );
+      error.statusCode = 403;
+      throw error;
+    }
   }
 
   return conversation;
@@ -53,7 +96,6 @@ export const getMessages = async (req, res, next) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
-    // Lọc các message mà user đã xoá (chỉ mình tôi)
     const messages = await Message.find({
       conversationId,
       isDeletedBy: { $ne: currentUserId },
@@ -104,7 +146,7 @@ export const sendMessage = async (req, res, next) => {
 
     const conversation = await checkConversationAccess(
       conversationId,
-      currentUserId
+      currentUserId,
     );
 
     if (reqMsgType === "like") {
@@ -146,19 +188,13 @@ export const sendMessage = async (req, res, next) => {
       return res.status(201).json(populatedMessage);
     }
 
-    if (
-      text !== undefined &&
-      typeof text !== "string"
-    ) {
+    if (text !== undefined && typeof text !== "string") {
       const error = new Error("text phải là chuỗi.");
       error.statusCode = 400;
       throw error;
     }
 
-    if (
-      image !== undefined &&
-      typeof image !== "string"
-    ) {
+    if (image !== undefined && typeof image !== "string") {
       const error = new Error("image phải là chuỗi.");
       error.statusCode = 400;
       throw error;
@@ -202,6 +238,8 @@ export const sendMessage = async (req, res, next) => {
       };
     }
 
+    const messageType = fileData ? "file" : imageUrl ? "image" : "text";
+
     const message = await Message.create({
       conversationId,
       senderId: currentUserId,
@@ -210,6 +248,7 @@ export const sendMessage = async (req, res, next) => {
       file: fileData,
       replyTo: replyTo || null,
       readBy: [currentUserId],
+      messageType,
     });
 
     conversation.lastMessage = message._id;
@@ -233,7 +272,6 @@ export const sendMessage = async (req, res, next) => {
       });
 
     conversation.members.forEach((memberId) => {
-      // Không gửi lại cho người vừa gửi tin (dùng currentUserId, không phải senderId)
       if (memberId.toString() === currentUserId.toString()) return;
       const receiverSocketId = getReceiverSocketId(memberId.toString());
       if (receiverSocketId) {
@@ -336,10 +374,13 @@ export const markMessagesAsRead = async (req, res, next) => {
         $addToSet: {
           readBy: currentUserId,
         },
-      }
+      },
     );
 
-    const messages = await Message.find({ conversationId })
+    const messages = await Message.find({
+      conversationId,
+      isDeletedBy: { $ne: currentUserId },
+    })
       .populate("senderId", "-password")
       .populate("readBy", "-password")
       .sort({ createdAt: -1 });
@@ -353,7 +394,9 @@ export const markMessagesAsRead = async (req, res, next) => {
           conversationId: conversation._id.toString(),
           messages,
         });
-        console.log(`Thông báo đã đọc đã được gửi đến socketId: ${receiverSocketId}`);
+        console.log(
+          `Thông báo đã đọc đã được gửi đến socketId: ${receiverSocketId}`,
+        );
       }
     });
 
@@ -523,28 +566,33 @@ export const editMessage = async (req, res, next) => {
     const currentUserId = req.user?._id;
     const { messageId } = req.params;
     const { text } = req.body;
-    console.log(`[editMessage] messageId: ${messageId}, newText: ${text}, currentUserId: ${currentUserId}`);
+
     if (!currentUserId) {
       const error = new Error("Bạn chưa đăng nhập.");
       error.statusCode = 401;
       throw error;
     }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      const error = new Error("messageId không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
     if (!text || typeof text !== "string" || !text.trim()) {
       const error = new Error("Text là bắt buộc và phải là chuỗi không rỗng.");
       error.statusCode = 400;
       throw error;
     }
+
     const message = await Message.findById(messageId);
     if (!message) {
       const error = new Error("Tin nhắn không tồn tại.");
       error.statusCode = 404;
       throw error;
     }
-    if (message.text === "" || message.messageType === "like") {
-      const error = new Error("Không thể chỉnh sửa tin nhắn đã bị thu hồi hoặc không có nội dung.");
-      error.statusCode = 400;
-      throw error;
-    }
+
+    await checkConversationAccess(message.conversationId, currentUserId);
 
     if (message.senderId.toString() !== currentUserId.toString()) {
       const error = new Error("Bạn chỉ có thể chỉnh sửa tin nhắn của chính mình.");
@@ -552,18 +600,40 @@ export const editMessage = async (req, res, next) => {
       throw error;
     }
 
-    message.text = text;
+    if (message.isRecalled) {
+      const error = new Error("Không thể sửa tin nhắn đã thu hồi.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (message.messageType === "system" || message.messageType === "like") {
+      const error = new Error("Không thể sửa tin nhắn hệ thống hoặc tin nhắn like.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const editLimitMs = 15 * 60 * 1000;
+    const isExpired = Date.now() - message.createdAt.getTime() > editLimitMs;
+
+    if (isExpired) {
+      const error = new Error("Chỉ có thể sửa tin nhắn trong vòng 15 phút.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    message.text = text.trim();
     message.isEdited = true;
+    message.editedAt = new Date();
     await message.save();
 
-    const conversation = await checkConversationAccess(message.conversationId, currentUserId);
+    const conversation = await Conversation.findById(message.conversationId);
     conversation.members.forEach((memberId) => {
       const receiverSocketId = getReceiverSocketId(memberId.toString());
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("messageEdited", {
           conversationId: message.conversationId.toString(),
           messageId: messageId,
-          newText: text,
+          newText: text.trim(),
         });
       }
     });
@@ -579,7 +649,7 @@ export const deleteMessage = async (req, res, next) => {
     const currentUserId = req.user?._id;
     const { messageId } = req.params;
     const { type } = req.body;
-    console.log(`[deleteMessage] messageId: ${messageId}, type: ${type}, currentUserId: ${currentUserId}`);
+
     if (!currentUserId) {
       const error = new Error("Bạn chưa đăng nhập.");
       error.statusCode = 401;
@@ -600,7 +670,6 @@ export const deleteMessage = async (req, res, next) => {
     }
 
     if (type === "all") {
-      // Xóa vĩnh viễn tin nhắn cho tất cả mọi người
       if (message.senderId.toString() !== currentUserId.toString()) {
         const error = new Error("Bạn chỉ có thể xóa tin nhắn của chính mình với loại 'all'.");
         error.statusCode = 403;
@@ -623,14 +692,12 @@ export const deleteMessage = async (req, res, next) => {
         }
       });
     } else if (type === "me") {
-      // Chỉ xóa cho chính mình (ẩn với user này, người khác vẫn thấy) hoặc trường hợp người khác xoá tin nhắn của mình (chỉ xoá với người đó)
       if (!message.isDeletedBy) message.isDeletedBy = [];
       if (!message.isDeletedBy.map(id => id.toString()).includes(currentUserId.toString())) {
         message.isDeletedBy.push(currentUserId);
         await message.save();
       }
     } else {
-      // Trường hợp không xác định, trả về lỗi
       const error = new Error("Loại xoá không hợp lệ. Chỉ hỗ trợ 'all' hoặc 'me'.");
       error.statusCode = 400;
       throw error;

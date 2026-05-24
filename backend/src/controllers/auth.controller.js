@@ -34,6 +34,11 @@ export const signup = async (req, res, next) => {
       error.statusCode = 400;
       throw error;
     }
+    if (password.length > 64) {
+      const error = new Error("Mật khẩu không được vượt quá 64 ký tự!");
+      error.statusCode = 400;
+      throw error;
+    }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email)) {
@@ -90,6 +95,11 @@ export const login = async (req, res, next) => {
     email = normalizeEmail(email);
     const user = await User.findOne({ email });
     if (!user) {
+      const error = new Error("Email hoặc mật khẩu không đúng!");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (password.length > 64) {
       const error = new Error("Email hoặc mật khẩu không đúng!");
       error.statusCode = 400;
       throw error;

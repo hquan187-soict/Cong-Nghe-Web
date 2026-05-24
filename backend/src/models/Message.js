@@ -34,7 +34,7 @@ const messageSchema = new mongoose.Schema(
     ],
     messageType: {
       type: String,
-      enum: ["text", "system", "like"],
+      enum: ["text", "image", "file", "system", "like"],
       default: "text",
     },
     reactions: [
@@ -69,8 +69,12 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    editedAt: {
+      type: Date,
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 messageSchema.index({ conversationId: 1, createdAt: -1 });

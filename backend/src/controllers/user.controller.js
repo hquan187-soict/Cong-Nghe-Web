@@ -2,6 +2,14 @@ import User from "../models/User.js";
 import mongoose from "mongoose";
 import cloudinary from "../lib/cloudinary.js";
 
+const validateUserId = (userId) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    const error = new Error("ID người dùng không hợp lệ.");
+    error.statusCode = 400;
+    throw error;
+  }
+};
+
 export const searchUsers = async (req, res, next) => {
   try {
     const q = req.query.q?.trim();
@@ -153,6 +161,178 @@ export const  updateProfile = async (req, res, next) => {
     }
 
     return res.status(200).json(updatedUser);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const sendFriendRequest = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { userId } = req.params;
+
+    validateUserId(userId);
+
+    if (currentUserId.toString() === userId.toString()) {
+      const error = new Error("Không thể gửi lời mời kết bạn cho chính mình.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const currentUser = await User.findById(currentUserId);
+    const targetUser = await User.findById(userId);
+
+    if (!targetUser) {
+      const error = new Error("Người dùng không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isBlocked =
+      currentUser.blockedUsers.some((id) => id.toString() === userId.toString()) ||
+      targetUser.blockedUsers.some((id) => id.toString() === currentUserId.toString());
+
+    if (isBlocked) {
+      const error = new Error("Không thể gửi lời mời kết bạn.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: {
+        friendRequests: currentUserId,
+      },
+    });
+
+    return res.status(200).json({ message: "Đã gửi lời mời kết bạn." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const acceptFriendRequest = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { userId } = req.params;
+    validateUserId(userId);
+
+    const currentUser = await User.findById(currentUserId);
+
+    const hasRequest = currentUser.friendRequests.some(
+      (id) => id.toString() === userId.toString()
+    );
+
+    if (!hasRequest) {
+      const error = new Error("Không tìm thấy lời mời kết bạn.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: { friendRequests: userId },
+      $addToSet: { friends: userId },
+    });
+
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { friends: currentUserId },
+    });
+
+    return res.status(200).json({ message: "Đã chấp nhận lời mời kết bạn." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const rejectFriendRequest = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { userId } = req.params;
+    validateUserId(userId);
+
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: {
+        friendRequests: userId,
+      },
+    });
+
+    return res.status(200).json({ message: "Đã từ chối lời mời kết bạn." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const unfriend = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { userId } = req.params;
+    validateUserId(userId);
+
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: {
+        friends: userId,
+      },
+    });
+
+    await User.findByIdAndUpdate(userId, {
+      $pull: {
+        friends: currentUserId,
+      },
+    });
+
+    return res.status(200).json({ message: "Đã hủy kết bạn." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const blockUser = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { userId } = req.params;
+    validateUserId(userId);
+
+    if (currentUserId.toString() === userId.toString()) {
+      const error = new Error("Không thể chặn chính mình.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    await User.findByIdAndUpdate(currentUserId, {
+      $addToSet: {
+        blockedUsers: userId,
+      },
+      $pull: {
+        friends: userId,
+        friendRequests: userId,
+      },
+    });
+
+    await User.findByIdAndUpdate(userId, {
+      $pull: {
+        friends: currentUserId,
+        friendRequests: currentUserId,
+      },
+    });
+
+    return res.status(200).json({ message: "Đã chặn người dùng." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const unblockUser = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { userId } = req.params;
+    validateUserId(userId);
+    
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: {
+        blockedUsers: userId,
+      },
+    });
+
+    return res.status(200).json({ message: "Đã bỏ chặn người dùng." });
   } catch (error) {
     return next(error);
   }
