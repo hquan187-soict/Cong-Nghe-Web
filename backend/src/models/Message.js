@@ -25,6 +25,7 @@ const messageSchema = new mongoose.Schema(
       name: { type: String },
       size: { type: Number },
       type: { type: String },
+      duration: { type: Number },
     },
     readBy: [
       {
@@ -34,7 +35,7 @@ const messageSchema = new mongoose.Schema(
     ],
     messageType: {
       type: String,
-      enum: ["text", "image", "file", "system", "like"],
+      enum: ["text", "image", "file", "audio", "system", "like"],
       default: "text",
     },
     reactions: [

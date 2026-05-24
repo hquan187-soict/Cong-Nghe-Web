@@ -9,6 +9,7 @@ const LIKE_ICONS = {
   ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf,
 }
 import Avatar from './ui/Avatar'
+import AudioPlayer from './chat/AudioPlayer'
 import { messageService } from '../services/message.service'
 
 /**
@@ -417,7 +418,9 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
             <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
               {message.replyTo.messageType === 'like'
                 ? 'Đã gửi biểu tượng cảm xúc'
-                : (message.replyTo.text || (message.replyTo.image ? 'Đã gửi một ảnh' : message.replyTo.file ? 'Đã gửi một tệp' : ''))}
+                : message.replyTo.messageType === 'audio'
+                  ? '🎤 Tin nhắn thoại'
+                  : (message.replyTo.text || (message.replyTo.image ? 'Đã gửi một ảnh' : message.replyTo.file ? 'Đã gửi một tệp' : ''))}
             </div>
           </div>
         )}
@@ -435,7 +438,20 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           </div>
         )}
 
-        {file && (file.url || file.name) && (
+        {message.messageType === 'audio' && file && (
+          file.url && isSafeUrl(file.url) ? (
+            <AudioPlayer src={file.url} duration={file.duration} isOwn={isOwn} />
+          ) : (
+            <div className={`audio-player ${isOwn ? 'audio-player--own' : 'audio-player--other'}`}>
+              <div className="audio-player__play-btn" style={{ opacity: 0.5 }}>
+                <Clock size={16} />
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Đang gửi...</span>
+            </div>
+          )
+        )}
+
+        {message.messageType !== 'audio' && file && (file.url || file.name) && (
           file.url && isSafeUrl(file.url) ? (
             <a
               href={file.url}

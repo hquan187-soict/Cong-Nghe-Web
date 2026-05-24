@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHand
 import { Send, ImagePlus, Paperclip, X, FileText, Mic, ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf } from 'lucide-react'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
+import VoiceRecorder from './VoiceRecorder'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -17,13 +18,14 @@ const LIKE_ICONS = {
   ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf,
 }
 
-const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, disabled = false, conversationId, likeEmoji = 'ThumbsUp' }, ref) {
+const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSendAudio, disabled = false, conversationId, likeEmoji = 'ThumbsUp' }, ref) {
   const { t } = useLang()
   const { socket, isConnected } = useSocket()
   const [text, setText] = useState('')
   const [imagePreview, setImagePreview] = useState(null)
   const [imageBase64, setImageBase64] = useState(null)
   const [fileData, setFileData] = useState(null)
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false)
   const textareaRef = useRef(null)
   const imageInputRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -182,6 +184,17 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, disa
 
   return (
     <div className="message-input">
+      {showVoiceRecorder && (
+        <div className="message-input__voice-recorder-popup">
+          <VoiceRecorder
+            onSend={(audioData) => {
+              if (onSendAudio) onSendAudio(audioData)
+              setShowVoiceRecorder(false)
+            }}
+            onClose={() => setShowVoiceRecorder(false)}
+          />
+        </div>
+      )}
       {hasAttachment && (
         <div className="message-input__preview">
           {imagePreview && (
@@ -230,10 +243,8 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, disa
         />
         <button
           type="button"
-          className="message-input__action-btn tooltip-wrapper"
-          onClick={() => {
-            console.log('[MessageInput] Voice record clicked')
-          }}
+          className={`message-input__action-btn tooltip-wrapper ${showVoiceRecorder ? 'message-input__action-btn--active' : ''}`}
+          onClick={() => setShowVoiceRecorder(v => !v)}
           disabled={disabled}
         >
           <Mic size={20} />

@@ -1131,6 +1131,284 @@ a:hover {
   cursor: not-allowed;
 }
 
+/* Active mic button */
+.message-input__action-btn--active {
+  color: var(--color-primary) !important;
+  background: var(--color-primary-light) !important;
+}
+
+/* Voice recorder popup above input */
+.message-input__voice-recorder-popup {
+  position: absolute;
+  bottom: 100%;
+  left: 16px;
+  right: 16px;
+  z-index: 20;
+  margin-bottom: 4px;
+}
+
+/* ===========================
+   VOICE RECORDER
+   =========================== */
+
+.voice-recorder {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.voice-recorder__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.voice-recorder__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.voice-recorder__close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.voice-recorder__close:hover {
+  background: var(--color-hover-bg);
+  color: var(--color-text);
+}
+
+.voice-recorder__error {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+.voice-recorder__body {
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 72px;
+}
+
+.voice-recorder__waveform {
+  width: 100%;
+  max-width: 280px;
+  height: 48px;
+}
+
+.voice-recorder__timer {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.voice-recorder__rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: voice-rec-pulse 1s ease-in-out infinite;
+}
+
+@keyframes voice-rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.voice-recorder__audio-preview {
+  width: 100%;
+  max-width: 280px;
+  height: 36px;
+}
+
+.voice-recorder__idle-hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 8px 0;
+}
+
+.voice-recorder__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.voice-recorder__btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.voice-recorder__btn:hover {
+  transform: scale(1.08);
+}
+
+.voice-recorder__btn:active {
+  transform: scale(0.95);
+}
+
+.voice-recorder__btn--record {
+  background: #ef4444;
+  color: #fff;
+  width: 48px;
+  height: 48px;
+}
+
+.voice-recorder__btn--stop {
+  background: #ef4444;
+  color: #fff;
+}
+
+.voice-recorder__btn--pause {
+  background: var(--color-hover-bg);
+  color: var(--color-text);
+}
+
+.voice-recorder__btn--resume {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.voice-recorder__btn--discard {
+  background: var(--color-hover-bg);
+  color: var(--color-text-muted);
+}
+
+.voice-recorder__btn--discard:hover {
+  color: #ef4444;
+}
+
+.voice-recorder__btn--send {
+  background: var(--color-primary);
+  color: #fff;
+  width: 48px;
+  height: 48px;
+}
+
+/* ===========================
+   AUDIO PLAYER (message bubble)
+   =========================== */
+
+.audio-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.audio-player--own {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.audio-player--other {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.audio-player__play-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s, background 0.15s;
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.audio-player__play-btn--own {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.audio-player__play-btn:hover {
+  transform: scale(1.08);
+}
+
+.audio-player__play-btn:active {
+  transform: scale(0.95);
+}
+
+.audio-player__waveform {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.audio-player__bar {
+  width: 3px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.2);
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.audio-player__bar--own {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.audio-player__bar--filled {
+  background: var(--color-primary);
+}
+
+.audio-player__bar--filled.audio-player__bar--own {
+  background: #fff;
+}
+
+.audio-player__time {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.audio-player__time--own {
+  color: rgba(255, 255, 255, 0.7);
+}
+
 /* ===========================
    DRAG & DROP OVERLAY
    =========================== */

@@ -402,6 +402,59 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     }
   }, [conversationId, currentUserId, onMessageSent, toast, t, replyingTo])
 
+  const handleSendAudio = useCallback(async (audioData) => {
+    if (!conversationId || !currentUserId || !audioData) return
+
+    const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
+
+    const optimisticMsg = {
+      _id: tempId,
+      conversationId,
+      senderId: currentUserId,
+      text: '',
+      file: { url: '', name: audioData.name, size: audioData.size, type: audioData.type, duration: audioData.duration },
+      messageType: 'audio',
+      createdAt: new Date().toISOString(),
+      readBy: [currentUserId],
+      status: 'sending',
+    }
+
+    setMessages((prev) => [...prev, optimisticMsg])
+    setSending(true)
+
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 50)
+
+    try {
+      const payload = {
+        conversationId,
+        file: audioData,
+      }
+      if (replyingTo) payload.replyTo = replyingTo._id
+
+      const savedMsg = await messageService.sendMessage(payload)
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === tempId ? { ...savedMsg, status: 'sent' } : msg
+        )
+      )
+
+      setReplyingTo(null)
+
+      if (onMessageSent) {
+        onMessageSent({ conversationId, lastMessage: savedMsg })
+      }
+    } catch (err) {
+      console.error('Gửi tin nhắn thoại thất bại:', err)
+      setMessages((prev) => prev.filter((msg) => msg._id !== tempId))
+      toast.error(err.response?.data?.message || t('chat.sendError'))
+    } finally {
+      setSending(false)
+    }
+  }, [conversationId, currentUserId, onMessageSent, toast, t, replyingTo])
+
   // Drag & Drop
   const readFileAsBase64 = (file) =>
     new Promise((resolve) => {
@@ -691,6 +744,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
             ref={messageInputRef}
             onSend={handleSendMessage}
             onSendLike={handleSendLike}
+            onSendAudio={handleSendAudio}
             disabled={sending}
             conversationId={conversationId}
             likeEmoji={convProp?.emoji || 'ThumbsUp'}

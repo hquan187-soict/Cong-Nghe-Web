@@ -237,10 +237,15 @@ export const sendMessage = async (req, res, next) => {
     }
 
     let fileData = null;
+    const isAudio = file && file.type && file.type.startsWith("audio/");
     if (file && file.data) {
-      const uploaded = await cloudinary.uploader.upload(file.data, {
-        folder: "chat_files",
-        resource_type: "auto",
+      let uploadData = file.data;
+      if (isAudio && uploadData.startsWith("data:audio/")) {
+        uploadData = uploadData.replace(/^data:audio\/[^;]*(?:;[^;]*)*;base64,/, "data:video/webm;base64,");
+      }
+      const uploaded = await cloudinary.uploader.upload(uploadData, {
+        folder: isAudio ? "chat_audio" : "chat_files",
+        resource_type: isAudio ? "video" : "auto",
       });
       fileData = {
         url: uploaded.secure_url,
@@ -248,9 +253,18 @@ export const sendMessage = async (req, res, next) => {
         size: file.size || 0,
         type: file.type || "",
       };
+      if (isAudio && file.duration) {
+        fileData.duration = Number(file.duration);
+      }
     }
 
-    const messageType = fileData ? "file" : imageUrl ? "image" : "text";
+    const messageType = isAudio && fileData
+      ? "audio"
+      : fileData
+        ? "file"
+        : imageUrl
+          ? "image"
+          : "text";
 
     const message = await Message.create({
       conversationId,
