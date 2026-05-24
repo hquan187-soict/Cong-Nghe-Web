@@ -31,6 +31,9 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, disa
   const isTypingRef = useRef(false)
   const prevConvRef = useRef(conversationId)
   const heartbeatRef = useRef(null)
+  const draftsRef = useRef({})
+  const latestInputRef = useRef({ text: '', imagePreview: null, imageBase64: null, fileData: null })
+  latestInputRef.current = { text, imagePreview, imageBase64, fileData }
 
   const stopTyping = useCallback((convId) => {
     if (heartbeatRef.current) clearInterval(heartbeatRef.current)
@@ -54,6 +57,22 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, disa
     if (heartbeatRef.current) clearInterval(heartbeatRef.current)
     heartbeatRef.current = null
     isTypingRef.current = false
+
+    if (prevConvRef.current) {
+      draftsRef.current[prevConvRef.current] = { ...latestInputRef.current }
+    }
+
+    const nextDraft = draftsRef.current[conversationId] || {
+      text: '',
+      imagePreview: null,
+      imageBase64: null,
+      fileData: null
+    }
+    setText(nextDraft.text)
+    setImagePreview(nextDraft.imagePreview)
+    setImageBase64(nextDraft.imageBase64)
+    setFileData(nextDraft.fileData)
+
     prevConvRef.current = conversationId
   }, [conversationId, socket])
 
@@ -78,6 +97,10 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, disa
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, 120) + 'px'
   }, [])
+
+  useEffect(() => {
+    adjustHeight()
+  }, [text, adjustHeight])
 
   function handleChange(e) {
     const newText = e.target.value
@@ -171,6 +194,10 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, disa
     setText('')
     clearImage()
     clearFile()
+
+    if (conversationId) {
+      delete draftsRef.current[conversationId]
+    }
 
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'

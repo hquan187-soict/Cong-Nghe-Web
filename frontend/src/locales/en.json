@@ -170,6 +170,8 @@
     "admin": "Admin",
     "leaveGroup": "Leave group",
     "recalled": "This message has been recalled",
+    "youRecalledMessage": "You recalled a message",
+    "recalledMessage": "recalled a message",
     "edited": "edited",
     "replyTo": "Reply to",
     "addMember": "Add member",

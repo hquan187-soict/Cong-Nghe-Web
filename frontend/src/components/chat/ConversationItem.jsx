@@ -22,14 +22,14 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   );
 
   const otherMember = conversation.members?.find(
-    (m) => m._id !== user?._id
+    (m) => m._id?.toString() !== user?._id?.toString()
   )
 
   const otherMemberId = otherMember?._id?.toString()
   const effectiveOnlineUsers = Array.isArray(onlineUsers) && onlineUsers.length > 0 ? onlineUsers : contextOnlineUsers
 
   const isOtherOnline = isGroup
-    ? conversation.members.some(m => m._id !== user?._id && effectiveOnlineUsers.some(id => id.toString() === m._id.toString()))
+    ? conversation.members.some(m => m._id?.toString() !== user?._id?.toString() && effectiveOnlineUsers.some(id => id.toString() === m._id?.toString()))
     : (otherMemberId ? effectiveOnlineUsers.some((id) => id.toString() === otherMemberId) : false);
 
   const displayTitle = isGroup ? (conversation.name || conversation.groupName) : (otherMember?.fullName || t('chat.unknownUser'));
@@ -40,15 +40,23 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
 
     const senderName = (() => {
       if (!msg.senderId) return ''
+      const senderIdStr = typeof msg.senderId === 'object' ? msg.senderId._id?.toString() : msg.senderId?.toString()
+      if (senderIdStr === user?._id?.toString()) return 'Bạn'
+      const member = conversation.members?.find((m) => m._id?.toString() === senderIdStr)
+      if (member) return member.fullName || ''
       if (typeof msg.senderId === 'object') {
-        return msg.senderId._id === user?._id
-          ? 'Bạn'
-          : (msg.senderId.fullName || '')
+        return msg.senderId.fullName || ''
       }
-      return msg.senderId === user?._id ? 'Bạn' : ''
+      return ''
     })()
 
     const prefixStr = senderName === 'Bạn' || isGroup ? senderName + ': ' : ''
+
+    if (msg.isRecalled) {
+      return senderName === 'Bạn'
+        ? (t('chat.youRecalledMessage') || 'Bạn đã thu hồi một tin nhắn')
+        : `${senderName || 'Người dùng'} ${t('chat.recalledMessage') || 'đã thu hồi một tin nhắn'}`
+    }
 
     if (msg.messageType === 'like') {
       return prefixStr + 'Đã gửi một biểu tượng cảm xúc'
@@ -101,7 +109,6 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   const renderAvatar = () => {
     const hasCustomAvatar = isGroup && !!(conversation.avatar || conversation.groupAvatar);
     if (isGroup && !hasCustomAvatar) {
-      // Get up to 2 other members for stacked avatar
       const membersToAvatar = conversation.members.filter(m => m._id !== user?._id).slice(0, 2);
       if (membersToAvatar.length >= 2) {
         return (
@@ -112,6 +119,13 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
             <div style={{ position: 'absolute', bottom: 0, left: 0, zIndex: 2, border: '2px solid var(--color-surface)', borderRadius: '50%' }}>
               <Avatar src={membersToAvatar[1].avatar} alt={membersToAvatar[1].fullName} size="sm" style={{ width: '26px', height: '26px' }} />
             </div>
+            {isOtherOnline && (
+              <span
+                className="absolute bg-emerald-500 rounded-full border-2 border-white w-3 h-3 right-0 bottom-0"
+                style={{ zIndex: 3 }}
+                title="Online"
+              />
+            )}
             {hasUnread && <span className="conversation-item__badge conversation-item__badge--dot" style={{ zIndex: 3 }} />}
           </div>
         );
@@ -123,7 +137,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
           src={isGroup ? (conversation.avatar || conversation.groupAvatar) : otherMember?.avatar}
           alt={displayTitle}
           size="sm"
-          isOnline={!isGroup && isOtherOnline}
+          isOnline={isOtherOnline}
         />
         {hasUnread && (
           <span className="conversation-item__badge conversation-item__badge--dot" />

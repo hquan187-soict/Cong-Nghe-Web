@@ -414,8 +414,10 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
                 ? message.replyTo.senderId.fullName
                 : 'Người dùng'}
             </div>
-            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-              {message.replyTo.messageType === 'like'
+            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px', fontStyle: message.replyTo.isRecalled ? 'italic' : 'normal' }}>
+              {message.replyTo.isRecalled
+                ? 'Tin nhắn đã bị thu hồi'
+                : message.replyTo.messageType === 'like'
                 ? 'Đã gửi biểu tượng cảm xúc'
                 : (message.replyTo.text || (message.replyTo.image ? 'Đã gửi một ảnh' : message.replyTo.file ? 'Đã gửi một tệp' : ''))}
             </div>

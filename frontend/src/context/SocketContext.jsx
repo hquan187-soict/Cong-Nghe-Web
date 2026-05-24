@@ -28,8 +28,10 @@ export function SocketProvider({ children }) {
       socketRef.current = socket
 
       socket.on('connect', () => {
-        console.log('[SocketContext] Socket connected:', socket.id)
         setIsConnected(true)
+        socket.emit('requestOnlineUsers', (userIds) => {
+          setOnlineUsers(userIds)
+        })
       })
 
       socket.on('disconnect', (reason) => {

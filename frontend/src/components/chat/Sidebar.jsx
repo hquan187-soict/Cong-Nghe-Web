@@ -31,7 +31,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const [isLoading, setIsLoading] = useState(true)
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
-  
+
   const [showSettings, setShowSettings] = useState(false)
   const [showAccessibility, setShowAccessibility] = useState(false)
   const [showActiveStatus, setShowActiveStatus] = useState(false)
@@ -40,7 +40,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     const saved = localStorage.getItem('active_status_enabled')
     return saved !== null ? saved === 'true' : true
   })
-  
+
   const settingsRef = useRef(null)
   const settingsBtnRef = useRef(null)
   const dropdownRef = useRef(null)
@@ -65,15 +65,38 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         const updated = prev.map((conv) =>
           conv._id === conversationId
             ? {
-                ...conv,
-                lastMessage,
-                updatedAt: lastMessage.createdAt || new Date().toISOString(),
-              }
+              ...conv,
+              lastMessage,
+              updatedAt: lastMessage.createdAt || new Date().toISOString(),
+            }
             : conv
         )
         // Note: we don't need to sort here because useMemo handles the view sorting
         return updated
       })
+    },
+
+    recallMessage(conversationId, messageId) {
+      setConversations((prev) =>
+        prev.map((conv) => {
+          const lastMsgId = typeof conv.lastMessage === 'object'
+            ? conv.lastMessage?._id?.toString()
+            : conv.lastMessage?.toString();
+          if (conv._id?.toString() === conversationId?.toString() && lastMsgId === messageId?.toString()) {
+            return {
+              ...conv,
+              lastMessage: {
+                ...conv.lastMessage,
+                text: '',
+                image: null,
+                file: null,
+                isRecalled: true
+              }
+            }
+          }
+          return conv
+        })
+      )
     },
 
     clearUnread(conversationId) {
@@ -155,11 +178,11 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         if (!cancelled) {
           const list = Array.isArray(data) ? data : []
           setConversations(list)
-          
+
           const uMap = {}
           const pMap = {}
           const mMap = {}
-          
+
           list.forEach((conv) => {
             if (conv.unreadCount && conv.unreadCount > 0) {
               uMap[conv._id] = conv.unreadCount
@@ -167,7 +190,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             if (conv.isPinned) pMap[conv._id] = true
             if (conv.isMuted) mMap[conv._id] = true
           })
-          
+
           setUnreadMap(uMap)
           setPinMap(pMap)
           setMuteMap(mMap)
@@ -244,11 +267,11 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       }
       return [newConversation, ...prev]
     })
-    
+
     // Copy initial pinned/muted status
     if (newConversation.isPinned) setPinMap(prev => ({ ...prev, [newConversation._id]: true }))
     if (newConversation.isMuted) setMuteMap(prev => ({ ...prev, [newConversation._id]: true }))
-    
+
     onSelectConversation(newConversation)
   }, [onSelectConversation])
 
@@ -469,14 +492,14 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       {/* Top Nav */}
       {collapsed ? (
         <div className="sidebar-nav-vertical" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)', width: '100%', alignItems: 'center' }}>
-          <button 
-            className="sidebar-nav__tab-vertical sidebar-nav__tab-vertical--active" 
+          <button
+            className="sidebar-nav__tab-vertical sidebar-nav__tab-vertical--active"
             style={{ width: '40px', height: '40px', background: 'var(--color-primary-light)', border: 'none', borderRadius: '50%', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             title={t('chat.title')}
           >
             <MessageSquare size={20} />
           </button>
-          <button 
+          <button
             className="sidebar-nav__tab-vertical"
             style={{ width: '40px', height: '40px', background: 'transparent', border: 'none', borderRadius: '50%', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={() => navigate('/contacts')}
@@ -487,13 +510,13 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
       ) : (
         <div className="sidebar-nav" style={{ display: 'flex', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)' }}>
-          <button 
-            className="sidebar-nav__tab sidebar-nav__tab--active" 
+          <button
+            className="sidebar-nav__tab sidebar-nav__tab--active"
             style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid var(--color-primary)', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
           >
             <MessageSquare size={18} /> {t('chat.title')}
           </button>
-          <button 
+          <button
             className="sidebar-nav__tab"
             style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
             onClick={() => navigate('/contacts')}
@@ -530,8 +553,8 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
         {!collapsed && (
           <div className="sidebar__header-right" style={{ display: 'flex', gap: '4px' }}>
-            <button 
-              className="sidebar__icon-btn" 
+            <button
+              className="sidebar__icon-btn"
               onClick={() => setShowCreateGroupModal(true)}
               title={t('chat.createGroup')}
             >
@@ -553,9 +576,10 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             </div>
           </div>
           <div className="sidebar-filter" style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
-            <button 
+            <button
               onClick={() => setActiveFilter('all')}
-              style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+              style={{
+                padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                 background: activeFilter === 'all' ? 'var(--color-primary-light)' : 'transparent',
                 color: activeFilter === 'all' ? 'var(--color-primary)' : 'var(--color-text-muted)'
               }}
@@ -564,7 +588,8 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             </button>
             <button
               onClick={() => setActiveFilter('unread')}
-              style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+              style={{
+                padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                 background: activeFilter === 'unread' ? 'var(--color-primary-light)' : 'transparent',
                 color: activeFilter === 'unread' ? 'var(--color-primary)' : 'var(--color-text-muted)'
               }}
@@ -574,7 +599,8 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             {archivedCount > 0 && (
               <button
                 onClick={() => setActiveFilter(activeFilter === 'archived' ? 'all' : 'archived')}
-                style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                style={{
+                  padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                   background: activeFilter === 'archived' ? 'var(--color-primary-light)' : 'transparent',
                   color: activeFilter === 'archived' ? 'var(--color-primary)' : 'var(--color-text-muted)',
                   display: 'flex', alignItems: 'center', gap: '4px'
@@ -901,15 +927,15 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         onClose={() => setShowSearchModal(false)}
         onConversationCreated={handleConversationCreated}
       />
-      
+
       {/* Create Group Modal */}
-      <CreateGroupModal 
+      <CreateGroupModal
         isOpen={showCreateGroupModal}
         onClose={() => setShowCreateGroupModal(false)}
         onGroupCreated={handleConversationCreated}
       />
 
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={confirmModalData.isOpen}
         title={confirmModalData.type === 'block' ? (t('chat.blockUser') || 'Chặn người dùng') : (t('chat.unblockUser') || 'Bỏ chặn người dùng')}
         message={confirmModalData.type === 'block' ? (t('chat.blockUserConfirm') || 'Bạn có chắc chắn muốn chặn người dùng này?') : (t('chat.unblockUserConfirm') || 'Bạn có chắc chắn muốn bỏ chặn người dùng này?')}

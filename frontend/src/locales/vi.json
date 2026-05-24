@@ -170,6 +170,8 @@
     "admin": "Quản trị viên",
     "leaveGroup": "Rời nhóm",
     "recalled": "Tin nhắn đã bị thu hồi",
+    "youRecalledMessage": "Bạn đã thu hồi một tin nhắn",
+    "recalledMessage": "đã thu hồi một tin nhắn",
     "edited": "đã chỉnh sửa",
     "replyTo": "Trả lời",
     "addMember": "Thêm thành viên",

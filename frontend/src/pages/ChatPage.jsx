@@ -200,9 +200,14 @@ function ChatPage() {
     }
   }
 
-  // Emoji picker state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showNicknamePicker, setShowNicknamePicker] = useState(false)
   const [isUpdatingEmoji, setIsUpdatingEmoji] = useState(false)
+
+  useEffect(() => {
+    setShowEmojiPicker(false)
+    setShowNicknamePicker(false)
+  }, [selectedConversation?._id])
 
   const handleUpdateEmoji = async (emojiName) => {
     setIsUpdatingEmoji(true)
@@ -502,7 +507,7 @@ function ChatPage() {
 
   // Listen for real-time conversation updates and kicked events
   useEffect(() => {
-    if (!socket?.connected) return
+    if (!socket || !isConnected) return
 
     const handleConversationUpdated = ({ conversation: updatedConv }) => {
       if (!updatedConv) return
@@ -699,7 +704,7 @@ function ChatPage() {
           setLastSeen(userData.lastSeen)
         }
       })
-      .catch(() => {})
+      .catch(() => { })
     return () => { cancelled = true }
   }, [otherMemberId, isOtherOnline, isGroup])
 
@@ -722,7 +727,7 @@ function ChatPage() {
   }, [isOtherOnline, lastSeen, isGroup])
 
   useEffect(() => {
-    if (!socket?.connected) return
+    if (!socket || !isConnected) return
 
     const handleGlobalMessage = ({ conversationId, message }) => {
       if (sidebarRef.current?.updateLastMessage) {
@@ -741,9 +746,17 @@ function ChatPage() {
       }
     }
 
+    const handleGlobalRecall = ({ conversationId, messageId }) => {
+      if (sidebarRef.current?.recallMessage) {
+        sidebarRef.current.recallMessage(conversationId, messageId)
+      }
+    }
+
     socket.on('sendMessage', handleGlobalMessage)
+    socket.on('messageRecalled', handleGlobalRecall)
     return () => {
       socket.off('sendMessage', handleGlobalMessage)
+      socket.off('messageRecalled', handleGlobalRecall)
     }
   }, [socket, isConnected, currentUserId, playSound])
 
@@ -1057,15 +1070,6 @@ function ChatPage() {
           </div>
 
           <div className="info-panel__quick-actions">
-            {!isGroup && (
-              <button
-                className="info-panel__quick-btn"
-                onClick={() => setShowProfileModal(true)}
-              >
-                <div className="info-panel__quick-icon"><User size={20} /></div>
-                <span>{t('chat.viewProfile')}</span>
-              </button>
-            )}
             <button
               className="info-panel__quick-btn"
               onClick={handleToggleMute}
@@ -1430,12 +1434,20 @@ function ChatPage() {
                   <span>{t('chat.themeColor')}</span>
                   <ChevronRight size={14} className="info-panel__action-arrow" />
                 </button>
-                {isGroup ? (
-                  <>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-muted)', padding: '8px 0 4px' }}>
-                      <AtSign size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                      {t('chat.changeNickname')}
-                    </div>
+                <button
+                  className="info-panel__action-row"
+                  onClick={() => setShowNicknamePicker(v => !v)}
+                >
+                  <AtSign size={16} />
+                  <span>{t('chat.changeNickname')}</span>
+                  {showNicknamePicker ? (
+                    <ChevronDown size={14} className="info-panel__action-arrow" />
+                  ) : (
+                    <ChevronRight size={14} className="info-panel__action-arrow" />
+                  )}
+                </button>
+                {showNicknamePicker && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '8px' }}>
                     {selectedConversation.members?.map((m) => {
                       const nickname = selectedConversation.nicknames?.[m._id] || ''
                       return (
@@ -1456,13 +1468,7 @@ function ChatPage() {
                         </button>
                       )
                     })}
-                  </>
-                ) : (
-                  <button className="info-panel__action-row">
-                    <AtSign size={16} />
-                    <span>{t('chat.changeNickname')}</span>
-                    <ChevronRight size={14} className="info-panel__action-arrow" />
-                  </button>
+                  </div>
                 )}
                 <button
                   className="info-panel__action-row"
@@ -1546,7 +1552,7 @@ function ChatPage() {
                     <span>{t('chat.leaveGroup')}</span>
                   </button>
                 ) : user?.blockedUsers?.some(id => id?.toString() === otherMember?._id?.toString()) ? (
-                  <button 
+                  <button
                     className="info-panel__action-row info-panel__action-row--danger"
                     onClick={handleUnblockUser}
                     disabled={isBlockingUser}
@@ -1556,7 +1562,7 @@ function ChatPage() {
                     <span>{isBlockingUser ? 'Đang xử lý...' : t('chat.unblockUser') || 'Bỏ chặn người dùng'}</span>
                   </button>
                 ) : (
-                  <button 
+                  <button
                     className="info-panel__action-row info-panel__action-row--danger"
                     onClick={handleBlockUser}
                     disabled={isBlockingUser}
@@ -1683,7 +1689,7 @@ function ChatPage() {
         </div>
       )}
 
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={confirmModalData.isOpen}
         title={confirmModalData.type === 'block' ? (t('chat.blockUser') || 'Chặn người dùng') : (t('chat.unblockUser') || 'Bỏ chặn người dùng')}
         message={confirmModalData.type === 'block' ? (t('chat.blockUserConfirm') || 'Bạn có chắc chắn muốn chặn người dùng này?') : (t('chat.unblockUserConfirm') || 'Bạn có chắc chắn muốn bỏ chặn người dùng này?')}

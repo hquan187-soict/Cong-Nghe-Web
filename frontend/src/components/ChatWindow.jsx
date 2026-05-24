@@ -32,9 +32,8 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
   // Reply state
   const [replyingTo, setReplyingTo] = useState(null)
 
-  // Typing indicator state
-  const [isOtherTyping, setIsOtherTyping] = useState(false)
-  const typingAutoHideRef = useRef(null)
+  const [typingUsers, setTypingUsers] = useState([])
+  const typingTimeoutsRef = useRef({})
   const [showScrollBtn, setShowScrollBtn] = useState(false)
 
   const [membersMap, setMembersMap] = useState({})
@@ -106,7 +105,6 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
   }, [conversationId, fetchMessages])
 
   useEffect(() => {
-    if (!isGroup) return
     const fetchConv = async () => {
       try {
         const convs = await conversationService.getConversations()
@@ -116,10 +114,10 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
           conv.members.forEach(m => { map[m._id] = m })
           setMembersMap(map)
         }
-      } catch {}
+      } catch { }
     }
     fetchConv()
-  }, [conversationId, isGroup])
+  }, [conversationId])
 
   useEffect(() => {
     if (!conversationId || conversationId.startsWith('mock_')) return
@@ -158,19 +156,25 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
 
     const handleTypingStart = (data) => {
       if (data.conversationId !== conversationId) return
-      if (data.userId?.toString() === currentUserId) return
-      setIsOtherTyping(true)
-      clearTimeout(typingAutoHideRef.current)
-      typingAutoHideRef.current = setTimeout(() => {
-        setIsOtherTyping(false)
+      const uid = data.userId?.toString()
+      if (!uid || uid === currentUserId) return
+      setTypingUsers((prev) => prev.includes(uid) ? prev : [...prev, uid])
+      if (typingTimeoutsRef.current[uid]) clearTimeout(typingTimeoutsRef.current[uid])
+      typingTimeoutsRef.current[uid] = setTimeout(() => {
+        setTypingUsers((prev) => prev.filter((id) => id !== uid))
+        delete typingTimeoutsRef.current[uid]
       }, 7000)
     }
 
     const handleTypingStop = (data) => {
       if (data.conversationId !== conversationId) return
-      if (data.userId?.toString() === currentUserId) return
-      clearTimeout(typingAutoHideRef.current)
-      setIsOtherTyping(false)
+      const uid = data.userId?.toString()
+      if (!uid || uid === currentUserId) return
+      if (typingTimeoutsRef.current[uid]) {
+        clearTimeout(typingTimeoutsRef.current[uid])
+        delete typingTimeoutsRef.current[uid]
+      }
+      setTypingUsers((prev) => prev.filter((id) => id !== uid))
     }
 
     const handleMessageReaction = ({ conversationId: cId, messageId, reactions }) => {
@@ -182,22 +186,35 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       )
     }
 
-    const handleRecallMessage = ({ conversationId: cId, messageId}) => {
-      if (cId !== conversationId) return;
-        // Thu hồi với mọi người: cập nhật message thành đã thu hồi
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg._id === messageId
-              ? {
-                  ...msg,
-                  text: '',
-                  image: null,
-                  file: null,
-                  isRecalled: true,
-                }
-              : msg
-          )
-        );
+    const handleRecallMessage = ({ conversationId: cId, messageId }) => {
+      if (cId !== conversationId) return
+      setMessages((prev) =>
+        prev.map((msg) => {
+          let updatedMsg = msg
+          if (msg._id === messageId) {
+            updatedMsg = {
+              ...msg,
+              text: '',
+              image: null,
+              file: null,
+              isRecalled: true,
+            }
+          }
+          if (msg.replyTo && (typeof msg.replyTo === 'object' ? msg.replyTo._id?.toString() === messageId?.toString() : msg.replyTo?.toString() === messageId?.toString())) {
+            updatedMsg = {
+              ...updatedMsg,
+              replyTo: {
+                ...(typeof msg.replyTo === 'object' ? msg.replyTo : {}),
+                text: '',
+                image: null,
+                file: null,
+                isRecalled: true,
+              }
+            }
+          }
+          return updatedMsg
+        })
+      )
     }
 
     const handleEditMessage = ({ conversationId: cId, messageId, newText }) => {
@@ -206,10 +223,10 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
         prev.map((msg) =>
           msg._id === messageId
             ? {
-                ...msg,
-                text: newText,
-                isEdited: true,
-              }
+              ...msg,
+              text: newText,
+              isEdited: true,
+            }
             : msg
         )
       );
@@ -241,8 +258,9 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       socket.off('messageEdited', handleEditMessage)
       socket.off('messageRecalled', handleRecallMessage)
       socket.off('messagePinned', handleMessagePinned)
-      clearTimeout(typingAutoHideRef.current)
-      setIsOtherTyping(false)
+      Object.values(typingTimeoutsRef.current).forEach(clearTimeout)
+      typingTimeoutsRef.current = {}
+      setTypingUsers([])
       leaveConversation(conversationId)
     }
   }, [conversationId, socket, isConnected, joinConversation, leaveConversation, currentUserId])
@@ -298,18 +316,19 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
   }, [])
 
   useEffect(() => {
-    setIsOtherTyping(false)
+    Object.values(typingTimeoutsRef.current).forEach(clearTimeout)
+    typingTimeoutsRef.current = {}
+    setTypingUsers([])
     setReplyingTo(null)
     setIsBlocked(false)
-    clearTimeout(typingAutoHideRef.current)
   }, [conversationId])
 
   useEffect(() => {
-    if (!isOtherTyping) return
+    if (typingUsers.length === 0) return
     requestAnimationFrame(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     })
-  }, [isOtherTyping])
+  }, [typingUsers.length])
 
   const handleSendLike = useCallback(async (emojiName) => {
     if (!conversationId || !currentUserId) return
@@ -606,14 +625,36 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
                 onReply={(msg) => setReplyingTo(msg)}
                 scrollContainerRef={scrollContainerRef}
                 deleteMessage={(messageId) => {
-                  setMessages((prev) => prev.filter((m) => m._id !== messageId))
+                  setMessages((prev) => {
+                    const nextMsgs = prev.filter((m) => m._id !== messageId)
+                    if (onMessageSent) {
+                      const newLastMsg = nextMsgs.length > 0 ? nextMsgs[nextMsgs.length - 1] : null
+                      onMessageSent({
+                        conversationId,
+                        lastMessage: newLastMsg,
+                      })
+                    }
+                    return nextMsgs
+                  })
                 }}
               />
             )
           })
         )}
 
-        {isOtherTyping && <TypingIndicator senderName={otherMember?.fullName} />}
+        {typingUsers.length > 0 && (
+          <TypingIndicator
+            senderName={(() => {
+              const names = typingUsers
+                .map((uid) => membersMap[uid]?.fullName || (uid === otherMember?._id?.toString() ? otherMember?.fullName : null))
+                .filter(Boolean)
+              if (names.length === 0) return ''
+              if (names.length === 1) return names[0]
+              if (names.length === 2) return names[0] + ' và ' + names[1]
+              return names[0] + ', ' + names[1] + ' và ' + (names.length - 2) + ' người khác'
+            })()}
+          />
+        )}
 
         <div ref={messagesEndRef} />
       </div>
@@ -649,8 +690,8 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
           gap: '8px',
         }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
-            <line x1="9" y1="12" x2="15" y2="12"/>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+            <line x1="9" y1="12" x2="15" y2="12" />
           </svg>
           Bạn không thể trả lời cuộc trò chuyện này
         </div>

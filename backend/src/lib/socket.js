@@ -95,6 +95,15 @@ io.on("connection", async (socket) => {
     }
   });
 
+  socket.on("requestOnlineUsers", async (callback) => {
+    try {
+      const visibleOnline = await getVisibleOnlineUsers();
+      if (callback) callback(visibleOnline);
+    } catch {
+      if (callback) callback([]);
+    }
+  });
+
   socket.on("getUserLastSeen", async (targetUserId, callback) => {
     try {
       const targetUser = await User.findById(targetUserId).select("lastSeen");

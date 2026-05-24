@@ -284,7 +284,7 @@ export const removeMember = async (req, res, next) => {
     const systemMsg = await Message.create({
       conversationId: id,
       senderId: currentUserId,
-      text: `${removedUser?.fullName || "Người dùng"} đã rời khỏi đoạn chat nhóm`,
+      text: `QTV đã xóa ${removedUser?.fullName || "Người dùng"} khỏi nhóm`,
       messageType: "system",
       readBy: [...conversation.members, userId],
     });
@@ -792,8 +792,17 @@ export const getConversations = async (req, res, next) => {
           readBy: { $ne: currentUserId },
         });
 
+        const actualLastMessage = await Message.findOne({
+          conversationId: conversation._id,
+          isDeletedBy: { $ne: currentUserId },
+        })
+          .sort({ createdAt: -1 })
+          .populate("senderId", "-password")
+          .populate("readBy", "-password");
+
         return {
           ...conversation.toObject(),
+          lastMessage: actualLastMessage || null,
           unreadCount,
         };
       })

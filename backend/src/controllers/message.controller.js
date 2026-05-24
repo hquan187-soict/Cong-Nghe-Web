@@ -115,7 +115,7 @@ export const getMessages = async (req, res, next) => {
       .populate("reactions.userId", "fullName avatar")
       .populate({
         path: "replyTo",
-        select: "text senderId image file messageType",
+        select: "text senderId image file messageType isRecalled",
         populate: { path: "senderId", select: "fullName avatar" },
       })
       .sort({ createdAt: -1 })
@@ -279,7 +279,7 @@ export const sendMessage = async (req, res, next) => {
       .populate("readBy", "-password")
       .populate({
         path: "replyTo",
-        select: "text senderId image file messageType",
+        select: "text senderId image file messageType isRecalled",
         populate: { path: "senderId", select: "fullName avatar" },
       });
 
