@@ -5,6 +5,8 @@ import {
   getUserById,
   updateProfile,
   toggleActiveStatus,
+  getFriends,
+  getFriendRequests,
   sendFriendRequest,
   acceptFriendRequest,
   rejectFriendRequest,
@@ -16,6 +18,8 @@ import {
 const router = express.Router();
 
 router.get("/search", protect, searchUsers);
+router.get("/friends", protect, getFriends);
+router.get("/friend-requests", protect, getFriendRequests);
 router.put("/profile", protect, updateProfile);
 router.put("/active-status", protect, toggleActiveStatus);
 

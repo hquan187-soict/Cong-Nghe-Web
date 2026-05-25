@@ -29,10 +29,14 @@ export default function ContactsPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState(null);
-  const [users, setUsers] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [friendRequests, setFriendRequests] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const isInSearchMode = debouncedSearchQuery.trim().length > 0;
 
   const SIDEBAR_MIN = 72;
   const SIDEBAR_COLLAPSE_THRESHOLD = 180;
@@ -188,30 +192,54 @@ export default function ContactsPage() {
     setNotifPanelStyle({ left: dropdownRect.right + 8, top: btnRect ? btnRect.top : dropdownRect.top });
   }, [showNotifications]);
 
-  // Fetch users from backend
+  // Fetch friends list on mount
+  const fetchFriendsAndRequests = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [friendsData, requestsData] = await Promise.all([
+        userService.getFriends(),
+        userService.getFriendRequests(),
+      ]);
+      setFriends(Array.isArray(friendsData) ? friendsData : []);
+      setFriendRequests(Array.isArray(requestsData) ? requestsData : []);
+    } catch (err) {
+      console.error("Fetch friends error:", err);
+      toast.error("Không thể tải danh sách bạn bè");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
+    fetchFriendsAndRequests();
+  }, [fetchFriendsAndRequests]);
+
+  // Search users when query changes
+  useEffect(() => {
+    if (!isInSearchMode) {
+      setSearchResults([]);
+      return;
+    }
     let cancelled = false;
-    async function fetchUsers() {
-      setIsLoading(true);
+    async function doSearch() {
+      setIsSearching(true);
       try {
         const data = await userService.searchUsers(debouncedSearchQuery);
         if (!cancelled) {
-          setUsers(Array.isArray(data) ? data : []);
+          setSearchResults(Array.isArray(data) ? data : []);
         }
       } catch (err) {
-        console.error("Fetch users error:", err);
+        console.error("Search users error:", err);
         if (!cancelled) {
-          toast.error("Không thể tải danh sách người dùng");
+          toast.error("Không thể tìm kiếm người dùng");
         }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) setIsSearching(false);
       }
     }
-    fetchUsers();
-    return () => {
-      cancelled = true;
-    };
-  }, [debouncedSearchQuery, t, toast]);
+    doSearch();
+    return () => { cancelled = true; };
+  }, [debouncedSearchQuery, isInSearchMode, toast]);
 
   const handleMessage = async (contact) => {
     try {
@@ -235,12 +263,20 @@ export default function ContactsPage() {
     if (friendActionLoading) return;
     setFriendActionLoading(true);
     try {
-      await userService.sendFriendRequest(contact._id);
-      toast.success('Đã gửi lời mời kết bạn!');
-      // Cập nhật trạng thái local để UI phản hồi ngay
-      setUsers(prev => prev.map(u => u._id === contact._id ? { ...u, requestSent: true } : u));
-      if (selectedContact?._id === contact._id) {
-        setSelectedContact(prev => ({ ...prev, requestSent: true }));
+      const response = await userService.sendFriendRequest(contact._id);
+      if (response?.autoAccepted) {
+        toast.success('Đã tự động kết bạn thành công!');
+        fetchFriendsAndRequests();
+        setSearchResults(prev => prev.map(u => u._id === contact._id ? { ...u, isFriend: true, requestSent: false, hasReceivedRequest: false } : u));
+        if (selectedContact?._id === contact._id) {
+          setSelectedContact(prev => ({ ...prev, isFriend: true, requestSent: false, hasReceivedRequest: false }));
+        }
+      } else {
+        toast.success('Đã gửi lời mời kết bạn!');
+        setSearchResults(prev => prev.map(u => u._id === contact._id ? { ...u, requestSent: true } : u));
+        if (selectedContact?._id === contact._id) {
+          setSelectedContact(prev => ({ ...prev, requestSent: true }));
+        }
       }
     } catch (err) {
       const msg = err?.response?.data?.message || 'Không thể gửi lời mời kết bạn';
@@ -256,8 +292,8 @@ export default function ContactsPage() {
     try {
       await userService.unfriend(contact._id);
       toast.success('Đã hủy kết bạn!');
-      // Cập nhật trạng thái local
-      setUsers(prev => prev.map(u => u._id === contact._id ? { ...u, isFriend: false } : u));
+      setFriends(prev => prev.filter(u => u._id !== contact._id));
+      setSearchResults(prev => prev.map(u => u._id === contact._id ? { ...u, isFriend: false } : u));
       if (selectedContact?._id === contact._id) {
         setSelectedContact(prev => ({ ...prev, isFriend: false }));
       }
@@ -269,41 +305,12 @@ export default function ContactsPage() {
     }
   };
 
-  const [friendRequests, setFriendRequests] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchFriendRequests = async () => {
-      if (!user?.friendRequests || user.friendRequests.length === 0) {
-        setFriendRequests([]);
-        return;
-      }
-      try {
-        const requests = await Promise.all(
-          user.friendRequests.map(id => userService.getUserById(id))
-        );
-        if (!cancelled) {
-          setFriendRequests(requests.filter(Boolean));
-        }
-      } catch (err) {
-        console.error('Fetch friend requests error:', err);
-      }
-    };
-    fetchFriendRequests();
-    return () => { cancelled = true; };
-  }, [user?.friendRequests]);
-
   const handleAcceptRequest = async (userId) => {
     try {
       await userService.acceptFriendRequest(userId);
       toast.success(t('contacts.acceptSuccess') || 'Đã chấp nhận kết bạn!');
       setFriendRequests(prev => prev.filter(u => u._id !== userId));
-      if (user && user.friendRequests) {
-        updateUser({ ...user, friendRequests: user.friendRequests.filter(id => id !== userId) });
-      }
-      // Reload users to show new friend
-      const data = await userService.searchUsers(debouncedSearchQuery);
-      setUsers(Array.isArray(data) ? data : []);
+      fetchFriendsAndRequests();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
     }
@@ -314,9 +321,6 @@ export default function ContactsPage() {
       await userService.rejectFriendRequest(userId);
       toast.success(t('contacts.rejectSuccess') || 'Đã từ chối lời mời!');
       setFriendRequests(prev => prev.filter(u => u._id !== userId));
-      if (user && user.friendRequests) {
-        updateUser({ ...user, friendRequests: user.friendRequests.filter(id => id !== userId) });
-      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
     }
@@ -392,61 +396,105 @@ export default function ContactsPage() {
 
           {/* Contacts List */}
           <div className="contacts-list" style={sidebarCollapsed ? { padding: '8px 0' } : {}}>
-            {!sidebarCollapsed && friendRequests.length > 0 && (
+            {isInSearchMode ? (
               <>
-                <div className="contacts-list__title" style={{ marginTop: '0', color: 'var(--color-primary)' }}>
-                  {t('contacts.friendRequests') || 'Lời mời kết bạn'} ({friendRequests.length})
-                </div>
-                {friendRequests.map(reqUser => (
-                  <FriendRequestItem
-                    key={reqUser._id}
-                    type="received"
-                    request={{ _id: reqUser._id, from: reqUser, createdAt: new Date().toISOString() }}
-                    onAccept={() => handleAcceptRequest(reqUser._id)}
-                    onDecline={() => handleRejectRequest(reqUser._id)}
-                  />
-                ))}
-                <div className="sidebar__divider" style={{ margin: '8px 16px' }} />
-              </>
-            )}
-
-            {!sidebarCollapsed && (
-              <div className="contacts-list__title">
-                {t('contacts.friends')} ({users.length})
-              </div>
-            )}
-            
-            {isLoading ? (
-              <div className="sidebar__loading">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="sidebar__skeleton">
-                    <div className="sidebar__skeleton-avatar" style={{ margin: sidebarCollapsed ? '0 auto' : '0' }}></div>
-                    {!sidebarCollapsed && (
-                      <div className="sidebar__skeleton-content">
-                        <div className="sidebar__skeleton-line sidebar__skeleton-line--short"></div>
-                        <div className="sidebar__skeleton-line sidebar__skeleton-line--long"></div>
-                      </div>
-                    )}
+                {!sidebarCollapsed && (
+                  <div className="contacts-list__title">
+                    {t('contacts.searchResults') || 'Kết quả tìm kiếm'} ({searchResults.length})
                   </div>
-                ))}
-              </div>
-            ) : users.length > 0 ? (
-              users.map(contact => (
-                <ContactItem 
-                  key={contact._id} 
-                  contact={contact} 
-                  isActive={selectedContact?._id === contact._id}
-                  isOnline={isUserOnline(contact._id)}
-                  onClick={setSelectedContact}
-                  onMessage={handleMessage}
-                  collapsed={sidebarCollapsed}
-                />
-              ))
+                )}
+                {isSearching ? (
+                  <div className="sidebar__loading">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="sidebar__skeleton">
+                        <div className="sidebar__skeleton-avatar" style={{ margin: sidebarCollapsed ? '0 auto' : '0' }}></div>
+                        {!sidebarCollapsed && (
+                          <div className="sidebar__skeleton-content">
+                            <div className="sidebar__skeleton-line sidebar__skeleton-line--short"></div>
+                            <div className="sidebar__skeleton-line sidebar__skeleton-line--long"></div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  searchResults.map(contact => (
+                    <ContactItem
+                      key={contact._id}
+                      contact={contact}
+                      isActive={selectedContact?._id === contact._id}
+                      isOnline={isUserOnline(contact._id)}
+                      onClick={setSelectedContact}
+                      onMessage={handleMessage}
+                      collapsed={sidebarCollapsed}
+                    />
+                  ))
+                ) : (
+                  <div className="contacts-empty-state">
+                    <Users size={sidebarCollapsed ? 24 : 48} />
+                    {!sidebarCollapsed && <p>{t('contacts.noResults') || 'Không tìm thấy kết quả'}</p>}
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="contacts-empty-state">
-                <Users size={sidebarCollapsed ? 24 : 48} />
-                {!sidebarCollapsed && <p>{t('contacts.noFriends')}</p>}
-              </div>
+              <>
+                {!sidebarCollapsed && friendRequests.length > 0 && (
+                  <>
+                    <div className="contacts-list__title" style={{ marginTop: '0', color: 'var(--color-primary)' }}>
+                      {t('contacts.friendRequests') || 'Lời mời kết bạn'} ({friendRequests.length})
+                    </div>
+                    {friendRequests.map(reqUser => (
+                      <FriendRequestItem
+                        key={reqUser._id}
+                        type="received"
+                        request={{ _id: reqUser._id, from: reqUser, createdAt: new Date().toISOString() }}
+                        onAccept={() => handleAcceptRequest(reqUser._id)}
+                        onDecline={() => handleRejectRequest(reqUser._id)}
+                      />
+                    ))}
+                    <div className="sidebar__divider" style={{ margin: '8px 16px' }} />
+                  </>
+                )}
+
+                {!sidebarCollapsed && (
+                  <div className="contacts-list__title">
+                    {t('contacts.friends')} ({friends.length})
+                  </div>
+                )}
+
+                {isLoading ? (
+                  <div className="sidebar__loading">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="sidebar__skeleton">
+                        <div className="sidebar__skeleton-avatar" style={{ margin: sidebarCollapsed ? '0 auto' : '0' }}></div>
+                        {!sidebarCollapsed && (
+                          <div className="sidebar__skeleton-content">
+                            <div className="sidebar__skeleton-line sidebar__skeleton-line--short"></div>
+                            <div className="sidebar__skeleton-line sidebar__skeleton-line--long"></div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : friends.length > 0 ? (
+                  friends.map(contact => (
+                    <ContactItem
+                      key={contact._id}
+                      contact={{ ...contact, isFriend: true }}
+                      isActive={selectedContact?._id === contact._id}
+                      isOnline={isUserOnline(contact._id)}
+                      onClick={(c) => setSelectedContact({ ...c, isFriend: true })}
+                      onMessage={handleMessage}
+                      collapsed={sidebarCollapsed}
+                    />
+                  ))
+                ) : (
+                  <div className="contacts-empty-state">
+                    <Users size={sidebarCollapsed ? 24 : 48} />
+                    {!sidebarCollapsed && <p>{t('contacts.noFriends')}</p>}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -713,12 +761,13 @@ export default function ContactsPage() {
 
         {selectedContact ? (
           <div className="mini-profile-wrapper">
-            <MiniProfile 
-              contact={selectedContact} 
+            <MiniProfile
+              contact={selectedContact}
               isOnline={isUserOnline(selectedContact._id)}
               onSendMessage={() => handleMessage(selectedContact)}
               onUnfriend={() => handleUnfriend(selectedContact)}
               onAddFriend={() => handleAddFriend(selectedContact)}
+              onAcceptRequest={() => handleAcceptRequest(selectedContact._id)}
               isLoading={friendActionLoading}
             />
           </div>

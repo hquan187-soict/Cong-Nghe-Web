@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, UserMinus } from 'lucide-react';
+import { MessageSquare, UserMinus, UserPlus, Clock } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 
 export default function ContactItem({ contact, isActive, onClick, isOnline, onMessage, onUnfriend, collapsed }) {
@@ -24,6 +24,17 @@ export default function ContactItem({ contact, isActive, onClick, isOnline, onMe
     );
   }
 
+  const renderRelationshipBadge = () => {
+    if (contact.isFriend) return null;
+    if (contact.requestSent) {
+      return <span className="contact-item__badge contact-item__badge--pending"><Clock size={12} /> Đã gửi</span>;
+    }
+    if (contact.hasReceivedRequest) {
+      return <span className="contact-item__badge contact-item__badge--received"><UserPlus size={12} /> Đã nhận lời mời</span>;
+    }
+    return null;
+  };
+
   return (
     <div
       className={`contact-item ${isActive ? 'contact-item--active' : ''}`}
@@ -42,31 +53,45 @@ export default function ContactItem({ contact, isActive, onClick, isOnline, onMe
       </div>
       <div className="contact-item__info">
         <span className="contact-item__name">{contact.fullName}</span>
-        {contact.mutualFriends > 0 && (
-          <span className="contact-item__mutual">{contact.mutualFriends} bạn chung</span>
-        )}
+        {renderRelationshipBadge()}
       </div>
       <div className="contact-item__actions">
-        <button 
-          className="contact-item__btn" 
-          title="Nhắn tin"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onMessage) onMessage(contact);
-          }}
-        >
-          <MessageSquare size={16} />
-        </button>
-        <button 
-          className="contact-item__btn" 
-          title="Hủy kết bạn"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onUnfriend) onUnfriend(contact);
-          }}
-        >
-          <UserMinus size={16} />
-        </button>
+        {contact.isFriend && (
+          <>
+            <button
+              className="contact-item__btn"
+              title="Nhắn tin"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onMessage) onMessage(contact);
+              }}
+            >
+              <MessageSquare size={16} />
+            </button>
+            <button
+              className="contact-item__btn"
+              title="Hủy kết bạn"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onUnfriend) onUnfriend(contact);
+              }}
+            >
+              <UserMinus size={16} />
+            </button>
+          </>
+        )}
+        {!contact.isFriend && !contact.requestSent && !contact.hasReceivedRequest && (
+          <button
+            className="contact-item__btn"
+            title="Nhắn tin"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onMessage) onMessage(contact);
+            }}
+          >
+            <MessageSquare size={16} />
+          </button>
+        )}
       </div>
     </div>
   );
