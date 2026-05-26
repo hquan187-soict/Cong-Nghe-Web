@@ -654,7 +654,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
           messages.map((msg, idx) => {
             if (msg.messageType === 'system') {
               return (
-                <div key={msg._id} className="message-system" style={{
+                <div key={msg._id} id={`msg-${msg._id}`} className="message-system" style={{
                   textAlign: 'center', padding: '8px 16px', margin: '4px 0',
                   fontSize: '12px', color: 'var(--color-text-muted)', fontStyle: 'italic'
                 }}>

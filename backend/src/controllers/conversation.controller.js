@@ -941,12 +941,34 @@ export const updateNickname = async (req, res, next) => {
 
     if (!conversation.nicknames) conversation.nicknames = new Map();
 
+    const changedUser = await User.findById(forUserId);
+    const changingUser = await User.findById(currentUserId);
+    const changedUserName = changedUser?.fullName || "Người dùng";
+    const changingUserName = changingUser?.fullName || "Người dùng";
+
+    let actionText = "";
     if (!nickname || !nickname.trim()) {
       conversation.nicknames.delete(forUserId);
+      actionText = `${changingUserName} đã xóa biệt danh của ${changedUserName}`;
     } else {
       conversation.nicknames.set(forUserId, nickname.trim());
+      actionText = `${changingUserName} đã đổi biệt danh của ${changedUserName} thành ${nickname.trim()}`;
     }
     await conversation.save();
+
+    const systemMsg = await Message.create({
+      conversationId: id,
+      senderId: currentUserId,
+      text: actionText,
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    conversation.lastMessage = systemMsg._id;
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "-password");
 
     const updatedConversation = await Conversation.findById(id)
       .populate("members", "-password")
@@ -957,6 +979,12 @@ export const updateNickname = async (req, res, next) => {
     conversation.members.forEach((memberId) => {
       const socketId = getReceiverSocketId(memberId.toString());
       if (socketId) {
+        io.to(socketId).emit("sendMessage", {
+          conversationId: id,
+          message: populatedSystemMsg,
+          lastMessage: conversation.lastMessage,
+          updatedAt: conversation.updatedAt,
+        });
         io.to(socketId).emit("nicknameUpdated", { conversation: updatedConversation });
       }
     });
@@ -1121,8 +1149,35 @@ export const updateEmoji = async (req, res, next) => {
       throw error;
     }
 
+    if (conversation.emoji === emoji) {
+      // Spam prevention
+      const currentConversation = await Conversation.findById(id)
+        .populate("members", "-password")
+        .populate("admins", "-password")
+        .populate("lastMessage");
+      return res.status(200).json(currentConversation);
+    }
+
     conversation.emoji = emoji;
     await conversation.save();
+
+    const changingUser = await User.findById(currentUserId);
+    const changingUserName = changingUser?.fullName || "Người dùng";
+    const actionText = `${changingUserName} đã đổi biểu tượng cảm xúc của đoạn chat`;
+
+    const systemMsg = await Message.create({
+      conversationId: id,
+      senderId: currentUserId,
+      text: actionText,
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    conversation.lastMessage = systemMsg._id;
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "-password");
 
     const updatedConversation = await Conversation.findById(id)
       .populate("members", "-password")
@@ -1132,6 +1187,12 @@ export const updateEmoji = async (req, res, next) => {
     conversation.members.forEach((memberId) => {
       const socketId = getReceiverSocketId(memberId.toString());
       if (socketId) {
+        io.to(socketId).emit("sendMessage", {
+          conversationId: id,
+          message: populatedSystemMsg,
+          lastMessage: conversation.lastMessage,
+          updatedAt: conversation.updatedAt,
+        });
         io.to(socketId).emit("conversationUpdated", { conversation: updatedConversation });
       }
     });
@@ -1189,6 +1250,26 @@ export const updateThemeColor = async (req, res, next) => {
     conversation.themeColor = themeColor || null;
     await conversation.save();
 
+    const changingUser = await User.findById(currentUserId);
+    const changingUserName = changingUser?.fullName || "Người dùng";
+    const actionText = themeColor 
+      ? `${changingUserName} đã đổi màu chủ đề đoạn chat`
+      : `${changingUserName} đã xóa màu chủ đề đoạn chat`;
+
+    const systemMsg = await Message.create({
+      conversationId: id,
+      senderId: currentUserId,
+      text: actionText,
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    conversation.lastMessage = systemMsg._id;
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "-password");
+
     const updatedConversation = await Conversation.findById(id)
       .populate("members", "-password")
       .populate("admins", "-password")
@@ -1197,6 +1278,12 @@ export const updateThemeColor = async (req, res, next) => {
     conversation.members.forEach((memberId) => {
       const socketId = getReceiverSocketId(memberId.toString());
       if (socketId) {
+        io.to(socketId).emit("sendMessage", {
+          conversationId: id,
+          message: populatedSystemMsg,
+          lastMessage: conversation.lastMessage,
+          updatedAt: conversation.updatedAt,
+        });
         io.to(socketId).emit("themeColorUpdated", { conversation: updatedConversation });
       }
     });

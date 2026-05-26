@@ -768,3 +768,40 @@ export const deleteMessage = async (req, res, next) => {
     return next(error);
   }
 };
+
+export const searchMessages = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { conversationId } = req.params;
+    const { q } = req.query;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!q || typeof q !== "string" || !q.trim()) {
+      return res.status(200).json([]);
+    }
+
+    await checkConversationAccess(conversationId, currentUserId, { allowRemoved: true, checkBlock: false });
+
+    const escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const messages = await Message.find({
+      conversationId,
+      isDeletedBy: { $ne: currentUserId },
+      isRecalled: { $ne: true },
+      messageType: "text",
+      text: { $regex: escapedQuery, $options: "i" }
+    })
+      .populate("senderId", "fullName avatar")
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return res.status(200).json(messages);
+  } catch (error) {
+    return next(error);
+  }
+};

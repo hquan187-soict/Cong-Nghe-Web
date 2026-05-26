@@ -11,6 +11,7 @@ import {
   getPinnedMessages,
   forwardMessage,
   getMediaAndFiles,
+  searchMessages,
 } from "../controllers/message.controller.js";
 
 const router = express.Router();
@@ -18,6 +19,7 @@ const router = express.Router();
 router.get("/:conversationId", protect, getMessages);
 router.get("/:conversationId/pinned", protect, getPinnedMessages);
 router.get("/:conversationId/media-files", protect, getMediaAndFiles);
+router.get("/:conversationId/search", protect, searchMessages);
 router.post("/", protect, sendMessage);
 router.post("/:conversationId/read", protect, markMessagesAsRead);
 router.post("/:messageId/reaction", protect, toggleReaction);

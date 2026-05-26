@@ -57,6 +57,10 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
 
     const prefixStr = senderName === 'Bạn' || isGroup ? senderName + ': ' : ''
 
+    if (msg.messageType === 'system') {
+      return msg.text
+    }
+
     if (msg.messageType === 'like') {
       return prefixStr + 'Đã gửi một biểu tượng cảm xúc'
     }

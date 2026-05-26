@@ -1217,7 +1217,7 @@ a:hover {
 
 .message-input__like-btn:hover:not(:disabled) {
   color: var(--conv-theme-hover, var(--color-primary-hover));
-  background: var(--color-primary-light);
+  background: var(--conv-theme-tint-light, var(--color-primary-light));
 }
 
 [data-theme="dark"] .message-input__like-btn {
@@ -1226,6 +1226,7 @@ a:hover {
 
 [data-theme="dark"] .message-input__like-btn:hover:not(:disabled) {
   color: var(--conv-theme-dark-hover, var(--color-primary-hover));
+  background: var(--conv-theme-tint-dark, rgba(96, 205, 255, 0.1));
 }
 
 .message-input__like-btn:active:not(:disabled) {

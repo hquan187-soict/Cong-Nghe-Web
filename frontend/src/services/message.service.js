@@ -58,4 +58,10 @@ export const messageService = {
   async getMediaAndFiles(conversationId) {
     return await axiosInstance.get(`/api/messages/${conversationId}/media-files`);
   },
+
+  async searchMessages(conversationId, q) {
+    return await axiosInstance.get(`/api/messages/${conversationId}/search`, {
+      params: { q },
+    });
+  },
 };

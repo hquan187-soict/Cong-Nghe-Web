@@ -300,6 +300,52 @@ function ChatPage() {
   const [isAddingMember, setIsAddingMember] = useState(false)
   const addMemberTimerRef = useRef(null)
 
+  const [showSearchPanel, setShowSearchPanel] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [isSearchingMessage, setIsSearchingMessage] = useState(false)
+  const searchMessageTimerRef = useRef(null)
+
+  useEffect(() => {
+    // Reset search when conversation changes
+    setShowSearchPanel(false)
+    setSearchQuery('')
+    setSearchResults([])
+    setIsSearchingMessage(false)
+  }, [selectedConversation?._id])
+
+  const handleMessageSearch = (query) => {
+    setSearchQuery(query)
+    if (searchMessageTimerRef.current) clearTimeout(searchMessageTimerRef.current)
+    if (!query.trim()) {
+      setSearchResults([])
+      return
+    }
+    searchMessageTimerRef.current = setTimeout(async () => {
+      setIsSearchingMessage(true)
+      try {
+        const response = await messageService.searchMessages(selectedConversation._id, query.trim())
+        setSearchResults(response.data || [])
+      } catch (err) {
+        console.error('Search message error:', err)
+      } finally {
+        setIsSearchingMessage(false)
+      }
+    }, 300)
+  }
+
+  const handleSearchResultClick = (messageId) => {
+    const el = document.getElementById(`msg-${messageId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.style.transition = 'background 0.3s'
+      el.style.background = 'var(--color-primary-light)'
+      setTimeout(() => { el.style.background = '' }, 1500)
+    } else {
+      toast.info('Không thể nhảy tới tin nhắn cũ nếu chưa được tải.')
+    }
+  }
+
   const handleAddMemberSearch = (query) => {
     setAddMemberQuery(query)
     if (addMemberTimerRef.current) clearTimeout(addMemberTimerRef.current)
@@ -1027,11 +1073,79 @@ function ChatPage() {
       {/* Info Panel — separate full-height column */}
       {showInfoPanel && selectedConversation && (
         <aside className="info-panel">
-          <div className="info-panel__header">
-            <button className="info-panel__close" onClick={() => setShowInfoPanel(false)}>
-              <X size={20} />
-            </button>
-          </div>
+          {showSearchPanel ? (
+            <>
+              <div className="info-panel__header" style={{ justifyContent: 'flex-start', gap: '12px' }}>
+                <button className="info-panel__close" onClick={() => setShowSearchPanel(false)}>
+                  <ChevronDown size={20} style={{ transform: 'rotate(90deg)' }} />
+                </button>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>Tìm kiếm tin nhắn</h3>
+              </div>
+              <div style={{ padding: '16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+                <div style={{ position: 'relative' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+                  <input
+                    type="text"
+                    placeholder="Nhập từ khóa..."
+                    value={searchQuery}
+                    onChange={(e) => handleMessageSearch(e.target.value)}
+                    autoFocus
+                    style={{
+                      width: '100%', padding: '10px 12px 10px 36px', borderRadius: '8px',
+                      border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg)',
+                      color: 'var(--color-text)', fontSize: '14px', outline: 'none'
+                    }}
+                  />
+                </div>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
+                {isSearchingMessage ? (
+                  <div style={{ padding: '24px', textAlign: 'center' }}>
+                    <Loader2 className="animate-spin" size={24} color="var(--color-primary)" />
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  searchResults.map(msg => {
+                    const sender = msg.senderId;
+                    return (
+                      <div key={msg._id} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 8px',
+                        borderBottom: '1px solid var(--color-border-subtle)', cursor: 'pointer',
+                        borderRadius: '8px', transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--color-hover-bg)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      onClick={() => handleSearchResultClick(msg._id)}>
+                        <Avatar src={sender?.avatar} alt={sender?.fullName || '?'} size="sm" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
+                              {sender?.fullName || 'Người dùng'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                              {new Date(msg.createdAt).toLocaleDateString('vi-VN')}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {msg.text}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : searchQuery.trim() ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '14px' }}>
+                    Không tìm thấy kết quả nào.
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="info-panel__header">
+                <button className="info-panel__close" onClick={() => setShowInfoPanel(false)}>
+                  <X size={20} />
+                </button>
+              </div>
 
           <div className="info-panel__profile">
             <div className="info-panel__avatar" style={{ display: 'flex', justifyContent: 'center' }}>
@@ -1180,7 +1294,8 @@ function ChatPage() {
             </button>
             <button
               className="info-panel__quick-btn"
-              title={t('chat.comingSoon')}
+              onClick={() => setShowSearchPanel(true)}
+              title={t('chat.search')}
             >
               <div className="info-panel__quick-icon"><Search size={20} /></div>
               <span>{t('chat.search')}</span>
@@ -1806,6 +1921,8 @@ function ChatPage() {
               </div>
             )}
           </div>
+          </>
+          )}
         </aside>
       )}
 
