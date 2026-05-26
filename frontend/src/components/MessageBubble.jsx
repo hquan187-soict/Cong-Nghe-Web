@@ -43,6 +43,28 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
+function renderTextWithMentions(text, mentions, mentionAll) {
+  if (!text) return text;
+  
+  const names = mentions ? mentions.map(m => typeof m === 'object' ? m.fullName : null).filter(Boolean) : [];
+  if (mentionAll) {
+    names.push('Mọi người');
+  }
+  
+  if (names.length === 0) return text;
+
+  const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(@(?:${names.map(escapeRegExp).join('|')}))`, 'g');
+
+  const parts = text.split(regex);
+  return parts.map((part, i) => {
+    if (part.startsWith('@') && names.some(name => part === `@${name}`)) {
+      return <span key={i} className="mention-highlight" style={{ fontWeight: 600, color: 'var(--color-primary)', background: 'var(--color-primary-light)', padding: '0 2px', borderRadius: '4px' }}>{part}</span>;
+    }
+    return part;
+  });
+}
+
 const STATUS_LABELS = {
   sending: 'Đang gửi',
   sent: 'Đã gửi',
@@ -514,7 +536,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         )}
 
         {/* 5. Text */}
-        {message.text && <p className="message-bubble__text">{message.text}</p>}
+        {message.text && <p className="message-bubble__text" style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithMentions(message.text, message.mentions, message.mentionAll)}</p>}
       </>
     )
   }

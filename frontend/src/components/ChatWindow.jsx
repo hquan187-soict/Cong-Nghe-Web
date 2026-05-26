@@ -377,11 +377,14 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
   }, [conversationId, currentUserId, onMessageSent, toast, t])
 
   // Gửi tin nhắn (text + image + file)
-  const handleSendMessage = useCallback(async (text, imageBase64, fileData) => {
+  const handleSendMessage = useCallback(async (text, imageBase64, fileData, mentions = []) => {
     if (!conversationId || !currentUserId) return
     if (!text && !imageBase64 && !fileData) return
 
     const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
+
+    // Tạo mảng mentions giả lập cho optimistic update
+    const optimisticMentions = mentions.map(id => membersMap[id] || { _id: id, fullName: 'User' })
 
     const optimisticMsg = {
       _id: tempId,
@@ -393,6 +396,8 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       createdAt: new Date().toISOString(),
       readBy: [currentUserId],
       status: 'sending',
+      mentions: optimisticMentions,
+      mentionAll: mentions.includes('all'),
     }
 
     setMessages((prev) => [...prev, optimisticMsg])
@@ -408,6 +413,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       if (imageBase64) payload.image = imageBase64
       if (fileData) payload.file = fileData
       if (replyingTo) payload.replyTo = replyingTo._id
+      if (mentions && mentions.length > 0) payload.mentions = mentions
 
       const savedMsg = await messageService.sendMessage(payload)
 
@@ -429,7 +435,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     } finally {
       setSending(false)
     }
-  }, [conversationId, currentUserId, onMessageSent, toast, t, replyingTo])
+  }, [conversationId, currentUserId, onMessageSent, toast, t, replyingTo, membersMap])
 
   const handleSendAudio = useCallback(async (audioData) => {
     if (!conversationId || !currentUserId || !audioData) return
@@ -795,6 +801,9 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
             disabled={sending}
             conversationId={conversationId}
             likeEmoji={convProp?.emoji || 'ThumbsUp'}
+            members={Object.values(membersMap)}
+            isGroup={isGroup}
+            currentUserId={currentUserId}
           />
         </>
       )}

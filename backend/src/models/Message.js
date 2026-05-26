@@ -38,6 +38,16 @@ const messageSchema = new mongoose.Schema(
       enum: ["text", "image", "file", "audio", "system", "like"],
       default: "text",
     },
+    mentions: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    mentionAll: {
+      type: Boolean,
+      default: false,
+    },
     reactions: [
       {
         emoji: { type: String, required: true },

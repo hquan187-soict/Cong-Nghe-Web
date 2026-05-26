@@ -4,6 +4,11 @@ import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 import VoiceRecorder from './VoiceRecorder'
 
+function removeAccents(str) {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+}
+
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
@@ -18,7 +23,7 @@ const LIKE_ICONS = {
   ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf,
 }
 
-const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSendAudio, disabled = false, conversationId, likeEmoji = 'ThumbsUp' }, ref) {
+const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSendAudio, disabled = false, conversationId, likeEmoji = 'ThumbsUp', members = [], isGroup = false, currentUserId }, ref) {
   const { t } = useLang()
   const { socket, isConnected } = useSocket()
   const [text, setText] = useState('')
@@ -26,9 +31,19 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
   const [imageBase64, setImageBase64] = useState(null)
   const [fileData, setFileData] = useState(null)
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false)
+  
+  // Mentions state
+  const [showMentionList, setShowMentionList] = useState(false)
+  const [mentionSearch, setMentionSearch] = useState('')
+  const [mentionIndex, setMentionIndex] = useState(0)
+  const [mentionCursorPos, setMentionCursorPos] = useState(0)
+  const [selectedMentions, setSelectedMentions] = useState([])
+  const [filteredMembers, setFilteredMembers] = useState([])
+
   const textareaRef = useRef(null)
   const imageInputRef = useRef(null)
   const fileInputRef = useRef(null)
+  const mentionListRef = useRef(null)
 
   const isTypingRef = useRef(false)
   const prevConvRef = useRef(conversationId)
@@ -81,10 +96,51 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
     el.style.height = Math.min(el.scrollHeight, 120) + 'px'
   }, [])
 
+  useEffect(() => {
+    if (showMentionList && isGroup && members.length > 0) {
+      const search = removeAccents(mentionSearch);
+      
+      const ALL_MEMBER_TAG = { _id: 'all', fullName: 'Mọi người', isAll: true };
+      const validMembers = members.filter(m => m._id !== currentUserId);
+      const combinedMembers = [ALL_MEMBER_TAG, ...validMembers];
+      
+      const filtered = combinedMembers.filter(m => removeAccents(m.fullName).includes(search));
+      
+      setFilteredMembers(filtered);
+      setMentionIndex(0);
+    }
+  }, [mentionSearch, showMentionList, isGroup, members, currentUserId]);
+
+  // Click outside mention list
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (mentionListRef.current && !mentionListRef.current.contains(e.target) && textareaRef.current && !textareaRef.current.contains(e.target)) {
+        setShowMentionList(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   function handleChange(e) {
     const newText = e.target.value
     setText(newText)
     adjustHeight()
+
+    // Mentions logic
+    if (isGroup) {
+      const cursorPosition = e.target.selectionStart;
+      const textBeforeCursor = newText.slice(0, cursorPosition);
+      const match = textBeforeCursor.match(/@([^\s@]*)$/);
+      
+      if (match) {
+        setShowMentionList(true);
+        setMentionSearch(match[1]);
+        setMentionCursorPos(cursorPosition - match[1].length - 1);
+      } else {
+        setShowMentionList(false);
+      }
+    }
 
     if (socket?.connected && conversationId) {
       if (newText.length > 0) {
@@ -110,10 +166,58 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
   }))
 
   function handleKeyDown(e) {
+    if (showMentionList && filteredMembers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setMentionIndex(prev => (prev + 1) % filteredMembers.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setMentionIndex(prev => (prev - 1 + filteredMembers.length) % filteredMembers.length)
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        insertMention(filteredMembers[mentionIndex])
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowMentionList(false)
+        return
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  function insertMention(member) {
+    if (!member) return;
+    const textBefore = text.slice(0, mentionCursorPos);
+    // cursor position at the end of what they typed for the mention search
+    const textAfter = text.slice(textareaRef.current.selectionStart);
+    const newText = textBefore + `@${member.fullName} ` + textAfter;
+    
+    setText(newText);
+    setShowMentionList(false);
+    
+    if (!selectedMentions.find(m => m._id === member._id)) {
+      setSelectedMentions(prev => [...prev, member]);
+    }
+    
+    // Focus back and adjust cursor
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const newPos = mentionCursorPos + member.fullName.length + 2;
+        textareaRef.current.setSelectionRange(newPos, newPos);
+        adjustHeight();
+      }
+    }, 0);
   }
 
   function processFile(file) {
@@ -169,10 +273,16 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
 
     stopTyping()
 
-    onSend(trimmed || '', imageBase64 || null, fileData || null)
+    // Filter mentions that are still present in text
+    const finalMentions = selectedMentions.filter(m => trimmed.includes(`@${m.fullName}`))
+    const mentionIds = finalMentions.map(m => m._id)
+
+    onSend(trimmed || '', imageBase64 || null, fileData || null, mentionIds)
     setText('')
     clearImage()
     clearFile()
+    setSelectedMentions([])
+    setShowMentionList(false)
 
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
@@ -183,7 +293,50 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
   const hasAttachment = imagePreview || fileData
 
   return (
-    <div className="message-input">
+    <div className="message-input" style={{ position: 'relative' }}>
+      {showMentionList && filteredMembers.length > 0 && (
+        <div ref={mentionListRef} className="mention-dropdown" style={{
+          position: 'absolute',
+          bottom: '100%',
+          left: 0,
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border-subtle)',
+          borderRadius: '8px',
+          boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
+          maxHeight: '200px',
+          overflowY: 'auto',
+          width: '250px',
+          zIndex: 100,
+          marginBottom: '8px'
+        }}>
+          {filteredMembers.map((member, index) => (
+            <div 
+              key={member._id}
+              className={`mention-item ${index === mentionIndex ? 'mention-item--active' : ''}`}
+              onClick={() => insertMention(member)}
+              onMouseEnter={() => setMentionIndex(index)}
+              style={{
+                padding: '8px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: index === mentionIndex ? 'var(--color-hover-bg)' : 'transparent',
+                borderBottom: '1px solid var(--color-border-subtle)'
+              }}
+            >
+              <div style={{ width: '24px', height: '24px', borderRadius: '50%', overflow: 'hidden', background: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {member.avatar ? (
+                  <img src={member.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--color-primary)' }}>{member.fullName[0]}</span>
+                )}
+              </div>
+              <span style={{ fontSize: '14px', color: 'var(--color-text)', fontWeight: 500 }}>{member.fullName}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {showVoiceRecorder && (
         <div className="message-input__voice-recorder-popup">
           <VoiceRecorder

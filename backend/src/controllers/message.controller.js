@@ -118,6 +118,7 @@ export const getMessages = async (req, res, next) => {
         select: "text senderId image file messageType",
         populate: { path: "senderId", select: "fullName avatar" },
       })
+      .populate("mentions", "fullName avatar")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit + 1);
@@ -142,7 +143,7 @@ export const getMessages = async (req, res, next) => {
 export const sendMessage = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
-    const { conversationId, text, image, file, replyTo, messageType: reqMsgType } = req.body;
+    const { conversationId, text, image, file, replyTo, messageType: reqMsgType, mentions } = req.body;
 
     if (!currentUserId) {
       const error = new Error("Bạn chưa đăng nhập.");
@@ -228,6 +229,15 @@ export const sendMessage = async (req, res, next) => {
       }
     }
 
+    let validMentions = [];
+    let mentionAll = false;
+    if (mentions && Array.isArray(mentions)) {
+      if (mentions.includes('all')) {
+        mentionAll = true;
+      }
+      validMentions = mentions.filter(id => mongoose.Types.ObjectId.isValid(id));
+    }
+
     let imageUrl = image || null;
     if (image && image.startsWith("data:")) {
       const uploaded = await cloudinary.uploader.upload(image, {
@@ -275,6 +285,8 @@ export const sendMessage = async (req, res, next) => {
       replyTo: replyTo || null,
       readBy: [currentUserId],
       messageType,
+      mentions: validMentions,
+      mentionAll,
     });
 
     conversation.lastMessage = message._id;
@@ -291,6 +303,7 @@ export const sendMessage = async (req, res, next) => {
     const populatedMessage = await Message.findById(message._id)
       .populate("senderId", "-password")
       .populate("readBy", "-password")
+      .populate("mentions", "fullName avatar")
       .populate({
         path: "replyTo",
         select: "text senderId image file messageType",
@@ -361,7 +374,8 @@ export const toggleReaction = async (req, res, next) => {
 
     const populatedMessage = await Message.findById(messageId)
       .populate("senderId", "-password")
-      .populate("reactions.userId", "fullName avatar");
+      .populate("reactions.userId", "fullName avatar")
+      .populate("mentions", "fullName avatar");
 
     const conversation = await Conversation.findById(message.conversationId);
     conversation.members.forEach((memberId) => {
@@ -409,6 +423,7 @@ export const markMessagesAsRead = async (req, res, next) => {
     })
       .populate("senderId", "-password")
       .populate("readBy", "-password")
+      .populate("mentions", "fullName avatar")
       .sort({ createdAt: -1 });
 
     const conversation = await Conversation.findById(conversationId);
@@ -599,7 +614,8 @@ export const forwardMessage = async (req, res, next) => {
 
       const populatedMessage = await Message.findById(forwarded._id)
         .populate("senderId", "-password")
-        .populate("readBy", "-password");
+        .populate("readBy", "-password")
+        .populate("mentions", "fullName avatar");
 
       conversation.members.forEach((memberId) => {
         if (memberId.toString() === currentUserId.toString()) return;
