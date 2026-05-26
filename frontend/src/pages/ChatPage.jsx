@@ -49,6 +49,8 @@ import ChatWindow from '../components/ChatWindow'
 import Avatar from '../components/ui/Avatar'
 import ProfileModal from '../components/ProfileModal'
 import ConfirmModal from '../components/ui/ConfirmModal'
+import ImageLightbox from '../components/chat/ImageLightbox'
+import { Play } from 'lucide-react'
 
 function ChatPage() {
   const { t, lang } = useLang()
@@ -781,6 +783,13 @@ function ChatPage() {
         if (sidebarRef.current?.incrementUnread) {
           sidebarRef.current.incrementUnread(conversationId)
         }
+      } else {
+        setMediaItems(prev => {
+          if (!message || (message.messageType !== 'image' && message.messageType !== 'file')) return prev;
+          if (message.messageType === 'file' && message.file?.type?.startsWith('audio/')) return prev;
+          if (prev.some(m => m._id === message._id)) return prev;
+          return [message, ...prev];
+        });
       }
       const senderId = message?.sender?._id || message?.sender
       const isOwnMessage = senderId?.toString() === currentUserId
@@ -790,9 +799,17 @@ function ChatPage() {
       }
     }
 
+    const handleMessageRecalled = ({ conversationId, messageId }) => {
+      if (conversationId === selectedConvIdRef.current) {
+        setMediaItems(prev => prev.filter(m => m._id !== messageId));
+      }
+    }
+
     socket.on('sendMessage', handleGlobalMessage)
+    socket.on('messageRecalled', handleMessageRecalled)
     return () => {
       socket.off('sendMessage', handleGlobalMessage)
+      socket.off('messageRecalled', handleMessageRecalled)
     }
   }, [socket, isConnected, currentUserId, playSound])
 
@@ -803,6 +820,12 @@ function ChatPage() {
     if (sidebarRef.current?.unarchiveConversation) {
       sidebarRef.current.unarchiveConversation(convId)
     }
+    setMediaItems(prev => {
+      if (!lastMessage || (lastMessage.messageType !== 'image' && lastMessage.messageType !== 'file')) return prev;
+      if (lastMessage.messageType === 'file' && lastMessage.file?.type?.startsWith('audio/')) return prev;
+      if (prev.some(m => m._id === lastMessage._id)) return prev;
+      return [lastMessage, ...prev];
+    });
   }, [])
 
   const handleVoiceCall = () => {
@@ -838,6 +861,35 @@ function ChatPage() {
   const [infoCustomizeOpen, setInfoCustomizeOpen] = useState(false)
   const [infoMediaOpen, setInfoMediaOpen] = useState(false)
   const [infoPrivacyOpen, setInfoPrivacyOpen] = useState(false)
+
+  // Media & Files state
+  const [activeMediaTab, setActiveMediaTab] = useState('photos')
+  const [mediaItems, setMediaItems] = useState([])
+  const [loadingMedia, setLoadingMedia] = useState(false)
+  const [lightboxSrc, setLightboxSrc] = useState(null)
+  const [videoLightboxSrc, setVideoLightboxSrc] = useState(null)
+
+  useEffect(() => {
+    if (infoMediaOpen && selectedConversation?._id) {
+      setLoadingMedia(true)
+      messageService.getMediaAndFiles(selectedConversation._id)
+        .then(res => {
+          const items = res?.data || res || []
+          setMediaItems(Array.isArray(items) ? items : [])
+        })
+        .catch(err => console.error("Lỗi lấy danh sách phương tiện:", err))
+        .finally(() => setLoadingMedia(false))
+    }
+  }, [infoMediaOpen, selectedConversation?._id])
+
+  useEffect(() => {
+    const handleLocalDelete = (e) => {
+      const msgId = e.detail;
+      setMediaItems(prev => prev.filter(m => m._id !== msgId));
+    };
+    window.addEventListener('localMessageDeleted', handleLocalDelete);
+    return () => window.removeEventListener('localMessageDeleted', handleLocalDelete);
+  }, []);
 
   const renderHeaderAvatar = () => {
     const hasCustomAvatar = isGroup && !!(selectedConversation.avatar || selectedConversation.groupAvatar);
@@ -1110,15 +1162,6 @@ function ChatPage() {
           </div>
 
           <div className="info-panel__quick-actions">
-            {!isGroup && (
-              <button
-                className="info-panel__quick-btn"
-                onClick={() => setShowProfileModal(true)}
-              >
-                <div className="info-panel__quick-icon"><User size={20} /></div>
-                <span>{t('chat.viewProfile')}</span>
-              </button>
-            )}
             <button
               className="info-panel__quick-btn"
               onClick={handleToggleMute}
@@ -1149,7 +1192,10 @@ function ChatPage() {
               className="info-panel__section-toggle"
               onClick={() => setInfoPinnedOpen((v) => !v)}
             >
-              <span><Pin size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Tin nhắn đã ghim</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Pin size={14} />
+                <span>Tin nhắn đã ghim</span>
+              </div>
               <ChevronDown size={16} className={infoPinnedOpen ? 'info-panel__chevron--open' : ''} />
             </button>
             {infoPinnedOpen && (
@@ -1529,8 +1575,8 @@ function ChatPage() {
                   </div>
                 )}
                 <>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-muted)', padding: '8px 0 4px' }}>
-                    <AtSign size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-muted)', padding: '8px 0 4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <AtSign size={14} />
                     {t('chat.changeNickname')}
                   </div>
                   {selectedConversation.members?.map((m) => {
@@ -1606,18 +1652,115 @@ function ChatPage() {
             </button>
             {infoMediaOpen && (
               <div className="info-panel__section-content">
-                <div className="info-panel__media-tabs">
-                  <span className="info-panel__media-tab info-panel__media-tab--active">
-                    <Image size={14} /> {t('chat.sharedPhotos')}
-                  </span>
-                  <span className="info-panel__media-tab">
-                    <FileText size={14} /> {t('chat.sharedFiles')}
-                  </span>
+                <div className="info-panel__media-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--color-border-subtle)', marginBottom: '12px' }}>
+                  <button 
+                    className={`info-panel__media-tab ${activeMediaTab === 'photos' ? 'info-panel__media-tab--active' : ''}`}
+                    onClick={() => setActiveMediaTab('photos')}
+                    style={{ flex: 1, padding: '8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: activeMediaTab === 'photos' ? 'var(--color-primary)' : 'var(--color-text-muted)', borderBottom: activeMediaTab === 'photos' ? '2px solid var(--color-primary)' : '2px solid transparent', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s' }}
+                  >
+                    <Image size={14} /> Ảnh
+                  </button>
+                  <button 
+                    className={`info-panel__media-tab ${activeMediaTab === 'files' ? 'info-panel__media-tab--active' : ''}`}
+                    onClick={() => setActiveMediaTab('files')}
+                    style={{ flex: 1, padding: '8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: activeMediaTab === 'files' ? 'var(--color-primary)' : 'var(--color-text-muted)', borderBottom: activeMediaTab === 'files' ? '2px solid var(--color-primary)' : '2px solid transparent', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s' }}
+                  >
+                    <FileText size={14} /> Tệp
+                  </button>
                 </div>
-                <div className="info-panel__media-empty">
-                  <Image size={32} />
-                  <p>{t('chat.noMedia')}</p>
-                </div>
+                
+                {loadingMedia ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+                    <Loader2 className="animate-spin" size={24} color="var(--color-primary)" />
+                  </div>
+                ) : (
+                  <div className="info-panel__media-content">
+                    {(() => {
+                      if (activeMediaTab === 'photos') {
+                        const photos = mediaItems.filter(m => m.messageType === 'image' || (m.messageType === 'file' && m.file?.type?.startsWith('video/')));
+                        if (photos.length === 0) {
+                          return (
+                            <div className="info-panel__media-empty" style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--color-text-muted)' }}>
+                              <Image size={32} style={{ opacity: 0.5, margin: '0 auto 8px' }} />
+                              <p style={{ fontSize: '13px' }}>Chưa có phương tiện</p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', padding: '0 8px 16px' }}>
+                            {photos.map(p => {
+                              const isVideo = p.messageType === 'file' && p.file?.type?.startsWith('video/');
+                              const src = isVideo ? p.file?.url : p.image;
+                              return (
+                                <div 
+                                  key={p._id} 
+                                  className="info-panel__media-grid-item"
+                                  onClick={() => {
+                                    if (isVideo) setVideoLightboxSrc(src);
+                                    else setLightboxSrc(src);
+                                  }}
+                                  style={{ position: 'relative', width: '100%', aspectRatio: '1', borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', background: 'var(--color-hover-bg)' }}
+                                >
+                                  {isVideo ? (
+                                    <>
+                                      <video src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Play size={20} color="white" fill="white" />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <img src={src} alt="media" style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.2s' }} />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      } else {
+                        const files = mediaItems.filter(m => m.messageType === 'file' && !m.file?.type?.startsWith('video/'));
+                        if (files.length === 0) {
+                          return (
+                            <div className="info-panel__media-empty" style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--color-text-muted)' }}>
+                              <FileText size={32} style={{ opacity: 0.5, margin: '0 auto 8px' }} />
+                              <p style={{ fontSize: '13px' }}>Chưa có tệp nào</p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 8px 16px' }}>
+                            {files.map(f => {
+                              const sizeStr = f.file?.size ? (f.file.size < 1024 * 1024 ? (f.file.size / 1024).toFixed(1) + ' KB' : (f.file.size / (1024 * 1024)).toFixed(1) + ' MB') : '';
+                              const isPreviewable = f.file?.name?.toLowerCase().endsWith('.pdf') || f.file?.name?.toLowerCase().endsWith('.md');
+                              return (
+                                <a 
+                                  key={f._id}
+                                  href={f.file?.url}
+                                  target={isPreviewable ? '_blank' : '_self'}
+                                  rel={isPreviewable ? 'noopener noreferrer' : ''}
+                                  download={!isPreviewable ? f.file?.name : undefined}
+                                  className="info-panel__file-list-item"
+                                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', borderRadius: '8px', background: 'var(--color-hover-bg)', textDecoration: 'none', color: 'var(--color-text)', transition: 'background 0.2s' }}
+                                >
+                                  <div style={{ width: '36px', height: '36px', borderRadius: '6px', background: 'var(--color-primary-light)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <FileText size={20} />
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {f.file?.name || 'Tài liệu'}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                      {sizeStr}
+                                    </div>
+                                  </div>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
+                    })()}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1770,6 +1913,23 @@ function ChatPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Lightboxes */}
+      {lightboxSrc && (
+        <ImageLightbox
+          src={lightboxSrc}
+          alt="attachment"
+          onClose={() => setLightboxSrc(null)}
+        />
+      )}
+      {videoLightboxSrc && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setVideoLightboxSrc(null)}>
+          <button style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', padding: '8px', borderRadius: '50%', cursor: 'pointer' }} onClick={() => setVideoLightboxSrc(null)}>
+            <X size={24} />
+          </button>
+          <video src={videoLightboxSrc} controls autoPlay style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }} onClick={e => e.stopPropagation()} />
         </div>
       )}
 

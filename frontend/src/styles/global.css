@@ -2743,3 +2743,13 @@ a:hover {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Info Panel Media Styles */
+.info-panel__media-grid-item:hover img,
+.info-panel__media-grid-item:hover video {
+  transform: scale(1.05);
+}
+.info-panel__file-list-item:hover {
+  background: var(--color-hover-bg) !important;
+  filter: brightness(0.95);
+}

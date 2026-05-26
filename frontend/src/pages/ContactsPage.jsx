@@ -304,7 +304,7 @@ export default function ContactsPage() {
       setFriendActionLoading(false);
     }
   };
-
+  
   const handleAcceptRequest = async (userId) => {
     try {
       await userService.acceptFriendRequest(userId);

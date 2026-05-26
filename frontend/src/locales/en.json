@@ -224,7 +224,16 @@
     "offline": "Offline",
     "friendSince": "Friends since",
     "requestSent": "Request sent",
-    "friendRequestFrom": "wants to be your friend"
+    "friendRequestFrom": "wants to be your friend",
+    "acceptSuccess": "Friend request accepted!",
+    "declineSuccess": "Friend request declined!",
+    "cancelSuccess": "Friend request canceled!",
+    "unfriendSuccess": "Unfriended successfully!",
+    "acceptError": "Failed to accept friend request",
+    "declineError": "Failed to decline friend request",
+    "cancelError": "Failed to cancel friend request",
+    "unfriendError": "Failed to unfriend",
+    "noResults": "No users found"
   },
   "settings": {
     "title": "Settings",

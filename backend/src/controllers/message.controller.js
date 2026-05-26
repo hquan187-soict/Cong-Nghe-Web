@@ -509,6 +509,42 @@ export const getPinnedMessages = async (req, res, next) => {
   }
 };
 
+export const getMediaAndFiles = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { conversationId } = req.params;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    await checkConversationAccess(conversationId, currentUserId, { allowRemoved: true, checkBlock: false });
+
+    const messages = await Message.find({
+      conversationId,
+      isDeletedBy: { $ne: currentUserId },
+      isRecalled: { $ne: true },
+      messageType: { $in: ["image", "file"] },
+    })
+      .populate("senderId", "fullName avatar")
+      .sort({ createdAt: -1 });
+
+    // Lọc bỏ file audio nếu có lọt vào type "file" (dù thực tế audio upload bằng file sẽ thành messageType "audio")
+    const filteredMessages = messages.filter(msg => {
+      if (msg.messageType === "file" && msg.file?.type?.startsWith("audio/")) {
+        return false;
+      }
+      return true;
+    });
+
+    return res.status(200).json(filteredMessages);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const forwardMessage = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;

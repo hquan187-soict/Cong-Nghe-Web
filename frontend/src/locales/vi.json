@@ -224,7 +224,16 @@
     "offline": "Ngoại tuyến",
     "friendSince": "Là bạn bè từ",
     "requestSent": "Đã gửi lời mời",
-    "friendRequestFrom": "muốn kết bạn với bạn"
+    "friendRequestFrom": "muốn kết bạn với bạn",
+    "acceptSuccess": "Đã chấp nhận lời mời kết bạn!",
+    "declineSuccess": "Đã từ chối lời mời kết bạn!",
+    "cancelSuccess": "Đã hủy lời mời kết bạn!",
+    "unfriendSuccess": "Đã hủy kết bạn!",
+    "acceptError": "Không thể chấp nhận lời mời kết bạn",
+    "declineError": "Không thể từ chối lời mời kết bạn",
+    "cancelError": "Không thể hủy lời mời kết bạn",
+    "unfriendError": "Không thể hủy kết bạn",
+    "noResults": "Không tìm thấy người dùng"
   },
   "settings": {
     "title": "Cài đặt",

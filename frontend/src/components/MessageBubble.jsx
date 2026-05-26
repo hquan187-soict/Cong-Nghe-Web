@@ -210,6 +210,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       await messageService.deleteMessage(message._id, type)
       if (type === 'me') {
         deleteMessage(message._id)
+        window.dispatchEvent(new CustomEvent('localMessageDeleted', { detail: message._id }))
       }
       setShowRecallModal(false)
     } catch (err) {
@@ -222,6 +223,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     try {
       await messageService.deleteMessage(message._id, 'me')
       deleteMessage(message._id)
+      window.dispatchEvent(new CustomEvent('localMessageDeleted', { detail: message._id }))
       setShowDeleteConfirm(false)
     } catch (err) {
       console.error('Delete message error:', err)

@@ -54,4 +54,8 @@ export const messageService = {
   async forwardMessage(messageId, conversationIds) {
     return await axiosInstance.post(`/api/messages/${messageId}/forward`, { conversationIds });
   },
+
+  async getMediaAndFiles(conversationId) {
+    return await axiosInstance.get(`/api/messages/${conversationId}/media-files`);
+  },
 };

@@ -10,12 +10,14 @@ import {
   togglePinMessage,
   getPinnedMessages,
   forwardMessage,
+  getMediaAndFiles,
 } from "../controllers/message.controller.js";
 
 const router = express.Router();
 
 router.get("/:conversationId", protect, getMessages);
 router.get("/:conversationId/pinned", protect, getPinnedMessages);
+router.get("/:conversationId/media-files", protect, getMediaAndFiles);
 router.post("/", protect, sendMessage);
 router.post("/:conversationId/read", protect, markMessagesAsRead);
 router.post("/:messageId/reaction", protect, toggleReaction);
