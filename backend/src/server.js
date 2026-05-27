@@ -10,6 +10,8 @@ import conversationRoutes from "./routes/conversation.routes.js";
 import rateLimiter from './middleware/rateLimiter.js';
 import messageRoutes from "./routes/message.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import callRoutes from "./routes/call.routes.js";
+import configRoutes from "./routes/config.routes.js";
 import { app, server } from './lib/socket.js';
 
 //test import
@@ -42,6 +44,9 @@ app.use('/api/users', userRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/calls", callRoutes);
+app.use("/api/config", configRoutes);
+
 
 app.use(globalErrorHandler);
 
