@@ -340,11 +340,10 @@ function ChatPage() {
     const el = document.getElementById(`msg-${messageId}`)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      el.style.transition = 'background 0.3s'
-      el.style.background = 'var(--color-primary-light)'
-      setTimeout(() => { el.style.background = '' }, 1500)
+      el.classList.add('mention-flash')
+      setTimeout(() => el.classList.remove('mention-flash'), 2500)
     } else {
-      toast.info('Không thể nhảy tới tin nhắn cũ nếu chưa được tải.')
+      toast.info('Tin nhắn này quá cũ hoặc chưa được tải, vui lòng cuộn lên để tìm.')
     }
   }
 
@@ -1004,7 +1003,7 @@ function ChatPage() {
   }
 
   return (
-    <div className="chat-layout">
+    <div className={`chat-layout ${urlConversationId ? 'chat-layout--mobile-chat' : 'chat-layout--mobile-sidebar'}`}>
       <div className={`sidebar-wrapper ${isDragging ? 'sidebar-wrapper--dragging' : ''}`} style={{ width: sidebarWidth, minWidth: sidebarWidth }}>
         <Sidebar
           ref={sidebarRef}
@@ -1025,6 +1024,9 @@ function ChatPage() {
       <main className="chat-main">
         <header className="chat-header">
           <div className="chat-header__left">
+            <button className="chat-header__back-btn" onClick={() => navigate('/chat')} aria-label="Back">
+              <ChevronRight size={24} style={{ transform: 'rotate(180deg)' }} />
+            </button>
             {selectedConversation && renderHeaderAvatar()}
             <div className="chat-header__user-info">
               <h2>
@@ -1067,8 +1069,23 @@ function ChatPage() {
               </button>
               <button
                 type="button"
-                className={`chat-header__icon-btn tooltip-wrapper ${showInfoPanel ? 'chat-header__icon-btn--active' : ''}`}
-                onClick={handleToggleInfoPanel}
+                className={`chat-header__icon-btn tooltip-wrapper ${showSearchPanel ? 'chat-header__icon-btn--active' : ''}`}
+                onClick={() => {
+                  setShowSearchPanel(v => !v);
+                  if (!showSearchPanel && !showInfoPanel) setShowInfoPanel(true);
+                }}
+                title={t('chat.search')}
+              >
+                <Search size={20} />
+                <span className="tooltip">{t('chat.search')}</span>
+              </button>
+              <button
+                type="button"
+                className={`chat-header__icon-btn tooltip-wrapper ${(showInfoPanel && !showSearchPanel) ? 'chat-header__icon-btn--active' : ''}`}
+                onClick={() => {
+                  if (showSearchPanel) setShowSearchPanel(false);
+                  else handleToggleInfoPanel();
+                }}
               >
                 <Info size={20} />
                 <span className="tooltip">{t('chat.moreInfo')}</span>
@@ -1325,14 +1342,6 @@ function ChatPage() {
             >
               <div className="info-panel__quick-icon"><Archive size={20} /></div>
               <span>{isArchived ? 'Bỏ lưu trữ' : 'Lưu trữ'}</span>
-            </button>
-            <button
-              className="info-panel__quick-btn"
-              onClick={() => setShowSearchPanel(true)}
-              title={t('chat.search')}
-            >
-              <div className="info-panel__quick-icon"><Search size={20} /></div>
-              <span>{t('chat.search')}</span>
             </button>
           </div>
 

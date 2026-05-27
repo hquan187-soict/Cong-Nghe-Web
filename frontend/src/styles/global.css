@@ -320,6 +320,24 @@ a:hover {
   color: var(--color-primary);
 }
 
+.chat-header__back-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  margin-right: 8px;
+  border-radius: 50%;
+  transition: background var(--transition-fast);
+}
+
+.chat-header__back-btn:hover {
+  background: var(--color-hover-bg);
+}
+
 .chat-header h2 {
   margin: 0;
   font-size: 16px;
@@ -2314,6 +2332,27 @@ a:hover {
    =========================== */
 
 @media (max-width: 768px) {
+  .chat-header__back-btn {
+    display: flex;
+  }
+
+  .chat-layout--mobile-sidebar .chat-main {
+    display: none !important;
+  }
+
+  .chat-layout--mobile-sidebar .sidebar-wrapper {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+
+  .chat-layout--mobile-chat .sidebar-wrapper {
+    display: none !important;
+  }
+
+  .chat-layout--mobile-chat .chat-main {
+    width: 100% !important;
+  }
+
   .chat-header__left h2 {
     font-size: 14px;
   }
@@ -2783,6 +2822,16 @@ a:hover {
   transform: scale(1.05);
 }
 .info-panel__file-list-item:hover {
-  background: var(--color-hover-bg) !important;
-  filter: brightness(0.95);
+  background: var(--color-border-subtle);
+}
+
+@keyframes mention-flash {
+  0% { background-color: transparent; }
+  10% { background-color: var(--color-primary-light); }
+  90% { background-color: var(--color-primary-light); }
+  100% { background-color: transparent; }
+}
+
+.mention-flash {
+  animation: mention-flash 2.5s ease-out;
 }
