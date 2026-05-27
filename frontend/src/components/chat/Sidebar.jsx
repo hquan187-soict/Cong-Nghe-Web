@@ -15,9 +15,10 @@ import ConversationItem from './ConversationItem'
 import SearchUserModal from './SearchUserModal'
 import CreateGroupModal from './CreateGroupModal'
 import ConfirmModal from '../ui/ConfirmModal'
+import NotificationBell from '../NotificationBell'
 import '../../styles/sidebar.css'
 
-const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onlineUsers = [] }, ref) {
+const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onlineUsers = [], onNotificationClick }, ref) {
   const { t, lang, toggleLang } = useLang()
   const { theme, toggleTheme } = useTheme()
   const toast = useToast()
@@ -529,8 +530,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
         {!collapsed && (
           <div className="sidebar__header-right" style={{ display: 'flex', gap: '4px' }}>
-            <button 
-              className="sidebar__icon-btn" 
+            <NotificationBell onNotificationClick={onNotificationClick} />
+            <button
+              className="sidebar__icon-btn"
               onClick={() => setShowCreateGroupModal(true)}
               title={t('chat.createGroup')}
             >

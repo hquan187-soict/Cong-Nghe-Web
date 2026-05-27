@@ -699,6 +699,14 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
               senderName = getNickname(otherMember?._id) || otherMember?.fullName
             }
 
+            const isMentioned = !isOwn && (
+              msg.mentionAll ||
+              (msg.mentions || []).some(m => {
+                const id = typeof m === 'object' ? m._id : m
+                return id?.toString() === currentUserId
+              })
+            )
+
             return (
               <MessageBubble
                 key={msg._id}
@@ -709,6 +717,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
                 senderAvatar={senderAvatar}
                 senderName={senderName}
                 isKicked={isKicked}
+                isMentioned={isMentioned}
                 onReply={(msg) => setReplyingTo(msg)}
                 scrollContainerRef={scrollContainerRef}
                 deleteMessage={(messageId) => {

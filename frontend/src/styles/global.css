@@ -1748,6 +1748,38 @@ a:hover {
 }
 
 /* ===========================
+   MENTION HIGHLIGHT & FLASH
+   =========================== */
+
+.message-bubble-row--mentioned {
+  background: rgba(59, 130, 246, 0.08);
+  border-left: 3px solid var(--color-primary);
+  border-radius: 4px;
+  margin-left: -3px;
+  padding-left: 3px;
+}
+
+[data-theme="dark"] .message-bubble-row--mentioned {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.mention-flash {
+  animation: mention-flash-anim 2.5s ease-out;
+}
+
+@keyframes mention-flash-anim {
+  0% {
+    background: rgba(59, 130, 246, 0.25);
+  }
+  70% {
+    background: rgba(59, 130, 246, 0.12);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* ===========================
    RECALL / DELETE MODAL
    =========================== */
 

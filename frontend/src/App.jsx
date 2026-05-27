@@ -6,9 +6,11 @@ import { ToastProvider } from './context/ToastContext'
 import { SocketProvider } from './context/SocketContext'
 import { AccessibilityProvider } from './context/AccessibilityContext'
 import { NotificationProvider } from './context/NotificationContext'
+import { MentionNotificationProvider } from './context/MentionNotificationContext'
 import { setLogoutCallback } from './utils/axios'
 import AppRouter from './AppRouter'
 import Toast from './components/ui/Toast'
+import MentionToast from './components/MentionToast'
 
 // Component nội bộ — kết nối hàm logout() từ AuthContext vào axios interceptor
 function ConnectAxiosLogout() {
@@ -31,8 +33,11 @@ function App() {
             <LangProvider>
               <AccessibilityProvider>
                 <NotificationProvider>
-                  <AppRouter />
-                  <Toast />
+                  <MentionNotificationProvider>
+                    <AppRouter />
+                    <Toast />
+                    <MentionToast />
+                  </MentionNotificationProvider>
                 </NotificationProvider>
               </AccessibilityProvider>
             </LangProvider>

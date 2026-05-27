@@ -3,6 +3,7 @@ import xss from "xss";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 import cloudinary from "../lib/cloudinary.js";
 import { io, getReceiverSocketId } from "../lib/socket.js";
 
@@ -320,9 +321,47 @@ export const sendMessage = async (req, res, next) => {
           lastMessage: conversation.lastMessage,
           updatedAt: conversation.updatedAt,
         });
-        console.log(`Tin nhắn đã được gửi đến socketId: ${receiverSocketId}`);
       }
     });
+
+    // Create mention notifications
+    if (validMentions.length > 0 || mentionAll) {
+      let recipientIds = [];
+      if (mentionAll) {
+        recipientIds = conversation.members
+          .map((id) => id.toString())
+          .filter((id) => id !== currentUserId.toString());
+      } else {
+        const memberSet = new Set(conversation.members.map((id) => id.toString()));
+        recipientIds = validMentions
+          .map((id) => id.toString())
+          .filter((id) => id !== currentUserId.toString() && memberSet.has(id));
+      }
+
+      const notifications = await Notification.insertMany(
+        recipientIds.map((rid) => ({
+          recipient: rid,
+          sender: currentUserId,
+          message: message._id,
+          conversation: conversation._id,
+          type: mentionAll ? "mention_all" : "mention",
+        })),
+      );
+
+      const populatedNotifications = await Notification.find({
+        _id: { $in: notifications.map((n) => n._id) },
+      })
+        .populate("sender", "fullName avatar")
+        .populate("conversation", "name isGroup avatar")
+        .populate("message", "text messageType isRecalled createdAt");
+
+      for (const notif of populatedNotifications) {
+        const receiverSocketId = getReceiverSocketId(notif.recipient.toString());
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit("new_notification", notif);
+        }
+      }
+    }
 
     return res.status(201).json(populatedMessage);
   } catch (error) {

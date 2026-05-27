@@ -163,7 +163,7 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
   )
 }
 
-function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, deleteMessage, onReply, scrollContainerRef }) {
+function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, isMentioned = false, deleteMessage, onReply, scrollContainerRef }) {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState(null)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -558,7 +558,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           <Forward size={10} /> Đã chuyển tiếp
         </div>
       )}
-      <div id={`msg-${message._id}`} className={`message-bubble-row ${isOwn ? 'message-bubble-row--own' : ''}`}>
+      <div id={`msg-${message._id}`} className={`message-bubble-row ${isOwn ? 'message-bubble-row--own' : ''} ${isMentioned ? 'message-bubble-row--mentioned' : ''}`}>
         {/* Avatar bên trái (tin nhắn người khác) */}
         {!isOwn && (
           <div className="message-bubble-row__avatar-slot">

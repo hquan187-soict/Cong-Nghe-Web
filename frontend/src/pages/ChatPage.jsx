@@ -50,6 +50,7 @@ import Avatar from '../components/ui/Avatar'
 import ProfileModal from '../components/ProfileModal'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import ImageLightbox from '../components/chat/ImageLightbox'
+import { useMentionNotification } from '../context/MentionNotificationContext'
 import { Play } from 'lucide-react'
 
 function ChatPage() {
@@ -61,6 +62,7 @@ function ChatPage() {
 
   const toast = useToast()
   const { playSound } = useNotification()
+  const { setNavigateToMessage } = useMentionNotification()
   const currentUserId = user?._id?.toString()
   const avatarInputRef = useRef(null)
   const [isEditingName, setIsEditingName] = useState(false)
@@ -767,6 +769,37 @@ function ChatPage() {
     }
   }, [navigate])
 
+  const chatWindowRef = useRef(null)
+
+  const handleNotificationClick = useCallback(async (conversationId, messageId) => {
+    if (!conversationId) return
+    if (selectedConvIdRef.current !== conversationId) {
+      try {
+        const convs = await conversationService.getConversations()
+        const match = (Array.isArray(convs) ? convs : []).find(c => c._id === conversationId)
+        if (match) {
+          handleSelectConversation(match)
+        }
+      } catch {}
+    }
+    if (messageId) {
+      setTimeout(() => {
+        const el = document.getElementById(`msg-${messageId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('mention-flash')
+          setTimeout(() => el.classList.remove('mention-flash'), 2500)
+        } else {
+          toast.info('Tin nhắn quá cũ hoặc chưa được tải, vui lòng cuộn lên để tìm.')
+        }
+      }, 500)
+    }
+  }, [handleSelectConversation, toast])
+
+  useEffect(() => {
+    setNavigateToMessage(() => handleNotificationClick)
+  }, [setNavigateToMessage, handleNotificationClick])
+
   const sidebarRef = useRef(null)
 
   const otherMember = selectedConversation?.members?.find(
@@ -837,10 +870,14 @@ function ChatPage() {
           return [message, ...prev];
         });
       }
-      const senderId = message?.sender?._id || message?.sender
+      const senderId = message?.senderId?._id || message?.senderId || message?.sender?._id || message?.sender
       const isOwnMessage = senderId?.toString() === currentUserId
       const isMutedConv = sidebarRef.current?.isConversationMuted?.(conversationId)
-      if (!isOwnMessage && !isMutedConv) {
+      const hasMentionForMe = message?.mentionAll || (message?.mentions || []).some(m => {
+        const id = typeof m === 'object' ? m._id : m
+        return id?.toString() === currentUserId
+      })
+      if (!isOwnMessage && !isMutedConv && !hasMentionForMe) {
         playSound()
       }
     }
@@ -976,6 +1013,7 @@ function ChatPage() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={handleToggleCollapse}
           onlineUsers={onlineUsers}
+          onNotificationClick={handleNotificationClick}
         />
         <div
           className="sidebar-resize-handle"
@@ -1009,28 +1047,24 @@ function ChatPage() {
           </div>
           {selectedConversation && (
             <div className="chat-header__right">
-              {!isGroup && (
-                <>
-                  <button
-                    type="button"
-                    className="chat-header__icon-btn tooltip-wrapper"
-                    onClick={handleVoiceCall}
-                    title={t('chat.comingSoon')}
-                  >
-                    <Phone size={20} />
-                    <span className="tooltip">{t('chat.voiceCall')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="chat-header__icon-btn tooltip-wrapper"
-                    onClick={handleVideoCall}
-                    title={t('chat.comingSoon')}
-                  >
-                    <Video size={20} />
-                    <span className="tooltip">{t('chat.videoCall')}</span>
-                  </button>
-                </>
-              )}
+              <button
+                type="button"
+                className="chat-header__icon-btn tooltip-wrapper"
+                onClick={handleVoiceCall}
+                title={t('chat.comingSoon')}
+              >
+                <Phone size={20} />
+                <span className="tooltip">{t('chat.voiceCall')}</span>
+              </button>
+              <button
+                type="button"
+                className="chat-header__icon-btn tooltip-wrapper"
+                onClick={handleVideoCall}
+                title={t('chat.comingSoon')}
+              >
+                <Video size={20} />
+                <span className="tooltip">{t('chat.videoCall')}</span>
+              </button>
               <button
                 type="button"
                 className={`chat-header__icon-btn tooltip-wrapper ${showInfoPanel ? 'chat-header__icon-btn--active' : ''}`}
