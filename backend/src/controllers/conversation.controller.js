@@ -784,13 +784,29 @@ export const getConversations = async (req, res, next) => {
       .populate("pendingRequests.requestedBy", "-password")
       .sort({ updatedAt: -1 });
 
+    // Filter conversations where deletedAt for currentUserId is > lastMessage.createdAt
+    const filteredConversations = conversations.filter(conv => {
+      const deletedAt = conv.deletedAt ? conv.deletedAt.get(currentUserId.toString()) : null;
+      if (!deletedAt) return true;
+      if (!conv.lastMessage) return false;
+      return new Date(conv.lastMessage.createdAt) > new Date(deletedAt);
+    });
+
     const conversationsWithUnreadCount = await Promise.all(
-      conversations.map(async (conversation) => {
-        const unreadCount = await Message.countDocuments({
+      filteredConversations.map(async (conversation) => {
+        const deletedAt = conversation.deletedAt ? conversation.deletedAt.get(currentUserId.toString()) : null;
+        
+        const query = {
           conversationId: conversation._id,
           senderId: { $ne: currentUserId },
           readBy: { $ne: currentUserId },
-        });
+        };
+        
+        if (deletedAt) {
+          query.createdAt = { $gt: deletedAt };
+        }
+
+        const unreadCount = await Message.countDocuments(query);
 
         const obj = conversation.toJSON();
         return {
@@ -1289,6 +1305,91 @@ export const updateThemeColor = async (req, res, next) => {
     });
 
     return res.status(200).json(updatedConversation);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const deleteChat = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    const isRemovedMember = (conversation.removedMembers || []).some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+
+    if (!isMember && !isRemovedMember) {
+      const error = new Error("Bạn không có quyền xóa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (!conversation.deletedAt) {
+      conversation.deletedAt = new Map();
+    }
+    conversation.deletedAt.set(currentUserId.toString(), new Date());
+
+    if (conversation.archivedBy && conversation.archivedBy.length > 0) {
+      conversation.archivedBy = conversation.archivedBy.filter(
+        (archivedId) => archivedId.toString() !== currentUserId.toString()
+      );
+    }
+    
+    await conversation.save();
+
+    return res.status(200).json({ message: "Đã xóa đoạn chat thành công.", conversation });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const markAsUnread = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      return res.status(404).json({ message: "Không tìm thấy đoạn chat" });
+    }
+
+    if (!conversation.members.includes(currentUserId)) {
+      return res.status(403).json({ message: "Không có quyền thực hiện" });
+    }
+
+    if (!conversation.markedUnreadBy) {
+      conversation.markedUnreadBy = [];
+    }
+    
+    if (!conversation.markedUnreadBy.includes(currentUserId)) {
+      conversation.markedUnreadBy.push(currentUserId);
+      await conversation.save();
+    }
+
+    return res.status(200).json({ message: "Đã đánh dấu là chưa đọc", conversation });
   } catch (error) {
     return next(error);
   }

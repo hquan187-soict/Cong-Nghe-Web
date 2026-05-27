@@ -63,6 +63,22 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   useImperativeHandle(ref, () => ({
     updateLastMessage(conversationId, lastMessage) {
       setConversations((prev) => {
+        const exists = prev.some((c) => c._id === conversationId)
+        if (!exists) {
+          // Nếu đoạn chat không tồn tại trên UI (do bị xóa), gọi API fetch lại để lấy dữ liệu mới nhất
+          conversationService.getConversations().then(res => {
+            const allConvs = Array.isArray(res) ? res : (res.data || []);
+            const match = allConvs.find(c => c._id === conversationId);
+            if (match) {
+              setConversations(old => {
+                if (old.some(c => c._id === conversationId)) return old;
+                return [match, ...old];
+              });
+            }
+          }).catch(console.error);
+          return prev;
+        }
+
         const updated = prev.map((conv) =>
           conv._id === conversationId
             ? {
@@ -72,7 +88,6 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
               }
             : conv
         )
-        // Note: we don't need to sort here because useMemo handles the view sorting
         return updated
       })
     },
@@ -162,8 +177,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           const mMap = {}
           
           list.forEach((conv) => {
-            if (conv.unreadCount && conv.unreadCount > 0) {
-              uMap[conv._id] = conv.unreadCount
+            const isMarkedUnread = conv.markedUnreadBy?.includes(user?._id?.toString() || user?._id);
+            if ((conv.unreadCount && conv.unreadCount > 0) || isMarkedUnread) {
+              uMap[conv._id] = conv.unreadCount || 1
             }
             if (conv.isPinned) pMap[conv._id] = true
             if (conv.isMuted) mMap[conv._id] = true
@@ -208,14 +224,25 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       )
     }
 
+    const handleMessagesRead = ({ conversationId }) => {
+      setUnreadMap((prev) => {
+        if (!prev[conversationId]) return prev
+        const next = { ...prev }
+        delete next[conversationId]
+        return next
+      })
+    }
+
     socket.on('newConversation', handleNewConversation)
     socket.on('conversationUpdated', handleConversationUpdated)
     socket.on('nicknameUpdated', handleConversationUpdated)
+    socket.on('messagesRead', handleMessagesRead)
 
     return () => {
       socket.off('newConversation', handleNewConversation)
       socket.off('conversationUpdated', handleConversationUpdated)
       socket.off('nicknameUpdated', handleConversationUpdated)
+      socket.off('messagesRead', handleMessagesRead)
     }
   }, [socket])
 
@@ -227,6 +254,16 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       delete next[conv._id]
       return next
     })
+    
+    // Nếu chuyển status thành đã đọc, cũng nên xóa markedUnreadBy nếu có
+    if (conv.markedUnreadBy?.includes(user?._id?.toString() || user?._id)) {
+      setConversations(prev => prev.map(c => 
+        c._id === conv._id 
+          ? { ...c, markedUnreadBy: c.markedUnreadBy.filter(id => id !== user?._id?.toString() && id !== user?._id) } 
+          : c
+      ))
+    }
+
     if (!conv._id.startsWith('mock_') && !conv._id.startsWith('conv_')) {
       try {
         await messageService.markAsRead(conv._id)
@@ -234,7 +271,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         console.error('Mark as read error:', err)
       }
     }
-  }, [onSelectConversation])
+  }, [onSelectConversation, user?._id])
 
   const handleConversationCreated = useCallback((newConversation) => {
     setConversations((prev) => {
@@ -302,11 +339,33 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
 
   const [confirmModalData, setConfirmModalData] = useState({ isOpen: false, type: null, convId: null, otherId: null })
 
-  const confirmBlockAction = async () => {
+  const confirmAction = async () => {
     const { type, convId, otherId } = confirmModalData;
-    if (!otherId) return;
-
+    
     setConfirmModalData(prev => ({ ...prev, isOpen: false }));
+
+    if (type === 'deleteChat') {
+      try {
+        await conversationService.deleteChat(convId)
+        setConversations(prev => prev.filter(c => c._id !== convId))
+        setUnreadMap(prev => {
+          if (!prev[convId]) return prev
+          const next = { ...prev }
+          delete next[convId]
+          return next
+        })
+        if (selectedConversation?._id === convId) {
+          onSelectConversation(null)
+        }
+        toast.success('Đã xóa đoạn chat')
+      } catch (err) {
+        console.error('Delete chat error:', err)
+        toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi xóa đoạn chat.')
+      }
+      return;
+    }
+
+    if (!otherId) return;
 
     if (type === 'block') {
       try {
@@ -339,6 +398,61 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       }
     }
   }
+
+  const markingReadRef = useRef({})
+  const handleMarkRead = useCallback(async (convId) => {
+    if (markingReadRef.current[convId]) return
+    if (!unreadMap[convId]) return
+
+    setUnreadMap((prev) => {
+      const next = { ...prev }
+      delete next[convId]
+      return next
+    })
+
+    // Xóa khỏi markedUnreadBy trong state
+    setConversations(prev => prev.map(c => 
+      c._id === convId && c.markedUnreadBy 
+        ? { ...c, markedUnreadBy: c.markedUnreadBy.filter(id => id !== user?._id?.toString() && id !== user?._id) } 
+        : c
+    ))
+
+    markingReadRef.current[convId] = true
+    try {
+      await messageService.markAsRead(convId)
+    } catch (err) {
+      console.error('Mark as read error:', err)
+    } finally {
+      setTimeout(() => {
+        markingReadRef.current[convId] = false
+      }, 1000)
+    }
+  }, [unreadMap, user?._id])
+
+  const handleMarkUnread = useCallback(async (convId) => {
+    setUnreadMap(prev => ({
+      ...prev,
+      [convId]: 1
+    }))
+    
+    // Cập nhật state
+    setConversations(prev => prev.map(c => {
+      if (c._id !== convId) return c
+      const uid = user?._id?.toString() || user?._id
+      const marked = c.markedUnreadBy || []
+      return marked.includes(uid) ? c : { ...c, markedUnreadBy: [...marked, uid] }
+    }))
+
+    try {
+      await conversationService.markAsUnread(convId)
+    } catch (err) {
+      console.error('Mark as unread error:', err)
+    }
+  }, [user?._id])
+
+  const handleDeleteChat = useCallback((convId) => {
+    setConfirmModalData({ isOpen: true, type: 'deleteChat', convId, otherId: null })
+  }, [])
 
   const handleBlock = useCallback((convId, otherMemberId) => {
     if (!otherMemberId) return
@@ -636,6 +750,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             onLeaveGroup={handleLeaveGroup}
             onBlock={handleBlock}
             onUnblock={handleUnblock}
+            onMarkRead={handleMarkRead}
+            onMarkUnread={handleMarkUnread}
+            onDeleteChat={handleDeleteChat}
           />
         ))}
       </div>
@@ -912,10 +1029,18 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
 
       <ConfirmModal 
         isOpen={confirmModalData.isOpen}
-        title={confirmModalData.type === 'block' ? (t('chat.blockUser') || 'Chặn người dùng') : (t('chat.unblockUser') || 'Bỏ chặn người dùng')}
-        message={confirmModalData.type === 'block' ? (t('chat.blockUserConfirm') || 'Bạn có chắc chắn muốn chặn người dùng này?') : (t('chat.unblockUserConfirm') || 'Bạn có chắc chắn muốn bỏ chặn người dùng này?')}
-        danger={confirmModalData.type === 'block'}
-        onConfirm={confirmBlockAction}
+        title={
+          confirmModalData.type === 'deleteChat' ? 'Xóa đoạn chat' :
+          confirmModalData.type === 'block' ? (t('chat.blockUser') || 'Chặn người dùng') : 
+          (t('chat.unblockUser') || 'Bỏ chặn người dùng')
+        }
+        message={
+          confirmModalData.type === 'deleteChat' ? 'Bạn có chắc chắn muốn xóa đoạn chat này? Lịch sử tin nhắn sẽ bị ẩn đi.' :
+          confirmModalData.type === 'block' ? (t('chat.blockUserConfirm') || 'Bạn có chắc chắn muốn chặn người dùng này?') : 
+          (t('chat.unblockUserConfirm') || 'Bạn có chắc chắn muốn bỏ chặn người dùng này?')
+        }
+        danger={confirmModalData.type === 'block' || confirmModalData.type === 'deleteChat'}
+        onConfirm={confirmAction}
         onCancel={() => setConfirmModalData(prev => ({ ...prev, isOpen: false }))}
       />
     </aside>

@@ -16,6 +16,8 @@ import {
   updateThemeColor,
   toggleMuteConversation,
   toggleArchiveConversation,
+  deleteChat,
+  markAsUnread,
 } from "../controllers/conversation.controller.js";
 
 const router = express.Router();
@@ -35,5 +37,7 @@ router.post("/:id/toggle-archive", protect, toggleArchiveConversation);
 router.post("/:id/request-add-member", protect, requestAddMember);
 router.post("/:id/approve-request", protect, approveRequest);
 router.post("/:id/reject-request", protect, rejectRequest);
+router.delete("/:id/deleteChat", protect, deleteChat);
+router.post("/:id/mark-unread", protect, markAsUnread);
 
 export default router;

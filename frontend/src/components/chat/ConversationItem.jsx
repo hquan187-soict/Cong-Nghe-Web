@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 
-function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup, onArchive, onBlock, onUnblock }) {
+function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup, onArchive, onBlock, onUnblock, onMarkRead, onMarkUnread, onDeleteChat }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
   const { onlineUsers: contextOnlineUsers } = useSocket()
@@ -105,6 +105,9 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     if (action === 'LeaveGroup' && onLeaveGroup) onLeaveGroup(conversation._id)
     if (action === 'Block' && onBlock) onBlock(conversation._id, otherMemberId)
     if (action === 'Unblock' && onUnblock) onUnblock(conversation._id, otherMemberId)
+    if (action === 'MarkRead' && onMarkRead) onMarkRead(conversation._id)
+    if (action === 'MarkUnread' && onMarkUnread) onMarkUnread(conversation._id)
+    if (action === 'Delete' && onDeleteChat) onDeleteChat(conversation._id)
   }
 
   const isBlockedByMe = user?.blockedUsers?.some(id => id?.toString() === otherMemberId)
@@ -217,9 +220,9 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
               {conversation.isMuted ? <Bell size={14} /> : <BellOff size={14} />}
               <span>{conversation.isMuted ? t('chat.unmuteConversation') : t('chat.muteConversation')}</span>
             </button>
-            <button className="conversation-item__dropdown-item" onClick={handleMenuAction('MarkUnread')}>
+            <button className="conversation-item__dropdown-item" onClick={handleMenuAction(hasUnread ? 'MarkRead' : 'MarkUnread')}>
               <MailOpen size={14} />
-              <span>Đánh dấu là chưa đọc</span>
+              <span>{hasUnread ? 'Đánh dấu là đã đọc' : 'Đánh dấu là chưa đọc'}</span>
             </button>
             <div className="conversation-item__dropdown-divider" />
             {!isGroup && (

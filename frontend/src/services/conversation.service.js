@@ -89,5 +89,13 @@ export const conversationService = {
 
   async updateThemeColor(conversationId, themeColor) {
     return await axiosInstance.put(`/api/conversations/${conversationId}/theme-color`, { themeColor });
+  },
+
+  async deleteChat(conversationId) {
+    return await axiosInstance.delete(`/api/conversations/${conversationId}/deleteChat`);
+  },
+
+  async markAsUnread(conversationId) {
+    return await axiosInstance.post(`/api/conversations/${conversationId}/mark-unread`);
   }
 };

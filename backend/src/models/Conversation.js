@@ -90,6 +90,19 @@ const conversationSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    deletedAt: {
+      type: Map,
+      of: Date,
+      default: {},
+    },
+
+    markedUnreadBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );

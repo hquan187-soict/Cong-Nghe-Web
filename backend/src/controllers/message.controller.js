@@ -108,10 +108,16 @@ export const getMessages = async (req, res, next) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
-    const messages = await Message.find({
+    const query = {
       conversationId,
       isDeletedBy: { $ne: currentUserId },
-    })
+    };
+
+    if (conversation.deletedAt && conversation.deletedAt.get(currentUserId.toString())) {
+      query.createdAt = { $gt: conversation.deletedAt.get(currentUserId.toString()) };
+    }
+
+    const messages = await Message.find(query)
       .populate("senderId", "-password")
       .populate("reactions.userId", "fullName avatar")
       .populate({
@@ -418,7 +424,15 @@ export const toggleReaction = async (req, res, next) => {
 
     const conversation = await Conversation.findById(message.conversationId);
     conversation.members.forEach((memberId) => {
-      const receiverSocketId = getReceiverSocketId(memberId.toString());
+      const mId = memberId.toString();
+      // Bỏ qua nếu user đã xoá đoạn chat này sau thời điểm tin nhắn được gửi (tức là đối với họ tin nhắn này không tồn tại)
+      if (conversation.deletedAt && conversation.deletedAt.get(mId)) {
+        if (new Date(message.createdAt) <= new Date(conversation.deletedAt.get(mId))) {
+          return;
+        }
+      }
+
+      const receiverSocketId = getReceiverSocketId(mId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("messageReaction", {
           conversationId: message.conversationId.toString(),
@@ -801,7 +815,15 @@ export const deleteMessage = async (req, res, next) => {
       await message.save();
 
       conversation.members.forEach((memberId) => {
-        const receiverSocketId = getReceiverSocketId(memberId.toString());
+        const mId = memberId.toString();
+        // Bỏ qua nếu user đã xoá đoạn chat này sau thời điểm tin nhắn được gửi
+        if (conversation.deletedAt && conversation.deletedAt.get(mId)) {
+          if (new Date(message.createdAt) <= new Date(conversation.deletedAt.get(mId))) {
+            return;
+          }
+        }
+        
+        const receiverSocketId = getReceiverSocketId(mId);
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("messageRecalled", {
             conversationId: message.conversationId.toString(),
