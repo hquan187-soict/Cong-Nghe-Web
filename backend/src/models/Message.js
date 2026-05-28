@@ -35,7 +35,7 @@ const messageSchema = new mongoose.Schema(
     ],
     messageType: {
       type: String,
-      enum: ["text", "image", "file", "audio", "system", "like"],
+      enum: ["text", "image", "file", "audio", "system", "like", "call"],
       default: "text",
     },
     mentions: [
@@ -83,6 +83,12 @@ const messageSchema = new mongoose.Schema(
     editedAt: {
       type: Date,
       default: null,
+    },
+    callInfo: {
+      callId: { type: mongoose.Schema.Types.ObjectId, ref: "Call" },
+      callType: { type: String, enum: ["voice", "video"] },
+      duration: { type: Number },
+      status: { type: String, enum: ["missed", "rejected", "ended", "no_answer"] },
     },
   },
   { timestamps: true },

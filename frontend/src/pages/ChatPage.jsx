@@ -51,6 +51,7 @@ import ProfileModal from '../components/ProfileModal'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import ImageLightbox from '../components/chat/ImageLightbox'
 import { useMentionNotification } from '../context/MentionNotificationContext'
+import { useCall } from '../context/CallContext'
 import { Play } from 'lucide-react'
 
 function ChatPage() {
@@ -62,6 +63,7 @@ function ChatPage() {
 
   const toast = useToast()
   const { playSound } = useNotification()
+  const { initiateCall, activeCall } = useCall()
   const { setNavigateToMessage } = useMentionNotification()
   const currentUserId = user?._id?.toString()
   const avatarInputRef = useRef(null)
@@ -911,12 +913,32 @@ function ChatPage() {
     });
   }, [])
 
-  const handleVoiceCall = () => {
-    // TODO: integrate voice call
+  const handleVoiceCall = async () => {
+    if (!selectedConversation || activeCall) return
+    const result = await initiateCall(selectedConversation._id, 'voice')
+    if (result && !result.success) {
+      const reasonMap = {
+        already_in_call: t('call.busy'),
+        blocked: t('call.blocked') || 'Không thể gọi',
+        all_offline: t('call.offline'),
+        media_denied: t('call.mediaError'),
+      }
+      toast.error(reasonMap[result.reason] || t('call.callError') || 'Lỗi cuộc gọi')
+    }
   }
 
-  const handleVideoCall = () => {
-    // TODO: integrate video call
+  const handleVideoCall = async () => {
+    if (!selectedConversation || activeCall) return
+    const result = await initiateCall(selectedConversation._id, 'video')
+    if (result && !result.success) {
+      const reasonMap = {
+        already_in_call: t('call.busy'),
+        blocked: t('call.blocked') || 'Không thể gọi',
+        all_offline: t('call.offline'),
+        media_denied: t('call.mediaError'),
+      }
+      toast.error(reasonMap[result.reason] || t('call.callError') || 'Lỗi cuộc gọi')
+    }
   }
 
   const handleToggleInfoPanel = () => {
@@ -1051,19 +1073,21 @@ function ChatPage() {
                 type="button"
                 className="chat-header__icon-btn tooltip-wrapper"
                 onClick={handleVoiceCall}
-                title={t('chat.comingSoon')}
+                disabled={!!activeCall}
+                title={t('call.voiceCall')}
               >
                 <Phone size={20} />
-                <span className="tooltip">{t('chat.voiceCall')}</span>
+                <span className="tooltip">{t('call.voiceCall')}</span>
               </button>
               <button
                 type="button"
                 className="chat-header__icon-btn tooltip-wrapper"
                 onClick={handleVideoCall}
-                title={t('chat.comingSoon')}
+                disabled={!!activeCall}
+                title={t('call.videoCall')}
               >
                 <Video size={20} />
-                <span className="tooltip">{t('chat.videoCall')}</span>
+                <span className="tooltip">{t('call.videoCall')}</span>
               </button>
               <button
                 type="button"

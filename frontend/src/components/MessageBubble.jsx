@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Check, CheckCheck, Clock, AlertCircle, FileText, Download,
   MoreHorizontal, Reply, Smile, Trash2, Edit3, Flag, X,
-  Pin, Forward, ThumbsUp, Heart, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf
+  Pin, Forward, ThumbsUp, Heart, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf,
+  Phone, Video, PhoneOff, PhoneMissed
 } from 'lucide-react'
 
 const LIKE_ICONS = {
@@ -382,6 +383,36 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
           <LikeIcon size={48} color="var(--color-primary)" strokeWidth={1.5} />
+        </div>
+      )
+    }
+
+    if (message.messageType === 'call' && message.callInfo) {
+      const ci = message.callInfo
+      const isMissed = ci.status === 'missed' || ci.status === 'no_answer'
+      const isRejected = ci.status === 'rejected'
+      const CallIcon = isMissed || isRejected
+        ? PhoneMissed
+        : ci.callType === 'video' ? Video : Phone
+      const iconColor = isMissed || isRejected ? '#ef4444' : 'var(--color-primary)'
+
+      let label = ''
+      if (isMissed) label = ci.callType === 'video' ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi nhỡ'
+      else if (isRejected) label = 'Cuộc gọi bị từ chối'
+      else {
+        const mins = Math.floor((ci.duration || 0) / 60)
+        const secs = (ci.duration || 0) % 60
+        const dur = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+        label = `${ci.callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại'} - ${dur}`
+      }
+
+      return (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px',
+          color: 'var(--color-text-muted)', fontSize: 14,
+        }}>
+          <CallIcon size={20} color={iconColor} />
+          <span>{label}</span>
         </div>
       )
     }
