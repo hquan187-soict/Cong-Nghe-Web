@@ -7,10 +7,12 @@ import { SocketProvider } from './context/SocketContext'
 import { AccessibilityProvider } from './context/AccessibilityContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { MentionNotificationProvider } from './context/MentionNotificationContext'
+import { CallProvider } from './context/CallContext'
 import { setLogoutCallback } from './utils/axios'
 import AppRouter from './AppRouter'
 import Toast from './components/ui/Toast'
 import MentionToast from './components/MentionToast'
+import CallOverlay from './components/call/CallOverlay'
 
 // Component nội bộ — kết nối hàm logout() từ AuthContext vào axios interceptor
 function ConnectAxiosLogout() {
@@ -28,21 +30,24 @@ function App() {
       <ConnectAxiosLogout />
       {/* SocketProvider phải nằm bên trong AuthProvider để đọc được user/token */}
       <SocketProvider>
-        <ToastProvider>
-          <ThemeProvider>
-            <LangProvider>
-              <AccessibilityProvider>
-                <NotificationProvider>
-                  <MentionNotificationProvider>
-                    <AppRouter />
-                    <Toast />
-                    <MentionToast />
-                  </MentionNotificationProvider>
-                </NotificationProvider>
-              </AccessibilityProvider>
-            </LangProvider>
-          </ThemeProvider>
-        </ToastProvider>
+        <CallProvider>
+          <ToastProvider>
+            <ThemeProvider>
+              <LangProvider>
+                <AccessibilityProvider>
+                  <NotificationProvider>
+                    <MentionNotificationProvider>
+                      <AppRouter />
+                      <Toast />
+                      <MentionToast />
+                      <CallOverlay />
+                    </MentionNotificationProvider>
+                  </NotificationProvider>
+                </AccessibilityProvider>
+              </LangProvider>
+            </ThemeProvider>
+          </ToastProvider>
+        </CallProvider>
       </SocketProvider>
     </AuthProvider>
   )
