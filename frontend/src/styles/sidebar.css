@@ -1234,9 +1234,7 @@
     min-width: 100%;
   }
 
-  .chat-layout {
-    flex-direction: column;
-  }
+
 
   .sidebar__header {
     padding: 12px 12px 10px;
