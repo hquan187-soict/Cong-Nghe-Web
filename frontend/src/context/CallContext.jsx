@@ -3,34 +3,33 @@ import _SimplePeer from 'simple-peer'
 const SimplePeer = _SimplePeer.default || _SimplePeer
 import { useSocket } from './SocketContext'
 import { useAuth } from './AuthContext'
+import axiosInstance from '../utils/axios'
 
 const CallContext = createContext(null)
 
-const ICE_SERVERS = {
+const FALLBACK_ICE = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    {
-      urls: 'turn:standard.relay.metered.ca:80',
-      username: 'b093b6c7c55419d7e279b917',
-      credential: '1XJMdsry7hsFqaLU',
-    },
-    {
-      urls: 'turn:standard.relay.metered.ca:80?transport=tcp',
-      username: 'b093b6c7c55419d7e279b917',
-      credential: '1XJMdsry7hsFqaLU',
-    },
-    {
-      urls: 'turn:standard.relay.metered.ca:443',
-      username: 'b093b6c7c55419d7e279b917',
-      credential: '1XJMdsry7hsFqaLU',
-    },
-    {
-      urls: 'turns:standard.relay.metered.ca:443?transport=tcp',
-      username: 'b093b6c7c55419d7e279b917',
-      credential: '1XJMdsry7hsFqaLU',
-    },
   ],
+}
+
+let cachedIceConfig = null
+let iceCacheExpiry = 0
+
+async function getIceServers() {
+  if (cachedIceConfig && Date.now() < iceCacheExpiry) return cachedIceConfig
+  try {
+    const data = await axiosInstance.get('/api/config/webrtc')
+    if (data?.iceServers?.length) {
+      cachedIceConfig = { iceServers: data.iceServers }
+      iceCacheExpiry = Date.now() + 4 * 60 * 60 * 1000
+      return cachedIceConfig
+    }
+  } catch (err) {
+    console.error('[CALL-FE] Failed to fetch ICE servers:', err.message)
+  }
+  return cachedIceConfig || FALLBACK_ICE
 }
 
 export function CallProvider({ children }) {
@@ -47,6 +46,8 @@ export function CallProvider({ children }) {
   const [participantMedia, setParticipantMedia] = useState(new Map())
 
   const peersRef = useRef(new Map())
+  const pendingPeersRef = useRef(new Set())
+  const signalQueueRef = useRef(new Map())
   const localStreamRef = useRef(null)
   const timerRef = useRef(null)
   const ringtoneRef = useRef(null)
@@ -125,7 +126,7 @@ export function CallProvider({ children }) {
     }, 1000)
   }
 
-  function createPeerConnection(targetUserId, initiator, stream, callId) {
+  async function createPeerConnection(targetUserId, initiator, stream, callId) {
     const existing = peersRef.current.get(targetUserId)
     if (existing) {
       try { existing.destroy() } catch {}
@@ -134,11 +135,14 @@ export function CallProvider({ children }) {
 
     console.log(`[CALL-FE] createPeer for ${targetUserId}, initiator=${initiator}`)
 
+    const iceConfig = await getIceServers()
+    console.log('[CALL-FE] ICE servers:', iceConfig.iceServers.map(s => s.urls))
+
     const peer = new SimplePeer({
       initiator,
       trickle: true,
       stream,
-      config: ICE_SERVERS,
+      config: iceConfig,
     })
 
     peer.on('signal', (signal) => {
@@ -332,7 +336,7 @@ export function CallProvider({ children }) {
       playLoopAudio(ringtoneRef, '/sounds/ringtone.mp3')
     }
 
-    const onCallUserJoined = ({ callId, userId: joinedUserId, fullName, avatar }) => {
+    const onCallUserJoined = async ({ callId, userId: joinedUserId, fullName, avatar }) => {
       console.log(`[CALL-FE] call_user_joined: ${fullName} (${joinedUserId})`)
       const current = activeCallRef.current
       if (!current || current.callId !== callId) {
@@ -348,13 +352,13 @@ export function CallProvider({ children }) {
       stopAudioRef(dialtoneRef)
 
       if (localStreamRef.current) {
-        createPeerConnection(joinedUserId, true, localStreamRef.current, callId)
+        await createPeerConnection(joinedUserId, true, localStreamRef.current, callId)
       } else {
         console.log('[CALL-FE] WARNING: no localStream when call_user_joined')
       }
     }
 
-    const onCallSignal = ({ callId, fromUserId, signal }) => {
+    const onCallSignal = async ({ callId, fromUserId, signal }) => {
       const current = activeCallRef.current
       if (!current || current.callId !== callId) return
 
@@ -368,11 +372,27 @@ export function CallProvider({ children }) {
         return
       }
 
+      if (pendingPeersRef.current.has(fromUserId)) {
+        const queue = signalQueueRef.current.get(fromUserId) || []
+        queue.push(signal)
+        signalQueueRef.current.set(fromUserId, queue)
+        return
+      }
+
       if (localStreamRef.current) {
         console.log(`[CALL-FE] creating non-initiator peer for ${fromUserId}`)
-        const peer = createPeerConnection(fromUserId, false, localStreamRef.current, callId)
+        pendingPeersRef.current.add(fromUserId)
+        const peer = await createPeerConnection(fromUserId, false, localStreamRef.current, callId)
+        pendingPeersRef.current.delete(fromUserId)
         try { peer.signal(signal) } catch (e) {
           console.error('[CALL-FE] signal error on new peer:', e.message)
+        }
+        const queued = signalQueueRef.current.get(fromUserId) || []
+        signalQueueRef.current.delete(fromUserId)
+        for (const s of queued) {
+          try { peer.signal(s) } catch (e) {
+            console.error('[CALL-FE] signal error on queued signal:', e.message)
+          }
         }
       } else {
         console.log('[CALL-FE] WARNING: no localStream when call_signal received')
