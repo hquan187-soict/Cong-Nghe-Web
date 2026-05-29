@@ -50,6 +50,7 @@ export function CallProvider({ children }) {
   const pendingPeersRef = useRef(new Set())
   const signalQueueRef = useRef(new Map())
   const localStreamRef = useRef(null)
+  const originalStreamRef = useRef(null)
   const timerRef = useRef(null)
   const ringtoneRef = useRef(null)
   const dialtoneRef = useRef(null)
@@ -97,6 +98,7 @@ export function CallProvider({ children }) {
       localStreamRef.current.getTracks().forEach((track) => track.stop())
       localStreamRef.current = null
     }
+    originalStreamRef.current = null
 
     setLocalStream(null)
     setRemoteStreams(new Map())
@@ -197,11 +199,12 @@ export function CallProvider({ children }) {
       video: callType === 'video',
     })
     localStreamRef.current = stream
+    originalStreamRef.current = stream
     setLocalStream(stream)
     return stream
   }, [])
 
-  const initiateCall = useCallback(async (conversationId, callType) => {
+  const initiateCall = useCallback(async (conversationId, callType, convInfo = {}) => {
     if (!socket || !user || activeCallRef.current) return
 
     let stream
@@ -231,6 +234,8 @@ export function CallProvider({ children }) {
           role: 'caller',
           status: 'ringing',
           participants: [],
+          conversationName: convInfo.conversationName || null,
+          isGroup: convInfo.isGroup || false,
         })
 
         setIsVideoEnabled(callType === 'video')
@@ -277,6 +282,8 @@ export function CallProvider({ children }) {
           role: 'receiver',
           status: 'connecting',
           participants: response.participants || [],
+          conversationName: incomingCall.conversationName || null,
+          isGroup: incomingCall.isGroup || false,
         })
 
         setIncomingCall(null)
@@ -313,17 +320,53 @@ export function CallProvider({ children }) {
     }
   }, [])
 
-  const toggleVideo = useCallback(() => {
+  const toggleVideo = useCallback(async () => {
     if (!localStreamRef.current) return
-    const track = localStreamRef.current.getVideoTracks()[0]
-    if (track) {
-      track.enabled = !track.enabled
-      setIsVideoEnabled(track.enabled)
+    const oldTrack = localStreamRef.current.getVideoTracks()[0]
+    if (!oldTrack) return
+
+    const wasEnabled = oldTrack.enabled
+
+    if (wasEnabled) {
+      oldTrack.enabled = false
+      setIsVideoEnabled(false)
       socketRef.current?.emit('call_toggle_media', {
         callId: activeCallRef.current?.callId,
         mediaType: 'video',
-        enabled: track.enabled,
+        enabled: false,
       })
+    } else {
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        const newTrack = newStream.getVideoTracks()[0]
+        const peerStream = originalStreamRef.current || localStreamRef.current
+
+        peersRef.current.forEach((peer) => {
+          if (!peer.destroyed) {
+            try { peer.replaceTrack(oldTrack, newTrack, peerStream) } catch (e) {
+              console.warn('[CALL-FE] replaceTrack failed, trying removeTrack+addTrack:', e.message)
+              try {
+                peer.removeTrack(oldTrack, peerStream)
+                peer.addTrack(newTrack, peerStream)
+              } catch {}
+            }
+          }
+        })
+
+        localStreamRef.current.removeTrack(oldTrack)
+        oldTrack.stop()
+        localStreamRef.current.addTrack(newTrack)
+
+        setLocalStream(localStreamRef.current)
+        setIsVideoEnabled(true)
+        socketRef.current?.emit('call_toggle_media', {
+          callId: activeCallRef.current?.callId,
+          mediaType: 'video',
+          enabled: true,
+        })
+      } catch (err) {
+        console.error('[CALL-FE] Failed to re-enable camera:', err)
+      }
     }
   }, [])
 

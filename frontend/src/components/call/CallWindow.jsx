@@ -18,7 +18,7 @@ function VideoTile({ stream, muted, label, isLocal, avatarUrl, videoEnabled }) {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream
     }
-  }, [stream])
+  }, [stream, videoEnabled])
 
   const showVideo = stream && videoEnabled !== false
 
@@ -94,7 +94,9 @@ export default function CallWindow() {
       <div className="call-window__header">
         <div className="call-window__header-info">
           <span className="call-window__header-name">
-            {Array.from(participantInfo.values()).map(p => p.fullName).filter(Boolean).join(', ') || ''}
+            {activeCall.isGroup
+              ? (activeCall.conversationName || t('call.groupCall') || 'Cuộc gọi nhóm')
+              : (Array.from(participantInfo.values()).map(p => p.fullName).filter(Boolean).join(', ') || '')}
           </span>
           <span className="call-window__timer">{statusText}</span>
         </div>
