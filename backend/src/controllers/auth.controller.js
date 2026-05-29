@@ -69,13 +69,14 @@ export const signup = async (req, res, next) => {
     });
     const savedUser = await newUser.save();
 
-    generateToken(savedUser._id, res);
+    const token = generateToken(savedUser._id, res);
 
     return res.status(201).json({
       _id: savedUser._id,
       fullName: savedUser.fullName,
       email: savedUser.email,
       avatar: savedUser.avatar,
+      token,
     });
   } catch (error) {
     return next(error);
@@ -112,13 +113,14 @@ export const login = async (req, res, next) => {
       throw error;
     }
 
-    generateToken(user._id, res);
+    const token = generateToken(user._id, res);
 
     res.status(200).json({
       _id: user._id,
       fullName: user.fullName,
       email: user.email,
       avatar: user.avatar,
+      token,
     });
   } catch (error) {
     return next(error);
