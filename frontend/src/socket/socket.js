@@ -14,8 +14,12 @@ const API_URL = import.meta.env.VITE_API_URL
  * @returns {import('socket.io-client').Socket}
  */
 export function createSocket() {
+  const token = localStorage.getItem('auth_token');
   return io(API_URL, {
-    withCredentials: true, // Gửi cookie (jwt=...) để backend xác thực
+    auth: {
+      token: token,
+    },
+    withCredentials: true,
     autoConnect: false,    // Chỉ connect khi gọi socket.connect() thủ công
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,

@@ -6,12 +6,15 @@ dotenv.config();
 
 export const socketAuthMiddleware = async (socket, next) => {
     try {
-        const token = socket.handshake.headers.cookie
-            ?.split("; ")
-            .find((row) => row.startsWith("jwt="))
-            ?.split("=")[1];
+        let token = socket.handshake.auth?.token;
         if (!token) {
-            console.error("Không tìm thấy token trong cookie");
+            token = socket.handshake.headers.cookie
+                ?.split("; ")
+                .find((row) => row.startsWith("jwt="))
+                ?.split("=")[1];
+        }
+        if (!token) {
+            console.error("Không tìm thấy token trong auth hoặc cookie");
             return next(new Error("Lỗi xác thực: Không tìm thấy token"));
         }
 
