@@ -4,12 +4,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export async function sendOtpToEmail(to, otp) {
-  // Configure your SMTP transporter
+  console.log(`[OTP] Đang chuẩn bị gửi OTP tới ${to}...`);
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // true for 465
     auth: {
-      user: process.env.EMAIL_USER, // Your email address
-      pass: process.env.EMAIL_PASS, // Your email password or app password
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
     },
   });
 
@@ -21,6 +23,12 @@ export async function sendOtpToEmail(to, otp) {
     html: `<p>Your OTP code is: <b>${otp}</b></p>`,
   };
 
-  await transporter.sendMail(mailOptions);
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[OTP] Gửi thành công! Message ID: ${info.messageId}`);
+  } catch (error) {
+    console.error(`[OTP] Lỗi khi gửi mail qua Nodemailer:`, error);
+    throw error;
+  }
 }
 
