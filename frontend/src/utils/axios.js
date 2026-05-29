@@ -15,7 +15,7 @@ export function setLogoutCallback(fn) {
 
 // Create an Axios instance
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 30000,
   withCredentials: true, // Gửi cookie (jwt) kèm mọi request cross-origin
   headers: {
