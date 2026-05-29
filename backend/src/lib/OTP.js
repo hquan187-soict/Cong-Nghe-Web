@@ -1,30 +1,30 @@
-import { Resend } from 'resend';
+import { BrevoClient } from '@getbrevo/brevo';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const brevo = new BrevoClient({
+  apiKey: process.env.BREVO_API_KEY,
+});
 
 export async function sendOtpToEmail(to, otp) {
   console.log(`[OTP] Đang chuẩn bị gửi OTP tới ${to}...`);
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
-      to,
+    const result = await brevo.transactionalEmails.sendTransacEmail({
       subject: 'Your OTP Code',
-      text: `Your OTP code is: ${otp}`,
-      html: `<p>Your OTP code is: <b>${otp}</b></p>`,
+      sender: {
+        name: process.env.BREVO_SENDER_NAME || 'ChatApp',
+        email: process.env.BREVO_SENDER_EMAIL,
+      },
+      to: [{ email: to }],
+      textContent: `Your OTP code is: ${otp}`,
+      htmlContent: `<p>Your OTP code is: <b>${otp}</b></p>`,
     });
 
-    if (error) {
-      console.error(`[OTP] Lỗi từ Resend API:`, error);
-      throw new Error(error.message);
-    }
-
-    console.log(`[OTP] Gửi thành công! Email ID: ${data.id}`);
+    console.log(`[OTP] Gửi thành công! Message ID: ${result.messageId}`);
   } catch (error) {
-    console.error(`[OTP] Lỗi khi gửi mail qua Resend:`, error);
+    console.error(`[OTP] Lỗi khi gửi mail qua Brevo:`, error);
     throw error;
   }
 }
