@@ -372,7 +372,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   const renderMessageContent = () => {
     if (isRecalled) {
       return (
-        <p className="message-bubble__text message-bubble--recalled" style={{ fontStyle: 'italic', color: 'var(--color-text-muted)' }}>
+        <p className="message-bubble__text message-bubble--recalled">
           Tin nhắn đã bị thu hồi
         </p>
       )
@@ -407,12 +407,9 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       }
 
       return (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px',
-          color: 'var(--color-text-muted)', fontSize: 14,
-        }}>
+        <div className="message-bubble__call-info flex flex-row items-center gap-2">
           <CallIcon size={20} color={iconColor} />
-          <span>{label}</span>
+          <span className="message-bubble__call-label text-sm font-semibold">{label}</span>
         </div>
       )
     }
@@ -463,16 +460,6 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         {message.replyTo && (
           <div
             className="message-bubble__reply-preview"
-            style={{
-              fontSize: '12px',
-              padding: '6px 8px',
-              background: 'var(--color-hover-bg)',
-              borderRadius: '4px',
-              marginBottom: '4px',
-              color: 'var(--color-text-secondary)',
-              borderLeft: '3px solid var(--color-primary)',
-              cursor: 'pointer'
-            }}
             onClick={() => {
               const replyId = typeof message.replyTo === 'object' ? message.replyTo._id : message.replyTo
               const el = document.getElementById(`msg-${replyId}`)
@@ -530,7 +517,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               <div className="audio-player__play-btn" style={{ opacity: 0.5 }}>
                 <Clock size={16} />
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Đang gửi...</span>
+              <span className="message-bubble__audio-loading">Đang gửi...</span>
             </div>
           )
         )}

@@ -2945,3 +2945,38 @@ a:hover {
     margin: 0;
   }
 }
+
+/* ===========================
+   MESSAGE BUBBLE UI FIXES
+   =========================== */
+
+.message-bubble__call-info,
+.message-bubble__audio-loading,
+.message-bubble--recalled {
+  color: var(--color-text-muted);
+}
+
+.message-bubble--own .message-bubble__call-info,
+.message-bubble--own .message-bubble__audio-loading,
+.message-bubble--own .message-bubble--recalled {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.message-bubble__reply-preview {
+  font-size: 12px;
+  padding: 6px 8px;
+  background: var(--color-hover-bg);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  color: var(--color-text-secondary);
+  border-left: 3px solid var(--color-primary);
+  cursor: pointer;
+}
+
+.message-bubble--own .message-bubble__reply-preview {
+  background: rgba(255, 255, 255, 0.15);
+  color: inherit;
+  opacity: 0.9;
+  border-left-color: rgba(255, 255, 255, 0.6);
+}

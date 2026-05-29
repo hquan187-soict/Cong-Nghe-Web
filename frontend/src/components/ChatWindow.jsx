@@ -61,9 +61,8 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
   // Reply state
   const [replyingTo, setReplyingTo] = useState(null)
 
-  // Typing indicator state
-  const [isOtherTyping, setIsOtherTyping] = useState(false)
-  const typingAutoHideRef = useRef(null)
+  // Typing indicator state — Map<userId, { fullName, timeoutId }>
+  const [typingUsers, setTypingUsers] = useState(new Map())
   const [showScrollBtn, setShowScrollBtn] = useState(false)
 
   const [membersMap, setMembersMap] = useState({})
@@ -187,19 +186,43 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
 
     const handleTypingStart = (data) => {
       if (data.conversationId !== conversationId) return
-      if (data.userId?.toString() === currentUserId) return
-      setIsOtherTyping(true)
-      clearTimeout(typingAutoHideRef.current)
-      typingAutoHideRef.current = setTimeout(() => {
-        setIsOtherTyping(false)
-      }, 7000)
+      const uid = data.userId?.toString()
+      if (uid === currentUserId) return
+
+      setTypingUsers((prev) => {
+        const updated = new Map(prev)
+        const existing = updated.get(uid)
+        if (existing?.timeoutId) clearTimeout(existing.timeoutId)
+
+        const timeoutId = setTimeout(() => {
+          setTypingUsers((p) => {
+            const u = new Map(p)
+            u.delete(uid)
+            return u
+          })
+        }, 7000)
+
+        const member = membersMap[uid]
+        updated.set(uid, {
+          fullName: member?.fullName || otherMember?.fullName || '',
+          timeoutId,
+        })
+        return updated
+      })
     }
 
     const handleTypingStop = (data) => {
       if (data.conversationId !== conversationId) return
-      if (data.userId?.toString() === currentUserId) return
-      clearTimeout(typingAutoHideRef.current)
-      setIsOtherTyping(false)
+      const uid = data.userId?.toString()
+      if (uid === currentUserId) return
+
+      setTypingUsers((prev) => {
+        const updated = new Map(prev)
+        const existing = updated.get(uid)
+        if (existing?.timeoutId) clearTimeout(existing.timeoutId)
+        updated.delete(uid)
+        return updated
+      })
     }
 
     const handleMessageReaction = ({ conversationId: cId, messageId, reactions }) => {
@@ -270,8 +293,10 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       socket.off('messageEdited', handleEditMessage)
       socket.off('messageRecalled', handleRecallMessage)
       socket.off('messagePinned', handleMessagePinned)
-      clearTimeout(typingAutoHideRef.current)
-      setIsOtherTyping(false)
+      setTypingUsers((prev) => {
+        prev.forEach((val) => { if (val.timeoutId) clearTimeout(val.timeoutId) })
+        return new Map()
+      })
       leaveConversation(conversationId)
     }
   }, [conversationId, socket, isConnected, joinConversation, leaveConversation, currentUserId])
@@ -327,18 +352,20 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
   }, [])
 
   useEffect(() => {
-    setIsOtherTyping(false)
+    setTypingUsers((prev) => {
+      prev.forEach((val) => { if (val.timeoutId) clearTimeout(val.timeoutId) })
+      return new Map()
+    })
     setReplyingTo(null)
     setIsBlocked(false)
-    clearTimeout(typingAutoHideRef.current)
   }, [conversationId])
 
   useEffect(() => {
-    if (!isOtherTyping) return
+    if (typingUsers.size === 0) return
     requestAnimationFrame(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     })
-  }, [isOtherTyping])
+  }, [typingUsers.size])
 
   const handleSendLike = useCallback(async (emojiName) => {
     if (!conversationId || !currentUserId) return
@@ -729,7 +756,12 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
           })
         )}
 
-        {isOtherTyping && <TypingIndicator senderName={otherMember?.fullName} />}
+        {typingUsers.size > 0 && (
+          <TypingIndicator
+            typingUsers={Array.from(typingUsers.values()).map((u) => u.fullName)}
+            senderName={!isGroup ? otherMember?.fullName : undefined}
+          />
+        )}
 
         <div ref={messagesEndRef} />
       </div>

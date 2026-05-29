@@ -914,9 +914,14 @@ function ChatPage() {
     });
   }, [])
 
+  const callConvInfo = selectedConversation ? {
+    conversationName: selectedConversation.name || selectedConversation.groupName || null,
+    isGroup: !!selectedConversation.isGroup,
+  } : {}
+
   const handleVoiceCall = async () => {
     if (!selectedConversation || activeCall) return
-    const result = await initiateCall(selectedConversation._id, 'voice')
+    const result = await initiateCall(selectedConversation._id, 'voice', callConvInfo)
     if (result && !result.success) {
       const reasonMap = {
         already_in_call: t('call.busy'),
@@ -930,7 +935,7 @@ function ChatPage() {
 
   const handleVideoCall = async () => {
     if (!selectedConversation || activeCall) return
-    const result = await initiateCall(selectedConversation._id, 'video')
+    const result = await initiateCall(selectedConversation._id, 'video', callConvInfo)
     if (result && !result.success) {
       const reasonMap = {
         already_in_call: t('call.busy'),
