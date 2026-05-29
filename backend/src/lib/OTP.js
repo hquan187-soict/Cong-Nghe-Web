@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import dns from 'node:dns';
+
+dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
