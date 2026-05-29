@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus, Archive, Volume2, Play } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus, Archive, Volume2, Play, Phone } from 'lucide-react'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
 import { useLang } from '../../context/LangContext'
@@ -16,6 +16,7 @@ import SearchUserModal from './SearchUserModal'
 import CreateGroupModal from './CreateGroupModal'
 import ConfirmModal from '../ui/ConfirmModal'
 import NotificationBell from '../NotificationBell'
+import CallHistoryPanel from '../call/CallHistoryPanel'
 import '../../styles/sidebar.css'
 
 const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onlineUsers = [], onNotificationClick }, ref) {
@@ -28,6 +29,10 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const { user, updateUser } = useAuth()
   const { soundEnabled, setSoundEnabled, selectedSound, setSelectedSound, previewSound, SOUND_OPTIONS } = useNotification()
 
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(() => {
+    return searchParams.get('tab') === 'calls' ? 'calls' : 'chat'
+  })
   const [conversations, setConversations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showSearchModal, setShowSearchModal] = useState(false)
@@ -583,14 +588,23 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       {/* Top Nav */}
       {collapsed ? (
         <div className="sidebar-nav-vertical" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)', width: '100%', alignItems: 'center' }}>
-          <button 
-            className="sidebar-nav__tab-vertical sidebar-nav__tab-vertical--active" 
-            style={{ width: '40px', height: '40px', background: 'var(--color-primary-light)', border: 'none', borderRadius: '50%', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          <button
+            className="sidebar-nav__tab-vertical"
+            style={{ width: '40px', height: '40px', background: activeTab === 'chat' ? 'var(--color-primary-light)' : 'transparent', border: 'none', borderRadius: '50%', color: activeTab === 'chat' ? 'var(--color-primary)' : 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setActiveTab('chat')}
             title={t('chat.title')}
           >
             <MessageSquare size={20} />
           </button>
-          <button 
+          <button
+            className="sidebar-nav__tab-vertical"
+            style={{ width: '40px', height: '40px', background: activeTab === 'calls' ? 'var(--color-primary-light)' : 'transparent', border: 'none', borderRadius: '50%', color: activeTab === 'calls' ? 'var(--color-primary)' : 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setActiveTab('calls')}
+            title={t('call.history')}
+          >
+            <Phone size={20} />
+          </button>
+          <button
             className="sidebar-nav__tab-vertical"
             style={{ width: '40px', height: '40px', background: 'transparent', border: 'none', borderRadius: '50%', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={() => navigate('/contacts')}
@@ -601,13 +615,21 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
       ) : (
         <div className="sidebar-nav" style={{ display: 'flex', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)' }}>
-          <button 
-            className="sidebar-nav__tab sidebar-nav__tab--active" 
-            style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid var(--color-primary)', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
+          <button
+            className="sidebar-nav__tab"
+            style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: activeTab === 'chat' ? '2px solid var(--color-primary)' : '2px solid transparent', color: activeTab === 'chat' ? 'var(--color-primary)' : 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
+            onClick={() => setActiveTab('chat')}
           >
             <MessageSquare size={18} /> {t('chat.title')}
           </button>
-          <button 
+          <button
+            className="sidebar-nav__tab"
+            style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: activeTab === 'calls' ? '2px solid var(--color-primary)' : '2px solid transparent', color: activeTab === 'calls' ? 'var(--color-primary)' : 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
+            onClick={() => setActiveTab('calls')}
+          >
+            <Phone size={18} /> {t('call.history')}
+          </button>
+          <button
             className="sidebar-nav__tab"
             style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
             onClick={() => navigate('/contacts')}
@@ -638,11 +660,11 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           </button>
           {!collapsed && (
             <h2 className="sidebar__title">
-              {t('chat.conversations')}
+              {activeTab === 'calls' ? t('call.history') : t('chat.conversations')}
             </h2>
           )}
         </div>
-        {!collapsed && (
+        {!collapsed && activeTab === 'chat' && (
           <div className="sidebar__header-right" style={{ display: 'flex', gap: '4px' }}>
             <NotificationBell onNotificationClick={onNotificationClick} />
             <button
@@ -656,106 +678,117 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         )}
       </div>
 
-      {/* Search bar & Filters */}
-      {!collapsed && (
+      {activeTab === 'calls' ? (
         <>
-          <div className="sidebar__search" style={{ paddingBottom: '8px' }}>
-            <div className="sidebar__search-bar" onClick={handleSearchBarClick}>
-              <Search size={16} className="sidebar__search-icon" />
-              <span className="sidebar__search-placeholder">
-                {t('chat.searchPlaceholder')}
-              </span>
-            </div>
+          <div className="sidebar__divider" />
+          <div className="sidebar__list">
+            <CallHistoryPanel onSelectConversation={onSelectConversation} collapsed={collapsed} />
           </div>
-          <div className="sidebar-filter" style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
-            <button 
-              onClick={() => setActiveFilter('all')}
-              style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                background: activeFilter === 'all' ? 'var(--color-primary-light)' : 'transparent',
-                color: activeFilter === 'all' ? 'var(--color-primary)' : 'var(--color-text-muted)'
-              }}
-            >
-              {t('chat.filterAll')}
-            </button>
-            <button
-              onClick={() => setActiveFilter('unread')}
-              style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                background: activeFilter === 'unread' ? 'var(--color-primary-light)' : 'transparent',
-                color: activeFilter === 'unread' ? 'var(--color-primary)' : 'var(--color-text-muted)'
-              }}
-            >
-              {t('chat.filterUnread')}
-            </button>
-            {archivedCount > 0 && (
-              <button
-                onClick={() => setActiveFilter(activeFilter === 'archived' ? 'all' : 'archived')}
-                style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                  background: activeFilter === 'archived' ? 'var(--color-primary-light)' : 'transparent',
-                  color: activeFilter === 'archived' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                  display: 'flex', alignItems: 'center', gap: '4px'
-                }}
-              >
-                <Archive size={12} />
-                Lưu trữ ({archivedCount})
-              </button>
+        </>
+      ) : (
+        <>
+          {/* Search bar & Filters */}
+          {!collapsed && (
+            <>
+              <div className="sidebar__search" style={{ paddingBottom: '8px' }}>
+                <div className="sidebar__search-bar" onClick={handleSearchBarClick}>
+                  <Search size={16} className="sidebar__search-icon" />
+                  <span className="sidebar__search-placeholder">
+                    {t('chat.searchPlaceholder')}
+                  </span>
+                </div>
+              </div>
+              <div className="sidebar-filter" style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
+                <button
+                  onClick={() => setActiveFilter('all')}
+                  style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                    background: activeFilter === 'all' ? 'var(--color-primary-light)' : 'transparent',
+                    color: activeFilter === 'all' ? 'var(--color-primary)' : 'var(--color-text-muted)'
+                  }}
+                >
+                  {t('chat.filterAll')}
+                </button>
+                <button
+                  onClick={() => setActiveFilter('unread')}
+                  style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                    background: activeFilter === 'unread' ? 'var(--color-primary-light)' : 'transparent',
+                    color: activeFilter === 'unread' ? 'var(--color-primary)' : 'var(--color-text-muted)'
+                  }}
+                >
+                  {t('chat.filterUnread')}
+                </button>
+                {archivedCount > 0 && (
+                  <button
+                    onClick={() => setActiveFilter(activeFilter === 'archived' ? 'all' : 'archived')}
+                    style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                      background: activeFilter === 'archived' ? 'var(--color-primary-light)' : 'transparent',
+                      color: activeFilter === 'archived' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                      display: 'flex', alignItems: 'center', gap: '4px'
+                    }}
+                  >
+                    <Archive size={12} />
+                    Lưu trữ ({archivedCount})
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          <div className="sidebar__divider" />
+
+          {/* Conversation list */}
+          <div className="sidebar__list">
+            {isLoading && (
+              <div className="sidebar__loading">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="sidebar__skeleton">
+                    <div className="sidebar__skeleton-avatar"></div>
+                    {!collapsed && (
+                      <div className="sidebar__skeleton-content">
+                        <div className="sidebar__skeleton-line sidebar__skeleton-line--short"></div>
+                        <div className="sidebar__skeleton-line sidebar__skeleton-line--long"></div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
+
+            {!isLoading && displayedConversations.length === 0 && (
+              <div className="sidebar__empty">
+                <MessageCircle size={40} className="sidebar__empty-icon" />
+                {!collapsed && (
+                  <>
+                    <p className="sidebar__empty-title">{t('chat.noConversations')}</p>
+                    <p className="sidebar__empty-subtitle">{t('chat.startConversation')}</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {!isLoading && displayedConversations.map((conv) => (
+              <ConversationItem
+                key={conv._id}
+                conversation={conv}
+                isActive={selectedConversation?._id === conv._id}
+                onClick={() => handleSelectConversation(conv)}
+                unreadCount={unreadMap[conv._id] || 0}
+                collapsed={collapsed}
+                onlineUsers={onlineUsers}
+                onPin={handlePin}
+                onMute={handleMute}
+                onArchive={handleArchive}
+                onLeaveGroup={handleLeaveGroup}
+                onBlock={handleBlock}
+                onUnblock={handleUnblock}
+                onMarkRead={handleMarkRead}
+                onMarkUnread={handleMarkUnread}
+                onDeleteChat={handleDeleteChat}
+              />
+            ))}
           </div>
         </>
       )}
-
-      <div className="sidebar__divider" />
-
-      {/* Conversation list */}
-      <div className="sidebar__list">
-        {isLoading && (
-          <div className="sidebar__loading">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="sidebar__skeleton">
-                <div className="sidebar__skeleton-avatar"></div>
-                {!collapsed && (
-                  <div className="sidebar__skeleton-content">
-                    <div className="sidebar__skeleton-line sidebar__skeleton-line--short"></div>
-                    <div className="sidebar__skeleton-line sidebar__skeleton-line--long"></div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!isLoading && displayedConversations.length === 0 && (
-          <div className="sidebar__empty">
-            <MessageCircle size={40} className="sidebar__empty-icon" />
-            {!collapsed && (
-              <>
-                <p className="sidebar__empty-title">{t('chat.noConversations')}</p>
-                <p className="sidebar__empty-subtitle">{t('chat.startConversation')}</p>
-              </>
-            )}
-          </div>
-        )}
-
-        {!isLoading && displayedConversations.map((conv) => (
-          <ConversationItem
-            key={conv._id}
-            conversation={conv}
-            isActive={selectedConversation?._id === conv._id}
-            onClick={() => handleSelectConversation(conv)}
-            unreadCount={unreadMap[conv._id] || 0}
-            collapsed={collapsed}
-            onlineUsers={onlineUsers}
-            onPin={handlePin}
-            onMute={handleMute}
-            onArchive={handleArchive}
-            onLeaveGroup={handleLeaveGroup}
-            onBlock={handleBlock}
-            onUnblock={handleUnblock}
-            onMarkRead={handleMarkRead}
-            onMarkUnread={handleMarkUnread}
-            onDeleteChat={handleDeleteChat}
-          />
-        ))}
-      </div>
 
       {/* Footer — Settings + Toggle */}
       <div className="sidebar__footer">

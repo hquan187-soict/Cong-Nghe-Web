@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo } from 'react'
 import { Mic, MicOff, Video, VideoOff, PhoneOff } from 'lucide-react'
 import { useCall } from '../../context/CallContext'
+import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 import '../../styles/call.css'
 
@@ -56,11 +57,13 @@ export default function CallWindow() {
     remoteStreams,
     callDuration,
     participantMedia,
+    participantInfo,
     endCall,
     toggleAudio,
     toggleVideo,
   } = useCall()
 
+  const { user } = useAuth()
   const { t } = useLang()
 
   const statusText = useMemo(() => {
@@ -89,20 +92,27 @@ export default function CallWindow() {
   return (
     <div className={`call-window ${isVideo ? 'call-window--video' : 'call-window--voice'}`}>
       <div className="call-window__header">
-        <span className="call-window__timer">{statusText}</span>
+        <div className="call-window__header-info">
+          <span className="call-window__header-name">
+            {Array.from(participantInfo.values()).map(p => p.fullName).filter(Boolean).join(', ') || ''}
+          </span>
+          <span className="call-window__timer">{statusText}</span>
+        </div>
       </div>
 
       {isVideo ? (
         <div className={`call-window__grid ${gridClass}`}>
           {remoteEntries.map(([userId, stream]) => {
             const media = participantMedia.get(userId)
+            const info = participantInfo.get(userId)
             return (
               <VideoTile
                 key={userId}
                 stream={stream}
                 muted={false}
-                label=""
+                label={info?.fullName || ''}
                 isLocal={false}
+                avatarUrl={info?.avatar}
                 videoEnabled={media?.video !== false}
               />
             )
@@ -113,6 +123,7 @@ export default function CallWindow() {
             muted={true}
             label={t('call.you') || ''}
             isLocal={!isGroupCall}
+            avatarUrl={user?.avatar}
             videoEnabled={isVideoEnabled}
           />
 
@@ -130,24 +141,33 @@ export default function CallWindow() {
               <div className="call-window__voice-avatar-wrap">
                 <div className="call-window__voice-pulse" />
                 <img
-                  src="/default-avatar.png"
+                  src={Array.from(participantInfo.values())[0]?.avatar || '/default-avatar.png'}
                   alt=""
                   className="call-window__voice-avatar"
                 />
               </div>
+              <span className="call-window__voice-name">
+                {Array.from(participantInfo.values())[0]?.fullName || ''}
+              </span>
               <span className="call-window__voice-status">{statusText}</span>
             </div>
           ) : (
             <div className="call-window__voice-participants">
-              {remoteEntries.map(([userId]) => (
-                <div key={userId} className="call-window__voice-participant">
-                  <img
-                    src="/default-avatar.png"
-                    alt=""
-                    className="call-window__voice-avatar"
-                  />
-                </div>
-              ))}
+              {remoteEntries.map(([userId]) => {
+                const info = participantInfo.get(userId)
+                return (
+                  <div key={userId} className="call-window__voice-participant">
+                    <img
+                      src={info?.avatar || '/default-avatar.png'}
+                      alt={info?.fullName || ''}
+                      className="call-window__voice-avatar"
+                    />
+                    <span className="call-window__voice-participant-name">
+                      {info?.fullName || ''}
+                    </span>
+                  </div>
+                )
+              })}
               <span className="call-window__voice-status">{statusText}</span>
             </div>
           )}

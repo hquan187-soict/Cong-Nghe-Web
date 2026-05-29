@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, ArrowLeft, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Sun, Moon, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, Volume2, Play } from 'lucide-react';
+import { Search, Users, ArrowLeft, MessageSquare, Phone, ChevronsLeft, ChevronsRight, Settings, Sun, Moon, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, Volume2, Play } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSocket } from '../context/SocketContext';
@@ -342,15 +342,23 @@ export default function ContactsPage() {
           {/* Navigation Tabs - matches Chat page Sidebar */}
           {sidebarCollapsed ? (
             <div className="sidebar-nav-vertical" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)', width: '100%', alignItems: 'center' }}>
-              <button 
-                className="sidebar-nav__tab-vertical" 
+              <button
+                className="sidebar-nav__tab-vertical"
                 style={{ width: '40px', height: '40px', background: 'transparent', border: 'none', borderRadius: '50%', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 onClick={() => navigate('/chat')}
                 title={t('chat.title')}
               >
                 <MessageSquare size={20} />
               </button>
-              <button 
+              <button
+                className="sidebar-nav__tab-vertical"
+                style={{ width: '40px', height: '40px', background: 'transparent', border: 'none', borderRadius: '50%', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => navigate('/chat?tab=calls')}
+                title={t('call.history')}
+              >
+                <Phone size={20} />
+              </button>
+              <button
                 className="sidebar-nav__tab-vertical sidebar-nav__tab-vertical--active"
                 style={{ width: '40px', height: '40px', background: 'var(--color-primary-light)', border: 'none', borderRadius: '50%', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 title={t('contacts.title')}
@@ -360,14 +368,21 @@ export default function ContactsPage() {
             </div>
           ) : (
             <div className="sidebar-nav" style={{ display: 'flex', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)' }}>
-              <button 
-                className="sidebar-nav__tab" 
+              <button
+                className="sidebar-nav__tab"
                 style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
                 onClick={() => navigate('/chat')}
               >
                 <MessageSquare size={18} /> {t('chat.title')}
               </button>
-              <button 
+              <button
+                className="sidebar-nav__tab"
+                style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
+                onClick={() => navigate('/chat?tab=calls')}
+              >
+                <Phone size={18} /> {t('call.history')}
+              </button>
+              <button
                 className="sidebar-nav__tab sidebar-nav__tab--active"
                 style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid var(--color-primary)', color: 'var(--color-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}
               >

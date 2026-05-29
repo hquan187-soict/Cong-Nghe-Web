@@ -323,6 +323,17 @@
     "callEnded": "Cuộc gọi đã kết thúc",
     "participantJoined": "đã tham gia cuộc gọi",
     "participantLeft": "đã rời cuộc gọi",
-    "you": "Bạn"
+    "you": "Bạn",
+    "history": "Cuộc gọi",
+    "missedCall": "Cuộc gọi nhỡ",
+    "incomingCall": "Cuộc gọi đến",
+    "outgoingCall": "Cuộc gọi đi",
+    "rejectedCall": "Đã từ chối",
+    "duration": "Thời lượng",
+    "noHistory": "Chưa có cuộc gọi nào",
+    "callBack": "Gọi lại",
+    "loadError": "Không thể tải lịch sử cuộc gọi",
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua"
   }
 }
