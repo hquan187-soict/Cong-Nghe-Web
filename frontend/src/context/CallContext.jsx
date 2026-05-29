@@ -44,6 +44,7 @@ export function CallProvider({ children }) {
   const [remoteStreams, setRemoteStreams] = useState(new Map())
   const [callDuration, setCallDuration] = useState(0)
   const [participantMedia, setParticipantMedia] = useState(new Map())
+  const [participantInfo, setParticipantInfo] = useState(new Map())
 
   const peersRef = useRef(new Map())
   const pendingPeersRef = useRef(new Set())
@@ -105,6 +106,7 @@ export function CallProvider({ children }) {
     setIsVideoEnabled(true)
     setCallDuration(0)
     setParticipantMedia(new Map())
+    setParticipantInfo(new Map())
   }, [])
 
   function markOngoing() {
@@ -333,6 +335,13 @@ export function CallProvider({ children }) {
       console.log('[CALL-FE] call_incoming:', data.callerName, data.callType)
       if (activeCallRef.current) return
       setIncomingCall(data)
+      if (data.callerId) {
+        setParticipantInfo((prev) => {
+          const updated = new Map(prev)
+          updated.set(data.callerId, { fullName: data.callerName, avatar: data.callerAvatar })
+          return updated
+        })
+      }
       playLoopAudio(ringtoneRef, '/sounds/ringtone.mp3')
     }
 
@@ -343,6 +352,12 @@ export function CallProvider({ children }) {
         console.log('[CALL-FE] call_user_joined IGNORED — no matching activeCall')
         return
       }
+
+      setParticipantInfo((prev) => {
+        const updated = new Map(prev)
+        updated.set(joinedUserId, { fullName, avatar })
+        return updated
+      })
 
       setActiveCall((prev) => {
         if (!prev) return prev
@@ -476,6 +491,7 @@ export function CallProvider({ children }) {
     remoteStreams,
     callDuration,
     participantMedia,
+    participantInfo,
     initiateCall,
     acceptCall,
     rejectCall,

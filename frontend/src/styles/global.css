@@ -2835,3 +2835,113 @@ a:hover {
 .mention-flash {
   animation: mention-flash 2.5s ease-out;
 }
+
+/* ======== UserProfileModal ======== */
+.user-profile-modal {
+  width: 90%;
+  max-width: 440px;
+  max-height: 85vh;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+  position: relative;
+  animation: modal-slide-in 0.25s ease-out;
+}
+
+.user-profile-modal__actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-profile-modal__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.user-profile-modal__action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.user-profile-modal__action-btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.user-profile-modal__action-btn--primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.user-profile-modal__action-btn--secondary {
+  background: var(--color-hover-bg);
+  color: var(--color-text);
+}
+
+.user-profile-modal__action-btn--secondary:hover:not(:disabled) {
+  background: var(--color-border-subtle);
+}
+
+.user-profile-modal__action-btn--success {
+  background: #27ae60;
+  color: #fff;
+}
+
+.user-profile-modal__action-btn--success:hover:not(:disabled) {
+  background: #219a52;
+}
+
+.user-profile-modal__action-btn--danger {
+  background: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+}
+
+.user-profile-modal__action-btn--danger:hover:not(:disabled) {
+  background: rgba(231, 76, 60, 0.2);
+}
+
+.user-profile-modal__action-btn--ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.user-profile-modal__action-btn--ghost:hover:not(:disabled) {
+  background: var(--color-hover-bg);
+  color: #e74c3c;
+}
+
+.message-bubble-row__avatar-slot--clickable {
+  cursor: pointer;
+}
+
+.message-bubble-row__avatar-slot--clickable:hover {
+  opacity: 0.85;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@media (max-width: 768px) {
+  .user-profile-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    margin: 0;
+  }
+}

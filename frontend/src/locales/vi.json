@@ -235,6 +235,28 @@
     "unfriendError": "Không thể hủy kết bạn",
     "noResults": "Không tìm thấy người dùng"
   },
+  "userProfile": {
+    "title": "Thông tin người dùng",
+    "sendMessage": "Nhắn tin",
+    "addFriend": "Kết bạn",
+    "unfriend": "Hủy kết bạn",
+    "requestSent": "Đã gửi lời mời",
+    "acceptRequest": "Chấp nhận kết bạn",
+    "block": "Chặn",
+    "unblock": "Bỏ chặn",
+    "loading": "Đang tải...",
+    "online": "Đang hoạt động",
+    "offline": "Ngoại tuyến",
+    "error": "Không thể tải thông tin người dùng",
+    "blockConfirm": "Bạn có chắc chắn muốn chặn người dùng này?",
+    "unblockConfirm": "Bạn có chắc chắn muốn bỏ chặn người dùng này?",
+    "friendRequestSuccess": "Đã gửi lời mời kết bạn!",
+    "friendRequestAutoAccepted": "Đã kết bạn thành công!",
+    "acceptSuccess": "Đã chấp nhận lời mời kết bạn!",
+    "unfriendSuccess": "Đã hủy kết bạn!",
+    "blockSuccess": "Đã chặn người dùng!",
+    "unblockSuccess": "Đã bỏ chặn người dùng!"
+  },
   "settings": {
     "title": "Cài đặt",
     "language": "Ngôn ngữ",
@@ -301,6 +323,17 @@
     "callEnded": "Cuộc gọi đã kết thúc",
     "participantJoined": "đã tham gia cuộc gọi",
     "participantLeft": "đã rời cuộc gọi",
-    "you": "Bạn"
+    "you": "Bạn",
+    "history": "Cuộc gọi",
+    "missedCall": "Cuộc gọi nhỡ",
+    "incomingCall": "Cuộc gọi đến",
+    "outgoingCall": "Cuộc gọi đi",
+    "rejectedCall": "Đã từ chối",
+    "duration": "Thời lượng",
+    "noHistory": "Chưa có cuộc gọi nào",
+    "callBack": "Gọi lại",
+    "loadError": "Không thể tải lịch sử cuộc gọi",
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua"
   }
 }

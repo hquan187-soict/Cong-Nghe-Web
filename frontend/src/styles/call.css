@@ -154,8 +154,25 @@
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
 }
 
+.call-window__header-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.call-window__header-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .call-window__timer {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.9);
   letter-spacing: 0.5px;
@@ -254,6 +271,10 @@
   padding: 2px 8px;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 4px;
+  max-width: calc(100% - 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .call-window__waiting {
@@ -312,6 +333,26 @@
   height: 100px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.call-window__voice-name {
+  font-size: 22px;
+  font-weight: 600;
+  color: #fff;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.call-window__voice-participant-name {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .call-window__voice-status {

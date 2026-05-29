@@ -44,7 +44,7 @@ function softenForDark(hex) {
   return `#${(1 << 24 | sr << 16 | sg << 8 | sb).toString(16).slice(1)}`
 }
 
-function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKicked = false, conversation: convProp }) {
+function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKicked = false, conversation: convProp, onAvatarClick }) {
   const { user } = useAuth()
   const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
   const toast = useToast()
@@ -723,6 +723,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
                 deleteMessage={(messageId) => {
                   setMessages((prev) => prev.filter((m) => m._id !== messageId))
                 }}
+                onAvatarClick={onAvatarClick}
               />
             )
           })

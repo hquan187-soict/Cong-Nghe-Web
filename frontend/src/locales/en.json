@@ -235,6 +235,28 @@
     "unfriendError": "Failed to unfriend",
     "noResults": "No users found"
   },
+  "userProfile": {
+    "title": "User Profile",
+    "sendMessage": "Message",
+    "addFriend": "Add Friend",
+    "unfriend": "Unfriend",
+    "requestSent": "Request Sent",
+    "acceptRequest": "Accept Request",
+    "block": "Block",
+    "unblock": "Unblock",
+    "loading": "Loading...",
+    "online": "Active now",
+    "offline": "Offline",
+    "error": "Failed to load user profile",
+    "blockConfirm": "Are you sure you want to block this user?",
+    "unblockConfirm": "Are you sure you want to unblock this user?",
+    "friendRequestSuccess": "Friend request sent!",
+    "friendRequestAutoAccepted": "You are now friends!",
+    "acceptSuccess": "Friend request accepted!",
+    "unfriendSuccess": "Unfriended successfully!",
+    "blockSuccess": "User blocked!",
+    "unblockSuccess": "User unblocked!"
+  },
   "settings": {
     "title": "Settings",
     "language": "Language",
@@ -301,6 +323,17 @@
     "callEnded": "Call ended",
     "participantJoined": "joined the call",
     "participantLeft": "left the call",
-    "you": "You"
+    "you": "You",
+    "history": "Calls",
+    "missedCall": "Missed call",
+    "incomingCall": "Incoming call",
+    "outgoingCall": "Outgoing call",
+    "rejectedCall": "Declined",
+    "duration": "Duration",
+    "noHistory": "No calls yet",
+    "callBack": "Call back",
+    "loadError": "Failed to load call history",
+    "today": "Today",
+    "yesterday": "Yesterday"
   }
 }

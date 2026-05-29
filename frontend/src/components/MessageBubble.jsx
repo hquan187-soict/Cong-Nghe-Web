@@ -164,7 +164,7 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
   )
 }
 
-function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, isMentioned = false, deleteMessage, onReply, scrollContainerRef }) {
+function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, isMentioned = false, deleteMessage, onReply, scrollContainerRef, onAvatarClick }) {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState(null)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -592,7 +592,15 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       <div id={`msg-${message._id}`} className={`message-bubble-row ${isOwn ? 'message-bubble-row--own' : ''} ${isMentioned ? 'message-bubble-row--mentioned' : ''}`}>
         {/* Avatar bên trái (tin nhắn người khác) */}
         {!isOwn && (
-          <div className="message-bubble-row__avatar-slot">
+          <div
+            className={`message-bubble-row__avatar-slot ${onAvatarClick ? 'message-bubble-row__avatar-slot--clickable' : ''}`}
+            onClick={() => {
+              if (onAvatarClick && showAvatar) {
+                const senderId = typeof message.senderId === 'object' ? message.senderId?._id : message.senderId
+                if (senderId) onAvatarClick(senderId.toString())
+              }
+            }}
+          >
             {showAvatar && (
               <Avatar src={senderAvatar} alt={senderName || '?'} size="sm" />
             )}
