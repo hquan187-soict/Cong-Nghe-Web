@@ -48,6 +48,7 @@ import Sidebar from '../components/chat/Sidebar'
 import ChatWindow from '../components/ChatWindow'
 import Avatar from '../components/ui/Avatar'
 import ProfileModal from '../components/ProfileModal'
+import UserProfileModal from '../components/UserProfileModal'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import ImageLightbox from '../components/chat/ImageLightbox'
 import { useMentionNotification } from '../context/MentionNotificationContext'
@@ -661,6 +662,7 @@ function ChatPage() {
     }
   })
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [userProfileUserId, setUserProfileUserId] = useState(null)
 
   const SIDEBAR_MIN = 72
   const SIDEBAR_COLLAPSE_THRESHOLD = 180
@@ -947,6 +949,21 @@ function ChatPage() {
     })
   }
 
+  const handleOpenUserProfile = useCallback((userId) => {
+    if (userId === currentUserId) return
+    setUserProfileUserId(userId)
+  }, [currentUserId])
+
+  const handleUserProfileSendMessage = useCallback(async (userId) => {
+    try {
+      const conv = await conversationService.createConversation(userId)
+      handleSelectConversation(conv)
+      setShowInfoPanel(false)
+    } catch (err) {
+      toast.error(t('chat.createError'))
+    }
+  }, [handleSelectConversation, toast, t])
+
   const [infoPinnedOpen, setInfoPinnedOpen] = useState(false)
   const [pinnedMessages, setPinnedMessages] = useState([])
   const [loadingPinned, setLoadingPinned] = useState(false)
@@ -1013,7 +1030,13 @@ function ChatPage() {
       }
     }
     return (
-      <div className="chat-header__avatar">
+      <div
+        className="chat-header__avatar"
+        onClick={() => {
+          if (!isGroup && otherMember?._id) handleOpenUserProfile(otherMember._id.toString())
+        }}
+        style={!isGroup ? { cursor: 'pointer' } : undefined}
+      >
         <Avatar
           src={isGroup ? (selectedConversation.avatar || selectedConversation.groupAvatar) : otherMember?.avatar}
           alt={isGroup ? (selectedConversation.name || selectedConversation.groupName) : (otherMember?.fullName || '?')}
@@ -1127,6 +1150,7 @@ function ChatPage() {
               onMessageSent={handleMessageSent}
               isKicked={isKicked}
               conversation={selectedConversation}
+              onAvatarClick={handleOpenUserProfile}
             />
           ) : (
             <div className="chat-empty-state">
@@ -1618,7 +1642,9 @@ function ChatPage() {
                       const isSelf = m._id?.toString() === currentUserId;
                       return (
                         <div key={m._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s', position: 'relative' }}>
-                          <Avatar src={m.avatar} alt={m.fullName} size="sm" isOnline={isOnline} />
+                          <div onClick={() => !isSelf && handleOpenUserProfile(m._id.toString())} style={!isSelf ? { cursor: 'pointer' } : undefined}>
+                            <Avatar src={m.avatar} alt={m.fullName} size="sm" isOnline={isOnline} />
+                          </div>
                           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {m.fullName}
@@ -1650,7 +1676,7 @@ function ChatPage() {
                                     <span>{t('contacts.sendMessage') || 'Nhắn tin'}</span>
                                   </button>
                                   <button
-                                    onClick={() => { setMemberMenuId(null); navigate('/contacts') }}
+                                    onClick={() => { setMemberMenuId(null); handleOpenUserProfile(m._id.toString()) }}
                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '13px', color: 'var(--color-text)' }}
                                   >
                                     <User size={14} />
@@ -2040,6 +2066,13 @@ function ChatPage() {
       <ProfileModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
+      />
+
+      <UserProfileModal
+        isOpen={!!userProfileUserId}
+        onClose={() => setUserProfileUserId(null)}
+        userId={userProfileUserId}
+        onSendMessage={handleUserProfileSendMessage}
       />
 
       {/* Nickname modal */}
