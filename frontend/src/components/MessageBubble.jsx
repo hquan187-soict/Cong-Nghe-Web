@@ -323,18 +323,11 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         <button
           className="message-actions__btn"
           onClick={(e) => {
+            const btnRect = e.currentTarget.getBoundingClientRect()
             setShowMoreMenu((v) => {
               if (!v) {
-                const btn = e.currentTarget
-                const container = scrollContainerRef?.current
-                if (btn && container) {
-                  const btnRect = btn.getBoundingClientRect()
-                  const containerRect = container.getBoundingClientRect()
-                  const spaceBelow = containerRect.bottom - btnRect.bottom
-                  setDropdownUp(spaceBelow < 200)
-                } else {
-                  setDropdownUp(false)
-                }
+                const spaceBelow = window.innerHeight - btnRect.bottom
+                setDropdownUp(spaceBelow < 250)
               }
               return !v
             })
