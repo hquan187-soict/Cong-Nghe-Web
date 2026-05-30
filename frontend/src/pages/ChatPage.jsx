@@ -329,8 +329,8 @@ function ChatPage() {
     searchMessageTimerRef.current = setTimeout(async () => {
       setIsSearchingMessage(true)
       try {
-        const response = await messageService.searchMessages(selectedConversation._id, query.trim())
-        setSearchResults(response.data || [])
+        const results = await messageService.searchMessages(selectedConversation._id, query.trim())
+        setSearchResults(Array.isArray(results) ? results : (results?.data || []))
       } catch (err) {
         console.error('Search message error:', err)
       } finally {
@@ -340,14 +340,22 @@ function ChatPage() {
   }
 
   const handleSearchResultClick = (messageId) => {
-    const el = document.getElementById(`msg-${messageId}`)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      el.classList.add('mention-flash')
-      setTimeout(() => el.classList.remove('mention-flash'), 2500)
-    } else {
-      toast.info('Tin nhắn này quá cũ hoặc chưa được tải, vui lòng cuộn lên để tìm.')
+    const isMobile = window.innerWidth < 768
+    if (isMobile) {
+      setShowSearchPanel(false)
+      setShowInfoPanel(false)
     }
+    const delay = isMobile ? 350 : 0
+    setTimeout(() => {
+      const el = document.getElementById(`msg-${messageId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('mention-flash')
+        setTimeout(() => el.classList.remove('mention-flash'), 2500)
+      } else {
+        toast.info('Tin nhắn này quá cũ hoặc chưa được tải, vui lòng cuộn lên để tìm.')
+      }
+    }, delay)
   }
 
   const handleAddMemberSearch = (query) => {
@@ -1429,7 +1437,12 @@ function ChatPage() {
                         cursor: 'pointer'
                       }}
                         onClick={() => {
+                          const isMobile = window.innerWidth < 768
                           setInfoPinnedOpen(false)
+                          if (isMobile) {
+                            setShowInfoPanel(false)
+                          }
+                          const delay = isMobile ? 350 : 100
                           setTimeout(() => {
                             const el = document.getElementById(`msg-${msg._id}`)
                             if (el) {
@@ -1437,8 +1450,10 @@ function ChatPage() {
                               el.style.transition = 'background 0.3s'
                               el.style.background = 'var(--color-primary-light)'
                               setTimeout(() => { el.style.background = '' }, 1500)
+                            } else {
+                              toast.info('Tin nhắn này quá cũ hoặc chưa được tải, vui lòng cuộn lên để tìm.')
                             }
-                          }, 100)
+                          }, delay)
                         }}
                       >
                         <Avatar src={sender?.avatar} alt={sender?.fullName || '?'} size="sm" />

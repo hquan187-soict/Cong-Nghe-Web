@@ -308,4 +308,9 @@
     width: 40px;
     height: 40px;
   }
+
+  .call-history__callback-btn {
+    width: 40px;
+    height: 40px;
+  }
 }

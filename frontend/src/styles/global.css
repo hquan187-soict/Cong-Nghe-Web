@@ -2409,6 +2409,162 @@ a:hover {
     right: auto;
     transform: translateX(-50%);
   }
+
+  .message-actions__emoji-picker {
+    width: calc(100vw - 24px);
+    max-width: 320px;
+  }
+
+  /* Tap targets — tăng kích thước cho ngón tay */
+  .message-actions__btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .btn-profile {
+    width: 40px;
+    height: 40px;
+  }
+
+  .chat-header__icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .info-panel__close {
+    width: 38px;
+    height: 38px;
+  }
+
+  .voice-recorder__close {
+    width: 36px;
+    height: 36px;
+  }
+
+  .recall-modal__close {
+    width: 38px;
+    height: 38px;
+  }
+
+  /* Chat input area — giảm padding khi bàn phím ảo mở */
+  .chat-input-area {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  /* Messages area — giảm padding */
+  .chat-messages {
+    padding: 12px 8px;
+  }
+
+  /* Message sender name — giảm margin trái */
+  .message-bubble-sender-name {
+    margin-left: 40px;
+  }
+
+  /* Voice recorder timer — giảm font size */
+  .voice-recorder__timer {
+    font-size: 16px;
+  }
+
+  /* Voice recorder & audio player — responsive width */
+  .voice-recorder__waveform,
+  .voice-recorder__audio-preview {
+    max-width: 100%;
+  }
+
+  .audio-player {
+    min-width: 160px;
+    max-width: 100%;
+  }
+
+  /* Video wrapper — responsive width */
+  .message-bubble__video-wrapper {
+    max-width: 100%;
+  }
+
+  /* Recall modal — mobile */
+  .recall-modal {
+    width: 95%;
+  }
+
+  .recall-modal__header {
+    padding: 16px 16px 12px;
+  }
+
+  .recall-modal__body {
+    padding: 0 16px 12px;
+  }
+
+  .recall-modal__footer {
+    padding: 10px 16px 16px;
+  }
+
+  .recall-modal__btn {
+    padding: 10px 20px;
+    min-height: 40px;
+  }
+
+  /* Profile modal — full screen mobile */
+  .profile-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .profile-modal__body {
+    padding: 12px 20px 24px;
+  }
+
+  .profile-modal__name {
+    font-size: 20px;
+  }
+
+  .profile-modal__info-item {
+    padding: 12px 14px;
+  }
+
+  /* Info panel — tối ưu nội dung khi full-screen */
+  .info-panel__profile {
+    padding: 0 16px;
+  }
+
+  .info-panel__name {
+    word-break: break-word;
+  }
+
+  .info-panel__quick-actions {
+    padding: 12px 16px;
+  }
+
+  .info-panel__edit-btn {
+    padding: 8px 12px;
+  }
+
+  /* Tooltip — ẩn trên mobile (touch không có hover) */
+  .tooltip-wrapper:hover .tooltip {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Chat header — word break cho tên dài */
+  .chat-header__left h2 {
+    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 40vw;
+  }
+
+  /* Message actions dropdown — tránh tràn phải */
+  .message-actions__dropdown {
+    min-width: 160px;
+  }
+
+  .message-actions__dropdown--own {
+    right: 0;
+  }
 }
 
 /* ===========================
@@ -2979,4 +3135,76 @@ a:hover {
   color: inherit;
   opacity: 0.9;
   border-left-color: rgba(255, 255, 255, 0.6);
+}
+
+/* ===========================
+   RESPONSIVE — Small phones (< 480px)
+   =========================== */
+
+@media (max-width: 480px) {
+  .message-bubble {
+    max-width: 88%;
+  }
+
+  .chat-header__left h2 {
+    font-size: 13px;
+    max-width: 35vw;
+  }
+
+  .chat-header__status {
+    font-size: 11px;
+  }
+
+  .chat-header__right {
+    gap: 2px;
+  }
+
+  .chat-header__icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .chat-header {
+    padding: 8px 8px;
+    min-height: 48px;
+  }
+
+  .chat-input-area {
+    padding: 6px 8px;
+  }
+
+  .info-panel__header {
+    padding: 10px 12px;
+  }
+
+  .profile-modal__body {
+    padding: 10px 16px 20px;
+  }
+
+  .profile-modal__info-item {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .profile-modal__info-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .recall-modal {
+    width: 98%;
+  }
+
+  .chat-empty-state__icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .chat-empty-state__title {
+    font-size: 16px;
+  }
+
+  .chat-empty-state__subtitle {
+    font-size: 13px;
+  }
 }
