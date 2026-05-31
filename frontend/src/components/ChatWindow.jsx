@@ -10,6 +10,7 @@ import MessageBubble from './MessageBubble'
 import MessageInput from './chat/MessageInput'
 import TypingIndicator from './chat/TypingIndicator'
 import Spinner from './ui/Spinner'
+import logoImg from '../assets/logo.png'
 
 const LIMIT = 20
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -529,7 +530,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     e.preventDefault()
     e.stopPropagation()
     dragCounterRef.current++
-    if (e.dataTransfer.types.includes('Files')) {
+    if (e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('application/x-hust-logo')) {
       setDragOver(true)
     }
   }, [])
@@ -561,6 +562,27 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     dragCounterRef.current = 0
     setDragOver(false)
     setDropZone(null)
+
+    // Easter egg: logo HUST kéo thả vào chat
+    const isLogoDrop = e.dataTransfer.types.includes('application/x-hust-logo')
+    if (isLogoDrop) {
+      try {
+        const res = await fetch(logoImg)
+        const blob = await res.blob()
+        const file = new File([blob], 'hust-logo.png', { type: 'image/png' })
+        if (zone === 'messages') {
+          const base64 = await readFileAsBase64(file)
+          handleSendMessage('', base64, null)
+        } else {
+          if (messageInputRef.current?.addFile) {
+            messageInputRef.current.addFile(file)
+          }
+        }
+      } catch (err) {
+        console.error('Logo drop error:', err)
+      }
+      return
+    }
 
     const files = Array.from(e.dataTransfer.files)
     if (files.length === 0) return

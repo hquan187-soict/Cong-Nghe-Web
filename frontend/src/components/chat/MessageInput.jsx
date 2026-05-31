@@ -165,6 +165,19 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
     addFile: (file) => processFile(file),
   }))
 
+  function handlePaste(e) {
+    const items = e.clipboardData?.items
+    if (!items) return
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        const file = item.getAsFile()
+        if (file) processFile(file)
+        return
+      }
+    }
+  }
+
   function handleKeyDown(e) {
     if (showMentionList && filteredMembers.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -428,6 +441,7 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           disabled={disabled}
           rows={1}
         />

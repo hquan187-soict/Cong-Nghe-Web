@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus, Archive, Volume2, Play, Phone } from 'lucide-react'
+import logoImg from '../../assets/logo.png'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
 import { useLang } from '../../context/LangContext'
@@ -639,29 +640,23 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </div>
       )}
 
-      {/* Header */}
+      {/* Header — Logo + Title */}
       <div className="sidebar__header" style={collapsed ? {} : { paddingBottom: '8px' }}>
         <div className="sidebar__header-left">
-          <button
-            className="sidebar__profile-btn"
-            title={t('profile.title')}
-            onClick={() => navigate('/profile')}
-            style={user?.avatar ? { padding: 0, overflow: 'hidden' } : {}}
-          >
-            {user?.avatar ? (
-              <img
-                src={user.avatar}
-                alt={user.fullName || 'Profile'}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <User size={18} />
-            )}
-          </button>
+          <img
+            src={logoImg}
+            alt="HUST Messenger"
+            className="sidebar__logo sidebar__logo--draggable"
+            draggable="true"
+            onDragStart={(e) => {
+              e.dataTransfer.setData('application/x-hust-logo', 'true')
+              e.dataTransfer.setData('text/plain', '')
+              e.dataTransfer.effectAllowed = 'copy'
+            }}
+            title="Kéo thả vào khung chat để gửi logo"
+          />
           {!collapsed && (
-            <h2 className="sidebar__title">
-              {activeTab === 'calls' ? t('call.history') : t('chat.conversations')}
-            </h2>
+            <h2 className="sidebar__title">HUST Messenger</h2>
           )}
         </div>
         {!collapsed && activeTab === 'chat' && (
@@ -687,15 +682,33 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         </>
       ) : (
         <>
-          {/* Search bar & Filters */}
+          {/* Avatar + Search bar row */}
           {!collapsed && (
             <>
               <div className="sidebar__search" style={{ paddingBottom: '8px' }}>
-                <div className="sidebar__search-bar" onClick={handleSearchBarClick}>
-                  <Search size={16} className="sidebar__search-icon" />
-                  <span className="sidebar__search-placeholder">
-                    {t('chat.searchPlaceholder')}
-                  </span>
+                <div className="sidebar__search-row">
+                  <button
+                    className="sidebar__profile-btn"
+                    title={t('profile.title')}
+                    onClick={() => navigate('/profile')}
+                    style={user?.avatar ? { padding: 0, overflow: 'hidden' } : {}}
+                  >
+                    {user?.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.fullName || 'Profile'}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <User size={18} />
+                    )}
+                  </button>
+                  <div className="sidebar__search-bar" onClick={handleSearchBarClick} style={{ flex: 1 }}>
+                    <Search size={16} className="sidebar__search-icon" />
+                    <span className="sidebar__search-placeholder">
+                      {t('chat.searchPlaceholder')}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="sidebar-filter" style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
