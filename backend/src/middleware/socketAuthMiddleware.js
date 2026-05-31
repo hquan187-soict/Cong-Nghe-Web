@@ -6,7 +6,17 @@ dotenv.config();
 
 export const socketAuthMiddleware = async (socket, next) => {
     try {
-        let token = socket.handshake.auth?.token;
+        // Thử auth token trước, fallback sang cookie nếu token không hợp lệ
+        let token = null;
+        const authToken = socket.handshake.auth?.token;
+        if (authToken) {
+            try {
+                jwt.verify(authToken, process.env.JWT_SECRET);
+                token = authToken;
+            } catch {
+                // token không hợp lệ (vd: mock token), thử cookie
+            }
+        }
         if (!token) {
             token = socket.handshake.headers.cookie
                 ?.split("; ")

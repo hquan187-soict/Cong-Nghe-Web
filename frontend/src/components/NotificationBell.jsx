@@ -49,10 +49,22 @@ export default function NotificationBell({ onNotificationClick }) {
   useEffect(() => {
     if (open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
-      setDropdownPos({
-        top: rect.bottom + 8,
-        left: rect.left,
-      })
+      const isMobile = window.innerWidth < 768
+      if (isMobile) {
+        setDropdownPos({
+          top: rect.bottom + 8,
+          left: 12,
+          right: 12,
+          mobile: true,
+        })
+      } else {
+        setDropdownPos({
+          top: rect.bottom + 8,
+          left: rect.left,
+          right: undefined,
+          mobile: false,
+        })
+      }
     }
   }, [open])
 
@@ -101,8 +113,12 @@ export default function NotificationBell({ onNotificationClick }) {
 
       {open && (
         <div ref={dropdownRef} style={{
-          position: 'fixed', top: dropdownPos.top, left: dropdownPos.left,
-          width: '360px', maxHeight: '480px', background: 'var(--color-surface)',
+          position: 'fixed', top: dropdownPos.top,
+          ...(dropdownPos.mobile
+            ? { left: 12, right: 12, width: 'auto' }
+            : { left: dropdownPos.left, width: '360px' }),
+          maxHeight: dropdownPos.mobile ? 'calc(100vh - 120px)' : '480px',
+          background: 'var(--color-surface)',
           borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
           border: '1px solid var(--color-border-subtle)', zIndex: 9999,
           display: 'flex', flexDirection: 'column', overflow: 'hidden',

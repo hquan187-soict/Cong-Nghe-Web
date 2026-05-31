@@ -333,6 +333,7 @@ io.on("connection", async (socket) => {
         call.endReason = "no_answer";
         await call.save();
         activeUserCalls.delete(userId);
+        await createCallMessage(call);
         return callback?.({ success: false, reason: "all_offline" });
       }
 

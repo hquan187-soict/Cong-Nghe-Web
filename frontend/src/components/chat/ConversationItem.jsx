@@ -65,6 +65,21 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
       return prefixStr + 'Đã gửi một biểu tượng cảm xúc'
     }
 
+    if (msg.messageType === 'call' && msg.callInfo) {
+      const ci = msg.callInfo
+      const isVideo = ci.callType === 'video'
+      if (ci.status === 'missed' || ci.status === 'no_answer') {
+        return prefixStr + (isVideo ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi nhỡ')
+      }
+      if (ci.status === 'rejected') {
+        return prefixStr + 'Cuộc gọi bị từ chối'
+      }
+      const mins = Math.floor((ci.duration || 0) / 60)
+      const secs = (ci.duration || 0) % 60
+      const dur = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+      return prefixStr + (isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại') + ` - ${dur}`
+    }
+
     if (msg.text) {
       const text = msg.text
       const truncated = text.length > 30 ? text.slice(0, 30) + '…' : text

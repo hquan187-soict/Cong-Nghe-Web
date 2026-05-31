@@ -15,9 +15,11 @@ const API_URL = import.meta.env.VITE_API_URL
  */
 export function createSocket() {
   const token = localStorage.getItem('auth_token');
+  // Chỉ gửi token nếu là JWT thật (3 phần cách nhau bởi dấu chấm)
+  const isRealJwt = token && token.split('.').length === 3;
   return io(API_URL, {
     auth: {
-      token: token,
+      token: isRealJwt ? token : undefined,
     },
     withCredentials: true,
     autoConnect: false,    // Chỉ connect khi gọi socket.connect() thủ công

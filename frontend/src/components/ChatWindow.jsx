@@ -300,7 +300,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       })
       leaveConversation(conversationId)
     }
-  }, [conversationId, socket, isConnected, joinConversation, leaveConversation, currentUserId])
+  }, [conversationId, socket, isConnected, joinConversation, leaveConversation, currentUserId, membersMap, otherMember])
 
   const lastConvIdRef = useRef(null)
 
@@ -402,6 +402,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       setMessages((prev) => prev.filter((msg) => msg._id !== tempId))
       toast.error(t('chat.sendError'))
     }
+    messageInputRef.current?.focus()
   }, [conversationId, currentUserId, onMessageSent, toast, t])
 
   // Gửi tin nhắn (text + image + file)
@@ -515,6 +516,7 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       toast.error(err.response?.data?.message || t('chat.sendError'))
     } finally {
       setSending(false)
+      messageInputRef.current?.focus()
     }
   }, [conversationId, currentUserId, onMessageSent, toast, t, replyingTo])
 

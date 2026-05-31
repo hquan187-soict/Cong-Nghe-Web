@@ -72,7 +72,10 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
     heartbeatRef.current = null
     isTypingRef.current = false
     prevConvRef.current = conversationId
-  }, [conversationId, socket])
+    if (!disabled && textareaRef.current) {
+      setTimeout(() => textareaRef.current?.focus(), 50)
+    }
+  }, [conversationId, socket, disabled])
 
   useEffect(() => {
     if (!isConnected || !socket?.connected || !conversationId || isTypingRef.current) return
@@ -163,6 +166,7 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
 
   useImperativeHandle(ref, () => ({
     addFile: (file) => processFile(file),
+    focus: () => textareaRef.current?.focus(),
   }))
 
   function handlePaste(e) {
@@ -299,6 +303,7 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
 
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
+      textareaRef.current.focus()
     }
   }
 
