@@ -199,11 +199,12 @@ export default function VoiceRecorder({ onSend, onClose }) {
     const reader = new FileReader()
     reader.onloadend = () => {
       const ext = audioBlob.type.includes('webm') ? 'webm' : 'mp4'
+      const baseType = audioBlob.type.split(';')[0]
       onSend({
         data: reader.result,
         name: `voice_${Date.now()}.${ext}`,
         size: audioBlob.size,
-        type: audioBlob.type,
+        type: baseType,
         duration: duration,
       })
       cleanup()
