@@ -33,11 +33,12 @@ export const searchUsers = async (req, res, next) => {
     const blockedMeIds = blockedMe.map((u) => u._id.toString());
     const excludeIds = [...new Set([currentUserId.toString(), ...blockedByMe, ...blockedMeIds])];
 
+    const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const filter = {
       _id: { $nin: excludeIds },
       $or: [
-        { fullName: { $regex: q, $options: "i" } },
-        { email: { $regex: q, $options: "i" } },
+        { fullName: { $regex: escapedQ, $options: "i" } },
+        { email: { $regex: escapedQ, $options: "i" } },
       ],
     };
 
@@ -121,7 +122,7 @@ export const getUserById = async (req, res, next) => {
       throw error;
     }
 
-    const user = await User.findById(id).select("-password");
+    const user = await User.findById(id).select("fullName email avatar isOnline lastSeen showActiveStatus");
 
     if (!user) {
       const error = new Error("Người dùng không tồn tại.");
@@ -173,7 +174,13 @@ export const  updateProfile = async (req, res, next) => {
       throw error;
     }
 
-    const allowedFields = ["fullName", "email", "avatar"];
+    if ("email" in req.body) {
+      const error = new Error("Không thể thay đổi email tại endpoint này.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const allowedFields = ["fullName", "avatar"];
     const updateData = {};
 
     for (const field of allowedFields) {
@@ -194,23 +201,6 @@ export const  updateProfile = async (req, res, next) => {
         public_id: `avatar_${currentUserId}`,
       });
       updateData.avatar = avatarUrl.secure_url;
-    }
-
-    if (updateData.email !== undefined) {
-      if (typeof updateData.email !== "string") {
-        const error = new Error("Email phải là chuỗi.");
-        error.statusCode = 400;
-        throw error;
-      }
-
-      updateData.email = updateData.email.trim().toLowerCase();
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(updateData.email)) {
-        const error = new Error("Email không đúng định dạng.");
-        error.statusCode = 400;
-        throw error;
-      }
     }
 
     if (Object.keys(updateData).length === 0) {

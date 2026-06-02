@@ -764,7 +764,7 @@ export const editMessage = async (req, res, next) => {
         io.to(receiverSocketId).emit("messageEdited", {
           conversationId: message.conversationId.toString(),
           messageId: messageId,
-          newText: text.trim(),
+          newText: message.text,
         });
       }
     });

@@ -181,12 +181,12 @@ export const sendOTP = async (req, res, next) => {
     // Gửi OTP qua email
     await sendOtpToEmail(normalizedEmail, otp);
     // Lưu OTP vào cơ sở dữ liệu
-    OTPLog.deleteMany({ email: normalizedEmail }).catch((err) => {
-      console.error("Lỗi khi xóa OTP cũ:", err);
-    });
+    await OTPLog.deleteMany({ email: normalizedEmail });
+    const salt = await bcrypt.genSalt(10);
+    const hashedOtp = await bcrypt.hash(otp, salt);
     const otpLog = new OTPLog({
       email: normalizedEmail,
-      otp,
+      otp: hashedOtp,
     });
     await otpLog.save();
     res.status(200).json({ message: "OTP đã được gửi đến email!" });
@@ -208,12 +208,18 @@ const verifyOTP = async (email, otp, type) => {
         return false;
       }
     }
-    const otpLog = await OTPLog.findOne({ email: normalizedEmail, otp });
-    if (!otpLog) {
+    const otpLogs = await OTPLog.find({ email: normalizedEmail });
+    let matchedLog = null;
+    for (const log of otpLogs) {
+      if (await bcrypt.compare(otp, log.otp)) {
+        matchedLog = log;
+        break;
+      }
+    }
+    if (!matchedLog) {
       return false;
     }
-    // Xóa OTP đã sử dụng
-    await OTPLog.deleteOne({ email: normalizedEmail, otp });
+    await OTPLog.deleteOne({ _id: matchedLog._id });
     return true;
   } catch (error) {
     return false;
@@ -223,7 +229,6 @@ const verifyOTP = async (email, otp, type) => {
 export const resetPassword = async (req, res, next) => {
   try {
     const { email, newPassword, otp } = req.body;
-    console.log("Received reset password request:", { email, newPassword, otp });
     if (typeof email !== "string" || typeof newPassword !== "string") {
       const error = new Error("Email và mật khẩu mới phải là chuỗi!");
       error.statusCode = 400;
@@ -231,6 +236,11 @@ export const resetPassword = async (req, res, next) => {
     }
     if (newPassword.length < 6) {
       const error = new Error("Mật khẩu mới phải có ít nhất 6 ký tự!");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (newPassword.length > 64) {
+      const error = new Error("Mật khẩu mới không được vượt quá 64 ký tự!");
       error.statusCode = 400;
       throw error;
     }

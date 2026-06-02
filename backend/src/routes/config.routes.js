@@ -1,4 +1,5 @@
 import express from "express";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ async function getTurnServers() {
   }
 }
 
-router.get("/webrtc", async (req, res) => {
+router.get("/webrtc", protect, async (req, res) => {
   const turnServers = await getTurnServers();
   return res.status(200).json({
     iceServers: [...STUN_SERVERS, ...turnServers],

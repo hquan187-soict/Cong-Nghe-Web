@@ -4,6 +4,15 @@ const rateLimitWindowMs = 1000; // 1 second
 const maxRequests = 10;
 const ipRequestMap = new Map();
 
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, requestInfo] of ipRequestMap) {
+    if (now - requestInfo.startTime > rateLimitWindowMs) {
+      ipRequestMap.delete(ip);
+    }
+  }
+}, 60000);
+
 const rateLimiter = (req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress;
   const now = Date.now();
@@ -16,9 +25,9 @@ const rateLimiter = (req, res, next) => {
   }
 
   if (now - requestInfo.startTime > rateLimitWindowMs) {
-    // Reset window
-    requestInfo.count = 1;
-    requestInfo.startTime = now;
+    ipRequestMap.delete(ip);
+    requestInfo = { count: 1, startTime: now };
+    ipRequestMap.set(ip, requestInfo);
     return next();
   }
 
