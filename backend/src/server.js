@@ -23,6 +23,7 @@ import "./models/Conversation.js";
 import "./models/Message.js";
 import "./models/Call.js";
 import "./models/Notification.js";
+import "./models/TokenBlacklist.js";
 
 const PORT = process.env.PORT || 3000;
 

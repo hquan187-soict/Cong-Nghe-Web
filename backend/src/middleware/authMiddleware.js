@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import TokenBlacklist from "../models/TokenBlacklist.js";
 
 export const protect = async (req, res, next) => {
   try {
@@ -19,10 +20,27 @@ export const protect = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    try {
+      const blacklisted = await TokenBlacklist.findOne({ token });
+      if (blacklisted) {
+        const error = new Error("Token đã bị thu hồi.");
+        error.statusCode = 401;
+        return next(error);
+      }
+    } catch (dbError) {
+      console.error("Blacklist check failed:", dbError.message);
+    }
+
     const user = await User.findById(decoded.userId).select("-password");
 
     if (!user) {
       const error = new Error("Người dùng không tồn tại hoặc token không hợp lệ.");
+      error.statusCode = 401;
+      return next(error);
+    }
+
+    if (user.passwordChangedAt && decoded.iat < user.passwordChangedAt.getTime() / 1000) {
+      const error = new Error("Mật khẩu đã được thay đổi. Vui lòng đăng nhập lại.");
       error.statusCode = 401;
       return next(error);
     }

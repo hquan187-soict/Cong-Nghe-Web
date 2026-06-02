@@ -1,8 +1,10 @@
+import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/utils.js";
 import { sendOtpToEmail } from "../lib/OTP.js";
 import OTPLog from "../models/OTPLog.js";
+import TokenBlacklist from "../models/TokenBlacklist.js";
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
 
@@ -127,15 +129,40 @@ export const login = async (req, res, next) => {
   }
 };
 
-// Xóa cookie với options giống trong util.js :D
-export const logout = (_, res) => {
-  res.clearCookie("jwt", {
-    httpOnly: true,
-    sameSite: "strict",
-    secure: process.env.NODE_ENV === "development" ? false : true,
-  });
+export const logout = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const bearerToken =
+      authHeader && authHeader.startsWith("Bearer ")
+        ? authHeader.split(" ")[1]
+        : null;
+    const token = req.cookies?.jwt || bearerToken;
 
-  res.status(200).json({ message: "Đăng xuất thành công!" });
+    if (token) {
+      try {
+        const decoded = jwt.decode(token);
+        if (decoded && decoded.userId && decoded.exp) {
+          await TokenBlacklist.create({
+            token,
+            userId: decoded.userId,
+            expiresAt: new Date(decoded.exp * 1000),
+          });
+        }
+      } catch (blacklistError) {
+        console.error("Failed to blacklist token:", blacklistError.message);
+      }
+    }
+
+    res.clearCookie("jwt", {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "development" ? false : true,
+    });
+
+    res.status(200).json({ message: "Đăng xuất thành công!" });
+  } catch (error) {
+    return next(error);
+  }
 };
 
 export const sendOTP = async (req, res, next) => {
@@ -288,6 +315,7 @@ export const resetPassword = async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
     user.password = hashedPassword;
+    user.passwordChangedAt = new Date();
     await user.save();
     res.status(200).json({ message: "Mật khẩu đã được cập nhật!" });
   } catch (error) {
