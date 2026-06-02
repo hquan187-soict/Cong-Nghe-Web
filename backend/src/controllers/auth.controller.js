@@ -195,12 +195,31 @@ export const sendOTP = async (req, res, next) => {
   }
 };
 
+const otpAttempts = new Map();
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_LOCKOUT_MS = 15 * 60 * 1000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of otpAttempts) {
+    if (now - entry.firstAttemptAt > OTP_LOCKOUT_MS) {
+      otpAttempts.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
 const verifyOTP = async (email, otp, type) => {
   try {
     if (typeof email !== "string" || typeof otp !== "string") {
       return false;
     }
     const normalizedEmail = normalizeEmail(email);
+
+    const attempt = otpAttempts.get(normalizedEmail);
+    if (attempt && attempt.count >= OTP_MAX_ATTEMPTS && Date.now() - attempt.firstAttemptAt < OTP_LOCKOUT_MS) {
+      return false;
+    }
+
     let user;
     if (type === "reset-password") {
       user = await User.findOne({ email: normalizedEmail });
@@ -217,8 +236,18 @@ const verifyOTP = async (email, otp, type) => {
       }
     }
     if (!matchedLog) {
+      const existing = otpAttempts.get(normalizedEmail);
+      if (!existing || Date.now() - existing.firstAttemptAt > OTP_LOCKOUT_MS) {
+        otpAttempts.set(normalizedEmail, { count: 1, firstAttemptAt: Date.now() });
+      } else {
+        existing.count += 1;
+        if (existing.count >= OTP_MAX_ATTEMPTS) {
+          await OTPLog.deleteMany({ email: normalizedEmail });
+        }
+      }
       return false;
     }
+    otpAttempts.delete(normalizedEmail);
     await OTPLog.deleteOne({ _id: matchedLog._id });
     return true;
   } catch (error) {
