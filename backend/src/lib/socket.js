@@ -30,11 +30,33 @@ const userSocketsMap = new Map();
 const callTimeouts = new Map();
 const activeUserCalls = new Map();
 
+let visibleOnlineCache = null;
+let visibleOnlineCacheTime = 0;
+const VISIBLE_ONLINE_CACHE_TTL = 5000;
+
 async function getVisibleOnlineUsers() {
+  const now = Date.now();
+  if (visibleOnlineCache && now - visibleOnlineCacheTime < VISIBLE_ONLINE_CACHE_TTL) {
+    return visibleOnlineCache;
+  }
   const onlineIds = [...userSocketsMap.keys()];
-  if (onlineIds.length === 0) return [];
-  const users = await User.find({ _id: { $in: onlineIds }, showActiveStatus: { $ne: false } }).select("_id");
-  return users.map((u) => u._id.toString());
+  if (onlineIds.length === 0) {
+    visibleOnlineCache = [];
+    visibleOnlineCacheTime = now;
+    return [];
+  }
+  const users = await User.find({
+    _id: { $in: onlineIds },
+    showActiveStatus: { $ne: false },
+  }).select("_id");
+  visibleOnlineCache = users.map((u) => u._id.toString());
+  visibleOnlineCacheTime = now;
+  return visibleOnlineCache;
+}
+
+function invalidateVisibleOnlineCache() {
+  visibleOnlineCache = null;
+  visibleOnlineCacheTime = 0;
 }
 
 async function emitTypingToConversation(conversationId, senderId, eventName) {
@@ -218,6 +240,7 @@ io.on("connection", async (socket) => {
   const isFirstConnection = userSocketsMap.get(userId).size === 1;
   if (isFirstConnection) {
     await User.findByIdAndUpdate(userId, { isOnline: true });
+    invalidateVisibleOnlineCache();
 
     const visibleOnline = await getVisibleOnlineUsers();
     io.emit("getOnlineUsers", visibleOnline);
@@ -591,13 +614,13 @@ io.on("connection", async (socket) => {
 
         call.participants.forEach((p) => {
           activeUserCalls.delete(p.userId.toString());
-          const sid = userSocketsMap[p.userId.toString()];
-          if (sid) {
-            io.to(sid).emit("call_ended", {
+          const sids = userSocketsMap.get(p.userId.toString());
+          if (sids) {
+            sids.forEach((sid) => io.to(sid).emit("call_ended", {
               callId,
               endReason: "caller_ended",
               duration: 0,
-            });
+            }));
           }
         });
         activeUserCalls.delete(userId);
@@ -628,13 +651,13 @@ io.on("connection", async (socket) => {
 
         call.participants.forEach((p) => {
           if (p.status === "joined" && p.userId.toString() !== userId) {
-            const sid = userSocketsMap[p.userId.toString()];
-            if (sid) {
-              io.to(sid).emit("call_user_left", {
+            const sids = userSocketsMap.get(p.userId.toString());
+            if (sids) {
+              sids.forEach((sid) => io.to(sid).emit("call_user_left", {
                 callId,
                 userId,
                 fullName: socket.user.fullName,
-              });
+              }));
             }
           }
         });
@@ -644,8 +667,8 @@ io.on("connection", async (socket) => {
             .filter((p) => p.status === "ringing")
             .forEach((p) => {
               p.status = "missed";
-              const sid = userSocketsMap[p.userId.toString()];
-              if (sid) io.to(sid).emit("call_ended", { callId, endReason: "caller_ended", duration: 0 });
+              const sids = userSocketsMap.get(p.userId.toString());
+              if (sids) sids.forEach((sid) => io.to(sid).emit("call_ended", { callId, endReason: "caller_ended", duration: 0 }));
             });
         }
 
@@ -663,15 +686,15 @@ io.on("connection", async (socket) => {
             p.status = "left";
             p.leftAt = new Date();
             activeUserCalls.delete(p.userId.toString());
-            const sid = userSocketsMap[p.userId.toString()];
-            if (sid) {
-              io.to(sid).emit("call_ended", {
+            const sids = userSocketsMap.get(p.userId.toString());
+            if (sids) {
+              sids.forEach((sid) => io.to(sid).emit("call_ended", {
                 callId,
                 endReason: "normal",
                 duration: call.startedAt
                   ? Math.round((call.endedAt - call.startedAt) / 1000)
                   : 0,
-              });
+              }));
             }
           });
           activeUserCalls.delete(call.callerId.toString());
@@ -698,14 +721,14 @@ io.on("connection", async (socket) => {
 
     for (const [uid, cid] of activeUserCalls.entries()) {
       if (cid === callId && uid !== userId) {
-        const sid = userSocketsMap[uid];
-        if (sid) {
-          io.to(sid).emit("call_media_toggled", {
+        const sids = userSocketsMap.get(uid);
+        if (sids) {
+          sids.forEach((sid) => io.to(sid).emit("call_media_toggled", {
             callId,
             userId,
             mediaType,
             enabled,
-          });
+          }));
         }
       }
     }
@@ -729,6 +752,7 @@ io.on("connection", async (socket) => {
         update.lastSeen = new Date();
       }
       await User.findByIdAndUpdate(userId, update);
+      invalidateVisibleOnlineCache();
       const visibleOnline = await getVisibleOnlineUsers();
       io.emit("getOnlineUsers", visibleOnline);
       if (!enabled) {
@@ -745,20 +769,26 @@ io.on("connection", async (socket) => {
 
     await handleCallDisconnect(userId);
 
-    delete userSocketsMap[userId];
+    const sockets = userSocketsMap.get(userId);
+    if (sockets) {
+      sockets.delete(socket.id);
+      if (sockets.size === 0) {
+        userSocketsMap.delete(userId);
 
-    const lastSeen = new Date();
+        const lastSeen = new Date();
+        await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen });
+        invalidateVisibleOnlineCache();
 
-    await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen });
+        const visibleOnline = await getVisibleOnlineUsers();
+        io.emit("getOnlineUsers", visibleOnline);
+        io.emit("userLastSeen", { userId, lastSeen });
 
-    const visibleOnline = await getVisibleOnlineUsers();
-    io.emit("getOnlineUsers", visibleOnline);
-    io.emit("userLastSeen", { userId, lastSeen });
-
-    const contactSocketIds = await getContactSocketIds(userId, userSocketsMap);
-    contactSocketIds.forEach((socketId) => {
-      io.to(socketId).emit("user_status", { userId, isOnline: false, lastSeen });
-    });
+        const contactSocketIds = await getContactSocketIds(userId, userSocketsMap);
+        contactSocketIds.forEach((socketId) => {
+          io.to(socketId).emit("user_status", { userId, isOnline: false, lastSeen });
+        });
+      }
+    }
   });
 });
 

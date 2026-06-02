@@ -95,5 +95,9 @@ const messageSchema = new mongoose.Schema(
 );
 
 messageSchema.index({ conversationId: 1, createdAt: -1 });
+messageSchema.index({ conversationId: 1, senderId: 1, readBy: 1 });
+messageSchema.index({ conversationId: 1, isPinned: 1, createdAt: -1 });
+messageSchema.index({ conversationId: 1, messageType: 1, isRecalled: 1, createdAt: -1 });
+messageSchema.index({ conversationId: 1, isRecalled: 1, messageType: 1 });
 
 export default mongoose.model("Message", messageSchema);

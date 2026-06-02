@@ -108,5 +108,6 @@ const conversationSchema = new mongoose.Schema(
 );
 
 conversationSchema.index({ members: 1 });
+conversationSchema.index({ isGroup: 1, members: 1 });
 
 export default mongoose.model("Conversation", conversationSchema);

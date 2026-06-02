@@ -3,7 +3,7 @@ import Conversation from "../models/Conversation.js";
 import User from "../models/User.js";
 import Message from "../models/Message.js";
 import cloudinary from "../lib/cloudinary.js";
-import { io, getReceiverSocketId } from "../lib/socket.js";
+import { io, getReceiverSocketIds } from "../lib/socket.js";
 
 export const addMember = async (req, res, next) => {
   try {
@@ -84,37 +84,32 @@ export const addMember = async (req, res, next) => {
     await conversation.save();
 
     const populatedSystemMsg = await Message.findById(systemMsg._id)
-      .populate("senderId", "-password");
+      .populate("senderId", "fullName avatar");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: id,
           message: populatedSystemMsg,
         });
-      }
+      });
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
-    // Notify existing members
     conversation.members.forEach((memberId) => {
       if (memberId.toString() === userId.toString()) return;
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("conversationUpdated", { conversation: updated });
-      }
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("conversationUpdated", { conversation: updated });
+      });
     });
 
-    // Notify the newly added member so conversation appears in their sidebar
-    const newMemberSocketId = getReceiverSocketId(userId.toString());
-    if (newMemberSocketId) {
-      io.to(newMemberSocketId).emit("newConversation", { conversation: updated });
-    }
+    getReceiverSocketIds(userId.toString()).forEach((sid) => {
+      io.to(sid).emit("newConversation", { conversation: updated });
+    });
 
     return res.status(200).json(updated);
   } catch (error) {
@@ -190,28 +185,26 @@ export const leaveGroup = async (req, res, next) => {
     await conversation.save();
 
     const populatedSystemMsg = await Message.findById(systemMsg._id)
-      .populate("senderId", "-password");
+      .populate("senderId", "fullName avatar");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: id,
           message: populatedSystemMsg,
         });
-      }
+      });
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("conversationUpdated", { conversation: updated });
-      }
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("conversationUpdated", { conversation: updated });
+      });
     });
 
     return res.status(200).json(updated);
@@ -293,36 +286,33 @@ export const removeMember = async (req, res, next) => {
     await conversation.save();
 
     const populatedSystemMsg = await Message.findById(systemMsg._id)
-      .populate("senderId", "-password");
+      .populate("senderId", "fullName avatar");
 
     [...conversation.members, mongoose.Types.ObjectId.createFromHexString(userId)].forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: id,
           message: populatedSystemMsg,
         });
-      }
+      });
     });
 
-    const removedSocketId = getReceiverSocketId(userId.toString());
-    if (removedSocketId) {
-      io.to(removedSocketId).emit("removedFromGroup", {
+    getReceiverSocketIds(userId.toString()).forEach((sid) => {
+      io.to(sid).emit("removedFromGroup", {
         conversationId: id,
         message: "Bạn đã bị buộc rời khỏi nhóm",
       });
-    }
+    });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("conversationUpdated", { conversation: updated });
-      }
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("conversationUpdated", { conversation: updated });
+      });
     });
 
     return res.status(200).json(updated);
@@ -369,8 +359,8 @@ export const updateAddMemberPermission = async (req, res, next) => {
     await conversation.save();
 
     const updated = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
     return res.status(200).json(updated);
@@ -458,30 +448,28 @@ export const requestAddMember = async (req, res, next) => {
     await conversation.save();
 
     const populatedSystemMsg = await Message.findById(systemMsg._id)
-      .populate("senderId", "-password");
+      .populate("senderId", "fullName avatar");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: id,
           message: populatedSystemMsg,
         });
-      }
+      });
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage")
-      .populate("pendingRequests.userId", "-password")
-      .populate("pendingRequests.requestedBy", "-password");
+      .populate("pendingRequests.userId", "fullName avatar email")
+      .populate("pendingRequests.requestedBy", "fullName avatar email");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("conversationUpdated", { conversation: updated });
-      }
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("conversationUpdated", { conversation: updated });
+      });
     });
 
     return res.status(200).json(updated);
@@ -554,37 +542,34 @@ export const approveRequest = async (req, res, next) => {
     await conversation.save();
 
     const populatedSystemMsg = await Message.findById(systemMsg._id)
-      .populate("senderId", "-password");
+      .populate("senderId", "fullName avatar");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: id,
           message: populatedSystemMsg,
         });
-      }
+      });
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage")
-      .populate("pendingRequests.userId", "-password")
-      .populate("pendingRequests.requestedBy", "-password");
+      .populate("pendingRequests.userId", "fullName avatar email")
+      .populate("pendingRequests.requestedBy", "fullName avatar email");
 
     conversation.members.forEach((memberId) => {
       if (memberId.toString() === userId.toString()) return;
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("conversationUpdated", { conversation: updated });
-      }
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("conversationUpdated", { conversation: updated });
+      });
     });
 
-    const newMemberSocketId = getReceiverSocketId(userId.toString());
-    if (newMemberSocketId) {
-      io.to(newMemberSocketId).emit("newConversation", { conversation: updated });
-    }
+    getReceiverSocketIds(userId.toString()).forEach((sid) => {
+      io.to(sid).emit("newConversation", { conversation: updated });
+    });
 
     return res.status(200).json(updated);
   } catch (error) {
@@ -644,30 +629,28 @@ export const rejectRequest = async (req, res, next) => {
     await conversation.save();
 
     const populatedSystemMsg = await Message.findById(systemMsg._id)
-      .populate("senderId", "-password");
+      .populate("senderId", "fullName avatar");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: id,
           message: populatedSystemMsg,
         });
-      }
+      });
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage")
-      .populate("pendingRequests.userId", "-password")
-      .populate("pendingRequests.requestedBy", "-password");
+      .populate("pendingRequests.userId", "fullName avatar email")
+      .populate("pendingRequests.requestedBy", "fullName avatar email");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("conversationUpdated", { conversation: updated });
-      }
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("conversationUpdated", { conversation: updated });
+      });
     });
 
     return res.status(200).json(updated);
@@ -733,7 +716,7 @@ export const createConversation = async (req, res, next) => {
         isGroup: false,
         $expr: { $eq: [{ $size: "$members" }, 2] },
       })
-        .populate("members", "-password")
+        .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
         .populate("lastMessage");
 
       if (existingConversation) {
@@ -750,8 +733,8 @@ export const createConversation = async (req, res, next) => {
     });
 
     const populatedConversation = await Conversation.findById(conversation._id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
     return res.status(201).json(populatedConversation);
@@ -777,11 +760,11 @@ export const getConversations = async (req, res, next) => {
         { removedMembers: currentUserId },
       ],
     })
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage")
-      .populate("pendingRequests.userId", "-password")
-      .populate("pendingRequests.requestedBy", "-password")
+      .populate("pendingRequests.userId", "fullName avatar email")
+      .populate("pendingRequests.requestedBy", "fullName avatar email")
       .sort({ updatedAt: -1 });
 
     // Filter conversations where deletedAt for currentUserId is > lastMessage.createdAt
@@ -903,8 +886,8 @@ export const updateConversation = async (req, res, next) => {
       updateData,
       { new: true }
     )
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
     return res.status(200).json(updatedConversation);
@@ -992,25 +975,23 @@ export const updateNickname = async (req, res, next) => {
     await conversation.save();
 
     const populatedSystemMsg = await Message.findById(systemMsg._id)
-      .populate("senderId", "-password");
+      .populate("senderId", "fullName avatar");
 
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
-
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: id,
           message: populatedSystemMsg,
           lastMessage: conversation.lastMessage,
           updatedAt: conversation.updatedAt,
         });
-        io.to(socketId).emit("nicknameUpdated", { conversation: updatedConversation });
-      }
+        io.to(sid).emit("nicknameUpdated", { conversation: updatedConversation });
+      });
     });
 
     return res.status(200).json(updatedConversation);
@@ -1061,8 +1042,8 @@ export const toggleMuteConversation = async (req, res, next) => {
     }
     await conversation.save();
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
     return res.status(200).json(updatedConversation);
   } catch (error) {
@@ -1119,8 +1100,8 @@ export const toggleArchiveConversation = async (req, res, next) => {
     await conversation.save();
 
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
     return res.status(200).json(updatedConversation);
   } catch (error) {
@@ -1174,10 +1155,9 @@ export const updateEmoji = async (req, res, next) => {
     }
 
     if (conversation.emoji === emoji) {
-      // Spam prevention
       const currentConversation = await Conversation.findById(id)
-        .populate("members", "-password")
-        .populate("admins", "-password")
+        .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+        .populate("admins", "fullName avatar email")
         .populate("lastMessage");
       return res.status(200).json(currentConversation);
     }
@@ -1201,24 +1181,23 @@ export const updateEmoji = async (req, res, next) => {
     await conversation.save();
 
     const populatedSystemMsg = await Message.findById(systemMsg._id)
-      .populate("senderId", "-password");
+      .populate("senderId", "fullName avatar");
 
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: id,
           message: populatedSystemMsg,
           lastMessage: conversation.lastMessage,
           updatedAt: conversation.updatedAt,
         });
-        io.to(socketId).emit("conversationUpdated", { conversation: updatedConversation });
-      }
+        io.to(sid).emit("conversationUpdated", { conversation: updatedConversation });
+      });
     });
 
     return res.status(200).json(updatedConversation);
@@ -1292,24 +1271,23 @@ export const updateThemeColor = async (req, res, next) => {
     await conversation.save();
 
     const populatedSystemMsg = await Message.findById(systemMsg._id)
-      .populate("senderId", "-password");
+      .populate("senderId", "fullName avatar");
 
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "-password")
-      .populate("admins", "-password")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
     conversation.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: id,
           message: populatedSystemMsg,
           lastMessage: conversation.lastMessage,
           updatedAt: conversation.updatedAt,
         });
-        io.to(socketId).emit("themeColorUpdated", { conversation: updatedConversation });
-      }
+        io.to(sid).emit("themeColorUpdated", { conversation: updatedConversation });
+      });
     });
 
     return res.status(200).json(updatedConversation);

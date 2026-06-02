@@ -5,7 +5,7 @@ import Message from "../models/Message.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import cloudinary from "../lib/cloudinary.js";
-import { io, getReceiverSocketId } from "../lib/socket.js";
+import { io, getReceiverSocketIds } from "../lib/socket.js";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 const ALLOWED_FILE_TYPES = [
@@ -155,7 +155,7 @@ export const getMessages = async (req, res, next) => {
     }
 
     const messages = await Message.find(query)
-      .populate("senderId", "-password")
+      .populate("senderId", "fullName avatar email")
       .populate("reactions.userId", "fullName avatar")
       .populate({
         path: "replyTo",
@@ -226,20 +226,19 @@ export const sendMessage = async (req, res, next) => {
       await conversation.save();
 
       const populatedMessage = await Message.findById(message._id)
-        .populate("senderId", "-password")
-        .populate("readBy", "-password");
+        .populate("senderId", "fullName avatar email")
+        .populate("readBy", "fullName avatar");
 
       conversation.members.forEach((memberId) => {
         if (memberId.toString() === currentUserId.toString()) return;
-        const receiverSocketId = getReceiverSocketId(memberId.toString());
-        if (receiverSocketId) {
-          io.to(receiverSocketId).emit("sendMessage", {
+        getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+          io.to(sid).emit("sendMessage", {
             conversationId: conversation._id.toString(),
             message: populatedMessage,
             lastMessage: conversation.lastMessage,
             updatedAt: conversation.updatedAt,
           });
-        }
+        });
       });
 
       return res.status(201).json(populatedMessage);
@@ -379,8 +378,8 @@ export const sendMessage = async (req, res, next) => {
     await conversation.save();
 
     const populatedMessage = await Message.findById(message._id)
-      .populate("senderId", "-password")
-      .populate("readBy", "-password")
+      .populate("senderId", "fullName avatar email")
+      .populate("readBy", "fullName avatar")
       .populate("mentions", "fullName avatar")
       .populate({
         path: "replyTo",
@@ -390,15 +389,14 @@ export const sendMessage = async (req, res, next) => {
 
     conversation.members.forEach((memberId) => {
       if (memberId.toString() === currentUserId.toString()) return;
-      const receiverSocketId = getReceiverSocketId(memberId.toString());
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("sendMessage", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
           conversationId: conversation._id.toString(),
           message: populatedMessage,
           lastMessage: conversation.lastMessage,
           updatedAt: conversation.updatedAt,
         });
-      }
+      });
     });
 
     // Create mention notifications
@@ -433,10 +431,9 @@ export const sendMessage = async (req, res, next) => {
         .populate("message", "text messageType isRecalled createdAt");
 
       for (const notif of populatedNotifications) {
-        const receiverSocketId = getReceiverSocketId(notif.recipient.toString());
-        if (receiverSocketId) {
-          io.to(receiverSocketId).emit("new_notification", notif);
-        }
+        getReceiverSocketIds(notif.recipient.toString()).forEach((sid) => {
+          io.to(sid).emit("new_notification", notif);
+        });
       }
     }
 
@@ -489,28 +486,26 @@ export const toggleReaction = async (req, res, next) => {
     await message.save();
 
     const populatedMessage = await Message.findById(messageId)
-      .populate("senderId", "-password")
+      .populate("senderId", "fullName avatar email")
       .populate("reactions.userId", "fullName avatar")
       .populate("mentions", "fullName avatar");
 
     const conversation = await Conversation.findById(message.conversationId);
     conversation.members.forEach((memberId) => {
       const mId = memberId.toString();
-      // Bỏ qua nếu user đã xoá đoạn chat này sau thời điểm tin nhắn được gửi (tức là đối với họ tin nhắn này không tồn tại)
       if (conversation.deletedAt && conversation.deletedAt.get(mId)) {
         if (new Date(message.createdAt) <= new Date(conversation.deletedAt.get(mId))) {
           return;
         }
       }
 
-      const receiverSocketId = getReceiverSocketId(mId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("messageReaction", {
+      getReceiverSocketIds(mId).forEach((sid) => {
+        io.to(sid).emit("messageReaction", {
           conversationId: message.conversationId.toString(),
           messageId: messageId,
           reactions: populatedMessage.reactions,
         });
-      }
+      });
     });
 
     return res.status(200).json(populatedMessage);
@@ -547,14 +542,13 @@ export const markMessagesAsRead = async (req, res, next) => {
 
     conversation.members.forEach((memberId) => {
       if (memberId.toString() === currentUserId.toString()) return;
-      const receiverSocketId = getReceiverSocketId(memberId.toString());
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("messagesRead", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("messagesRead", {
           conversationId: conversation._id.toString(),
           readByUserId: currentUserId.toString(),
           modifiedCount: result.modifiedCount,
         });
-      }
+      });
     });
 
     return res.status(200).json({
@@ -595,14 +589,13 @@ export const togglePinMessage = async (req, res, next) => {
     await message.save();
 
     conversation.members.forEach((memberId) => {
-      const receiverSocketId = getReceiverSocketId(memberId.toString());
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("messagePinned", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("messagePinned", {
           conversationId: message.conversationId.toString(),
           messageId: messageId,
           isPinned: message.isPinned,
         });
-      }
+      });
     });
 
     return res.status(200).json(message);
@@ -745,21 +738,20 @@ export const forwardMessage = async (req, res, next) => {
       await conversation.save();
 
       const populatedMessage = await Message.findById(forwarded._id)
-        .populate("senderId", "-password")
-        .populate("readBy", "-password")
+        .populate("senderId", "fullName avatar email")
+        .populate("readBy", "fullName avatar")
         .populate("mentions", "fullName avatar");
 
       conversation.members.forEach((memberId) => {
         if (memberId.toString() === currentUserId.toString()) return;
-        const receiverSocketId = getReceiverSocketId(memberId.toString());
-        if (receiverSocketId) {
-          io.to(receiverSocketId).emit("sendMessage", {
+        getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+          io.to(sid).emit("sendMessage", {
             conversationId: convId,
             message: populatedMessage,
             lastMessage: conversation.lastMessage,
             updatedAt: conversation.updatedAt,
           });
-        }
+        });
       });
 
       results.push(populatedMessage);
@@ -838,14 +830,13 @@ export const editMessage = async (req, res, next) => {
 
     const conversation = await Conversation.findById(message.conversationId);
     conversation.members.forEach((memberId) => {
-      const receiverSocketId = getReceiverSocketId(memberId.toString());
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("messageEdited", {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("messageEdited", {
           conversationId: message.conversationId.toString(),
           messageId: messageId,
           newText: message.text,
         });
-      }
+      });
     });
 
     return res.status(200).json(message);
@@ -895,20 +886,18 @@ export const deleteMessage = async (req, res, next) => {
 
       conversation.members.forEach((memberId) => {
         const mId = memberId.toString();
-        // Bỏ qua nếu user đã xoá đoạn chat này sau thời điểm tin nhắn được gửi
         if (conversation.deletedAt && conversation.deletedAt.get(mId)) {
           if (new Date(message.createdAt) <= new Date(conversation.deletedAt.get(mId))) {
             return;
           }
         }
-        
-        const receiverSocketId = getReceiverSocketId(mId);
-        if (receiverSocketId) {
-          io.to(receiverSocketId).emit("messageRecalled", {
+
+        getReceiverSocketIds(mId).forEach((sid) => {
+          io.to(sid).emit("messageRecalled", {
             conversationId: message.conversationId.toString(),
             messageId: messageId,
           });
-        }
+        });
       });
     } else if (type === "me") {
       await Message.findByIdAndUpdate(messageId, {
