@@ -1376,15 +1376,15 @@ export const markAsUnread = async (req, res, next) => {
       return res.status(404).json({ message: "Không tìm thấy đoạn chat" });
     }
 
-    if (!conversation.members.includes(currentUserId)) {
+    if (!conversation.members.some((id) => id.toString() === currentUserId.toString())) {
       return res.status(403).json({ message: "Không có quyền thực hiện" });
     }
 
     if (!conversation.markedUnreadBy) {
       conversation.markedUnreadBy = [];
     }
-    
-    if (!conversation.markedUnreadBy.includes(currentUserId)) {
+
+    if (!conversation.markedUnreadBy.some((id) => id.toString() === currentUserId.toString())) {
       conversation.markedUnreadBy.push(currentUserId);
       await conversation.save();
     }

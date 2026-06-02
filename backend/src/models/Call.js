@@ -64,4 +64,9 @@ const callSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+callSchema.index({ callerId: 1 });
+callSchema.index({ "participants.userId": 1 });
+callSchema.index({ conversationId: 1 });
+callSchema.index({ createdAt: -1 });
+
 export default mongoose.model("Call", callSchema);

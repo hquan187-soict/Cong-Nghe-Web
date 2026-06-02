@@ -459,10 +459,14 @@ export const markMessagesAsRead = async (req, res, next) => {
       throw error;
     }
 
-    await checkConversationAccess(conversationId, currentUserId, { checkBlock: false });
+    const conversation = await checkConversationAccess(conversationId, currentUserId, { checkBlock: false });
 
     const result = await Message.updateMany(
-      { conversationId },
+      {
+        conversationId,
+        senderId: { $ne: currentUserId },
+        readBy: { $ne: currentUserId },
+      },
       {
         $addToSet: {
           readBy: currentUserId,
@@ -470,34 +474,21 @@ export const markMessagesAsRead = async (req, res, next) => {
       },
     );
 
-    const messages = await Message.find({
-      conversationId,
-      isDeletedBy: { $ne: currentUserId },
-    })
-      .populate("senderId", "-password")
-      .populate("readBy", "-password")
-      .populate("mentions", "fullName avatar")
-      .sort({ createdAt: -1 });
-
-    const conversation = await Conversation.findById(conversationId);
     conversation.members.forEach((memberId) => {
       if (memberId.toString() === currentUserId.toString()) return;
       const receiverSocketId = getReceiverSocketId(memberId.toString());
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("messagesRead", {
           conversationId: conversation._id.toString(),
-          messages,
+          readByUserId: currentUserId.toString(),
+          modifiedCount: result.modifiedCount,
         });
-        console.log(
-          `Thông báo đã đọc đã được gửi đến socketId: ${receiverSocketId}`,
-        );
       }
     });
 
     return res.status(200).json({
       message: "Đã đánh dấu messages là đã đọc.",
       modifiedCount: result.modifiedCount,
-      messages,
     });
   } catch (error) {
     return next(error);
@@ -633,6 +624,12 @@ export const forwardMessage = async (req, res, next) => {
 
     if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
       const error = new Error("conversationIds là bắt buộc.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (conversationIds.length > 10) {
+      const error = new Error("Chỉ có thể chuyển tiếp tối đa 10 cuộc trò chuyện cùng lúc.");
       error.statusCode = 400;
       throw error;
     }
