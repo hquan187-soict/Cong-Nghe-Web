@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import http from "http";
 import express from "express";
+import mongoose from "mongoose";
 import { socketAuthMiddleware } from "../middleware/socketAuthMiddleware.js";
 import User from "../models/User.js";
 import Conversation from "../models/Conversation.js";
@@ -217,8 +218,25 @@ io.on("connection", async (socket) => {
   }
 
   // Quản lý phòng chat
-  socket.on("join_conversation", (conversationId) => {
-    if (conversationId) socket.join(conversationId);
+  socket.on("join_conversation", async (conversationId) => {
+    if (!conversationId) return;
+    try {
+      const conversation = await Conversation.findById(conversationId).select("members");
+      if (!conversation) {
+        socket.emit("error", { message: "Conversation not found" });
+        return;
+      }
+      const isMember = conversation.members.some(
+        (id) => id.toString() === userId
+      );
+      if (!isMember) {
+        socket.emit("error", { message: "You are not a member of this conversation" });
+        return;
+      }
+      socket.join(conversationId);
+    } catch (err) {
+      socket.emit("error", { message: "Failed to join conversation" });
+    }
   });
 
   socket.on("leave_conversation", (conversationId) => {
@@ -227,15 +245,13 @@ io.on("connection", async (socket) => {
 
   // Proxy tính năng Typing
   socket.on("typing_start", async ({ conversationId }) => {
-    if (conversationId) {
-      await emitTypingToConversation(conversationId, userId, "typing_start");
-    }
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) return;
+    await emitTypingToConversation(conversationId, userId, "typing_start");
   });
 
   socket.on("typing_stop", async ({ conversationId }) => {
-    if (conversationId) {
-      await emitTypingToConversation(conversationId, userId, "typing_stop");
-    }
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) return;
+    await emitTypingToConversation(conversationId, userId, "typing_stop");
   });
 
   // ============ CALL EVENTS ============
@@ -498,7 +514,12 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("call_signal", ({ callId, targetUserId, signal }) => {
-    console.log(`[CALL] call_signal from ${socket.user.fullName} -> ${targetUserId}, type=${signal?.type || 'ice'}`);
+    const senderCallId = activeUserCalls.get(userId);
+    const targetCallId = activeUserCalls.get(targetUserId);
+    if (!senderCallId || !targetCallId || senderCallId !== targetCallId) {
+      return;
+    }
+
     const targetSid = userSocketsMap[targetUserId];
     if (targetSid) {
       io.to(targetSid).emit("call_signal", {
@@ -506,8 +527,6 @@ io.on("connection", async (socket) => {
         fromUserId: userId,
         signal,
       });
-    } else {
-      console.log(`[CALL] WARNING: target ${targetUserId} not found in userSocketsMap`);
     }
   });
 
@@ -574,20 +593,7 @@ io.on("connection", async (socket) => {
           (p) => p.status === "joined"
         );
 
-        const callerStillIn = isCaller
-          ? false
-          : call.callerId.toString() !== userId;
-
-        const activeCount = remainingJoined.length + (callerStillIn ? 0 : 0);
-        const realActive = remainingJoined.filter(
-          (p) => p.userId.toString() !== call.callerId.toString()
-        );
-
-        const totalActive = realActive.length +
-          (call.callerId.toString() !== userId &&
-           !call.participants.some(
-             (p) => p.userId.toString() === call.callerId.toString() && p.status === "left"
-           ) ? 1 : 0);
+        const totalActive = remainingJoined.length;
 
         call.participants.forEach((p) => {
           if (p.status === "joined" && p.userId.toString() !== userId) {
@@ -612,7 +618,7 @@ io.on("connection", async (socket) => {
             });
         }
 
-        if (remainingJoined.length < 2) {
+        if (totalActive < 2) {
           call.status = "ended";
           call.endedAt = new Date();
           call.endReason = "normal";
