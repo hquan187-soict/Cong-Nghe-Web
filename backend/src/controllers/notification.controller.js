@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Notification from "../models/Notification.js";
 
 export const getNotifications = async (req, res, next) => {
@@ -50,6 +51,12 @@ export const markNotificationRead = async (req, res, next) => {
     if (!currentUserId) {
       const error = new Error("Bạn chưa đăng nhập.");
       error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(notificationId)) {
+      const error = new Error("notificationId không hợp lệ.");
+      error.statusCode = 400;
       throw error;
     }
 

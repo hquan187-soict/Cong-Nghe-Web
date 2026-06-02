@@ -7,6 +7,43 @@ import Notification from "../models/Notification.js";
 import cloudinary from "../lib/cloudinary.js";
 import { io, getReceiverSocketId } from "../lib/socket.js";
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const ALLOWED_FILE_TYPES = [
+  "image/jpeg", "image/png", "image/gif", "image/webp",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "application/zip", "application/x-rar-compressed",
+  "video/mp4", "video/webm",
+  "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm", "audio/mp4",
+];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const getBase64Size = (base64String) => {
+  const match = base64String.match(/^data:[^;]+;base64,/);
+  const base64Data = match ? base64String.slice(match[0].length) : base64String;
+  return Math.ceil((base64Data.length * 3) / 4);
+};
+
+const getMimeFromBase64 = (base64String) => {
+  const match = base64String.match(/^data:([^;]+);base64,/);
+  return match ? match[1] : null;
+};
+
+const sanitizeFileName = (name) => {
+  if (!name || typeof name !== "string") return "file";
+  let sanitized = name.replace(/\\/g, "/");
+  sanitized = sanitized.split("/").pop() || "file";
+  sanitized = sanitized.replace(/\.\./g, "");
+  return sanitized.slice(0, 255) || "file";
+};
+
 const hasBlockBetweenUsers = async (userAId, userBId) => {
   const users = await User.find({
     _id: { $in: [userAId, userBId] },
@@ -247,6 +284,17 @@ export const sendMessage = async (req, res, next) => {
 
     let imageUrl = image || null;
     if (image && image.startsWith("data:")) {
+      const imageMime = getMimeFromBase64(image);
+      if (imageMime && !ALLOWED_IMAGE_TYPES.includes(imageMime)) {
+        const error = new Error("Định dạng ảnh không được hỗ trợ.");
+        error.statusCode = 400;
+        throw error;
+      }
+      if (getBase64Size(image) > MAX_IMAGE_SIZE) {
+        const error = new Error("Kích thước ảnh vượt quá 5MB.");
+        error.statusCode = 400;
+        throw error;
+      }
       const uploaded = await cloudinary.uploader.upload(image, {
         folder: "chat_images",
       });
@@ -256,6 +304,25 @@ export const sendMessage = async (req, res, next) => {
     let fileData = null;
     const isAudio = file && file.type && file.type.startsWith("audio/");
     if (file && file.data) {
+      if (!file.type || !ALLOWED_FILE_TYPES.includes(file.type)) {
+        const error = new Error("Định dạng file không được hỗ trợ.");
+        error.statusCode = 400;
+        throw error;
+      }
+      if (typeof file.data === "string") {
+        const fileMime = getMimeFromBase64(file.data);
+        if (fileMime && !ALLOWED_FILE_TYPES.includes(fileMime)) {
+          const error = new Error("Định dạng file không được hỗ trợ.");
+          error.statusCode = 400;
+          throw error;
+        }
+        if (getBase64Size(file.data) > MAX_FILE_SIZE) {
+          const error = new Error("Kích thước file vượt quá 10MB.");
+          error.statusCode = 400;
+          throw error;
+        }
+      }
+
       let uploadData = file.data;
       if (isAudio && uploadData.startsWith("data:audio/")) {
         uploadData = uploadData.replace(/^data:audio\/[^;]*(?:;[^;]*)*;base64,/, "data:video/webm;base64,");
@@ -264,14 +331,18 @@ export const sendMessage = async (req, res, next) => {
         folder: isAudio ? "chat_audio" : "chat_files",
         resource_type: isAudio ? "video" : "auto",
       });
+      const sanitizedName = sanitizeFileName(file.name);
       fileData = {
         url: uploaded.secure_url,
-        name: file.name || "file",
+        name: sanitizedName,
         size: file.size || 0,
         type: file.type || "",
       };
       if (isAudio && file.duration) {
-        fileData.duration = Number(file.duration);
+        const dur = Number(file.duration);
+        if (dur > 0 && dur < 3600) {
+          fileData.duration = dur;
+        }
       }
     }
 

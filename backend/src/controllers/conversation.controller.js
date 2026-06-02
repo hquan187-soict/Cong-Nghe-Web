@@ -1371,20 +1371,36 @@ export const markAsUnread = async (req, res, next) => {
     const currentUserId = req.user?._id;
     const { id } = req.params;
 
-    const conversation = await Conversation.findById(id);
-    if (!conversation) {
-      return res.status(404).json({ message: "Không tìm thấy đoạn chat" });
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
     }
 
-    if (!conversation.members.some((id) => id.toString() === currentUserId.toString())) {
-      return res.status(403).json({ message: "Không có quyền thực hiện" });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Không tìm thấy đoạn chat");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (!conversation.members.some((mid) => mid.toString() === currentUserId.toString())) {
+      const error = new Error("Không có quyền thực hiện");
+      error.statusCode = 403;
+      throw error;
     }
 
     if (!conversation.markedUnreadBy) {
       conversation.markedUnreadBy = [];
     }
 
-    if (!conversation.markedUnreadBy.some((id) => id.toString() === currentUserId.toString())) {
+    if (!conversation.markedUnreadBy.some((mid) => mid.toString() === currentUserId.toString())) {
       conversation.markedUnreadBy.push(currentUserId);
       await conversation.save();
     }
