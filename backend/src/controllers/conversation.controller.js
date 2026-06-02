@@ -792,31 +792,39 @@ export const getConversations = async (req, res, next) => {
       return new Date(conv.lastMessage.createdAt) > new Date(deletedAt);
     });
 
-    const conversationsWithUnreadCount = await Promise.all(
-      filteredConversations.map(async (conversation) => {
-        const deletedAt = conversation.deletedAt ? conversation.deletedAt.get(currentUserId.toString()) : null;
-        
-        const query = {
-          conversationId: conversation._id,
-          senderId: { $ne: currentUserId },
-          readBy: { $ne: currentUserId },
-        };
-        
-        if (deletedAt) {
-          query.createdAt = { $gt: deletedAt };
-        }
+    const matchConditions = filteredConversations.map(conv => {
+      const deletedAt = conv.deletedAt ? conv.deletedAt.get(currentUserId.toString()) : null;
+      const condition = {
+        conversationId: conv._id,
+        senderId: { $ne: currentUserId },
+        readBy: { $ne: currentUserId },
+      };
+      if (deletedAt) {
+        condition.createdAt = { $gt: new Date(deletedAt) };
+      }
+      return condition;
+    });
 
-        const unreadCount = await Message.countDocuments(query);
+    let unreadCountMap = {};
+    if (matchConditions.length > 0) {
+      const unreadCounts = await Message.aggregate([
+        { $match: { $or: matchConditions } },
+        { $group: { _id: "$conversationId", count: { $sum: 1 } } },
+      ]);
+      unreadCounts.forEach(({ _id, count }) => {
+        unreadCountMap[_id.toString()] = count;
+      });
+    }
 
-        const obj = conversation.toJSON();
-        return {
-          ...obj,
-          unreadCount,
-        };
-      })
-    );
+    const result = filteredConversations.map(conversation => {
+      const obj = conversation.toJSON();
+      return {
+        ...obj,
+        unreadCount: unreadCountMap[conversation._id.toString()] || 0,
+      };
+    });
 
-    return res.status(200).json(conversationsWithUnreadCount);
+    return res.status(200).json(result);
   } catch (error) {
     return next(error);
   }

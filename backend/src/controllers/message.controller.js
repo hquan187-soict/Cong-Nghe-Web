@@ -712,6 +712,12 @@ export const forwardMessage = async (req, res, next) => {
       throw error;
     }
 
+    if (originalMessage.isRecalled) {
+      const error = new Error("Không thể chuyển tiếp tin nhắn đã thu hồi.");
+      error.statusCode = 400;
+      throw error;
+    }
+
     await checkConversationAccess(originalMessage.conversationId, currentUserId);
 
     const results = [];
@@ -719,12 +725,17 @@ export const forwardMessage = async (req, res, next) => {
     for (const convId of conversationIds) {
       const conversation = await checkConversationAccess(convId, currentUserId);
 
+      const forwardedType = originalMessage.messageType === "system" || originalMessage.messageType === "call"
+        ? "text"
+        : originalMessage.messageType || "text";
+
       const forwarded = await Message.create({
         conversationId: convId,
         senderId: currentUserId,
         text: originalMessage.text || "",
         image: originalMessage.image || null,
         file: originalMessage.file || null,
+        messageType: forwardedType,
         isForwarded: true,
         readBy: [currentUserId],
       });

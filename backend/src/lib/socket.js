@@ -21,16 +21,17 @@ const io = new Server(server, {
 
 io.use(socketAuthMiddleware);
 
-export function getReceiverSocketId(userId) {
-  return userSocketsMap[userId];
+export function getReceiverSocketIds(userId) {
+  const sockets = userSocketsMap.get(userId);
+  return sockets ? [...sockets] : [];
 }
 
-const userSocketsMap = {};
+const userSocketsMap = new Map();
 const callTimeouts = new Map();
 const activeUserCalls = new Map();
 
 async function getVisibleOnlineUsers() {
-  const onlineIds = Object.keys(userSocketsMap);
+  const onlineIds = [...userSocketsMap.keys()];
   if (onlineIds.length === 0) return [];
   const users = await User.find({ _id: { $in: onlineIds }, showActiveStatus: { $ne: false } }).select("_id");
   return users.map((u) => u._id.toString());
@@ -49,9 +50,11 @@ async function emitTypingToConversation(conversationId, senderId, eventName) {
     const memberIdStr = memberId.toString();
     if (memberIdStr === senderId.toString()) return;
 
-    const receiverSocketId = userSocketsMap[memberIdStr];
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit(eventName, { conversationId, userId: senderId });
+    const receiverSocketIds = userSocketsMap.get(memberIdStr);
+    if (receiverSocketIds) {
+      receiverSocketIds.forEach((sid) => {
+        io.to(sid).emit(eventName, { conversationId, userId: senderId });
+      });
     }
   });
 }
@@ -90,13 +93,15 @@ async function createCallMessage(call) {
     const conversation = await Conversation.findById(call.conversationId).select("members");
     if (conversation) {
       conversation.members.forEach((memberId) => {
-        const sid = userSocketsMap[memberId.toString()];
-        if (sid) {
-          io.to(sid).emit("sendMessage", {
-            conversationId: call.conversationId.toString(),
-            message: populated,
-            lastMessage: populated,
-            updatedAt: new Date(),
+        const sids = userSocketsMap.get(memberId.toString());
+        if (sids) {
+          sids.forEach((sid) => {
+            io.to(sid).emit("sendMessage", {
+              conversationId: call.conversationId.toString(),
+              message: populated,
+              lastMessage: populated,
+              updatedAt: new Date(),
+            });
           });
         }
       });
@@ -127,8 +132,8 @@ async function handleCallDisconnect(userId) {
         call.participants.forEach((p) => {
           if (p.status === "ringing") p.status = "missed";
           activeUserCalls.delete(p.userId.toString());
-          const sid = userSocketsMap[p.userId.toString()];
-          if (sid) io.to(sid).emit("call_ended", { callId, endReason: "caller_ended", duration: 0 });
+          const sids = userSocketsMap.get(p.userId.toString());
+          if (sids) sids.forEach((sid) => io.to(sid).emit("call_ended", { callId, endReason: "caller_ended", duration: 0 }));
         });
       } else {
         const participant = call.participants.find(
@@ -147,16 +152,16 @@ async function handleCallDisconnect(userId) {
 
       call.participants.forEach((p) => {
         if (p.status === "joined" && p.userId.toString() !== userId) {
-          const sid = userSocketsMap[p.userId.toString()];
-          if (sid) io.to(sid).emit("call_user_left", { callId, userId, fullName: "" });
+          const sids = userSocketsMap.get(p.userId.toString());
+          if (sids) sids.forEach((sid) => io.to(sid).emit("call_user_left", { callId, userId, fullName: "" }));
         }
       });
 
       if (isCaller) {
         call.participants.filter((p) => p.status === "ringing").forEach((p) => {
           p.status = "missed";
-          const sid = userSocketsMap[p.userId.toString()];
-          if (sid) io.to(sid).emit("call_ended", { callId, endReason: "caller_ended", duration: 0 });
+          const sids = userSocketsMap.get(p.userId.toString());
+          if (sids) sids.forEach((sid) => io.to(sid).emit("call_ended", { callId, endReason: "caller_ended", duration: 0 }));
         });
       }
 
@@ -169,12 +174,14 @@ async function handleCallDisconnect(userId) {
           p.status = "left";
           p.leftAt = new Date();
           activeUserCalls.delete(p.userId.toString());
-          const sid = userSocketsMap[p.userId.toString()];
-          if (sid) {
-            io.to(sid).emit("call_ended", {
-              callId,
-              endReason: "normal",
-              duration: call.startedAt ? Math.round((call.endedAt - call.startedAt) / 1000) : 0,
+          const sids = userSocketsMap.get(p.userId.toString());
+          if (sids) {
+            sids.forEach((sid) => {
+              io.to(sid).emit("call_ended", {
+                callId,
+                endReason: "normal",
+                duration: call.startedAt ? Math.round((call.endedAt - call.startedAt) / 1000) : 0,
+              });
             });
           }
         });
@@ -203,18 +210,24 @@ io.on("connection", async (socket) => {
     `Kêt nối socket được thiết lập cho người dùng ${socket.user.fullName} `,
   );
   const userId = socket.userId;
-  userSocketsMap[userId] = socket.id;
+  if (!userSocketsMap.has(userId)) {
+    userSocketsMap.set(userId, new Set());
+  }
+  userSocketsMap.get(userId).add(socket.id);
 
-  await User.findByIdAndUpdate(userId, { isOnline: true });
+  const isFirstConnection = userSocketsMap.get(userId).size === 1;
+  if (isFirstConnection) {
+    await User.findByIdAndUpdate(userId, { isOnline: true });
 
-  const visibleOnline = await getVisibleOnlineUsers();
-  io.emit("getOnlineUsers", visibleOnline);
+    const visibleOnline = await getVisibleOnlineUsers();
+    io.emit("getOnlineUsers", visibleOnline);
 
-  if (socket.user.showActiveStatus !== false) {
-    const contactSocketIds = await getContactSocketIds(userId, userSocketsMap);
-    contactSocketIds.forEach((socketId) => {
-      io.to(socketId).emit("user_status", { userId, isOnline: true });
-    });
+    if (socket.user.showActiveStatus !== false) {
+      const contactSocketIds = await getContactSocketIds(userId, userSocketsMap);
+      contactSocketIds.forEach((socketId) => {
+        io.to(socketId).emit("user_status", { userId, isOnline: true });
+      });
+    }
   }
 
   // Quản lý phòng chat
@@ -320,19 +333,21 @@ io.on("connection", async (socket) => {
           continue;
         }
 
-        const receiverSocketId = userSocketsMap[rid];
-        if (receiverSocketId) {
+        const receiverSids = userSocketsMap.get(rid);
+        if (receiverSids && receiverSids.size > 0) {
           onlineReceiverCount++;
-          io.to(receiverSocketId).emit("call_incoming", {
-            callId: call._id.toString(),
-            callerId: userId,
-            callerName: callerUser.fullName,
-            callerAvatar: callerUser.avatar,
-            callType,
-            conversationId: conversationId.toString(),
-            isGroup: conversation.isGroup,
-            conversationName: conversation.name || null,
-            conversationAvatar: conversation.avatar || null,
+          receiverSids.forEach((sid) => {
+            io.to(sid).emit("call_incoming", {
+              callId: call._id.toString(),
+              callerId: userId,
+              callerName: callerUser.fullName,
+              callerAvatar: callerUser.avatar,
+              callType,
+              conversationId: conversationId.toString(),
+              isGroup: conversation.isGroup,
+              conversationName: conversation.name || null,
+              conversationAvatar: conversation.avatar || null,
+            });
           });
         } else {
           const p = call.participants.find((pp) => pp.userId.toString() === rid);
@@ -355,12 +370,20 @@ io.on("connection", async (socket) => {
       const timeoutId = setTimeout(async () => {
         callTimeouts.delete(call._id.toString());
         try {
-          const c = await Call.findById(call._id);
-          if (!c || c.status !== "ringing") return;
+          const c = await Call.findOneAndUpdate(
+            { _id: call._id, status: "ringing" },
+            {
+              $set: {
+                status: "ended",
+                endedAt: new Date(),
+                endReason: "no_answer",
+              },
+            },
+            { new: true }
+          );
 
-          c.status = "ended";
-          c.endedAt = new Date();
-          c.endReason = "no_answer";
+          if (!c) return;
+
           c.participants.forEach((p) => {
             if (p.status === "ringing") p.status = "missed";
           });
@@ -371,8 +394,8 @@ io.on("connection", async (socket) => {
           const uniqueIds = [...new Set(allParticipantIds)];
           uniqueIds.forEach((uid) => {
             activeUserCalls.delete(uid);
-            const sid = userSocketsMap[uid];
-            if (sid) io.to(sid).emit("call_no_answer", { callId: c._id.toString() });
+            const sids = userSocketsMap.get(uid);
+            if (sids) sids.forEach((sid) => io.to(sid).emit("call_no_answer", { callId: c._id.toString() }));
           });
 
           await createCallMessage(c);
@@ -425,13 +448,15 @@ io.on("connection", async (socket) => {
 
       const uniqueJoined = [...new Set(joinedIds)];
       uniqueJoined.forEach((uid) => {
-        const sid = userSocketsMap[uid];
-        if (sid) {
-          io.to(sid).emit("call_user_joined", {
-            callId,
-            userId,
-            fullName: socket.user.fullName,
-            avatar: socket.user.avatar,
+        const sids = userSocketsMap.get(uid);
+        if (sids) {
+          sids.forEach((sid) => {
+            io.to(sid).emit("call_user_joined", {
+              callId,
+              userId,
+              fullName: socket.user.fullName,
+              avatar: socket.user.avatar,
+            });
           });
         }
       });
@@ -465,12 +490,14 @@ io.on("connection", async (socket) => {
 
       participant.status = "rejected";
 
-      const callerSid = userSocketsMap[call.callerId.toString()];
-      if (callerSid) {
-        io.to(callerSid).emit("call_user_rejected", {
-          callId,
-          userId,
-          fullName: socket.user.fullName,
+      const callerSids = userSocketsMap.get(call.callerId.toString());
+      if (callerSids) {
+        callerSids.forEach((sid) => {
+          io.to(sid).emit("call_user_rejected", {
+            callId,
+            userId,
+            fullName: socket.user.fullName,
+          });
         });
       }
 
@@ -491,12 +518,14 @@ io.on("connection", async (socket) => {
         call.participants.forEach((p) => activeUserCalls.delete(p.userId.toString()));
         activeUserCalls.delete(call.callerId.toString());
 
-        const callerSid2 = userSocketsMap[call.callerId.toString()];
-        if (callerSid2) {
-          io.to(callerSid2).emit("call_ended", {
-            callId,
-            endReason: "all_rejected",
-            duration: 0,
+        const callerSids2 = userSocketsMap.get(call.callerId.toString());
+        if (callerSids2) {
+          callerSids2.forEach((sid) => {
+            io.to(sid).emit("call_ended", {
+              callId,
+              endReason: "all_rejected",
+              duration: 0,
+            });
           });
         }
 
@@ -520,12 +549,14 @@ io.on("connection", async (socket) => {
       return;
     }
 
-    const targetSid = userSocketsMap[targetUserId];
-    if (targetSid) {
-      io.to(targetSid).emit("call_signal", {
-        callId,
-        fromUserId: userId,
-        signal,
+    const targetSids = userSocketsMap.get(targetUserId);
+    if (targetSids) {
+      targetSids.forEach((sid) => {
+        io.to(sid).emit("call_signal", {
+          callId,
+          fromUserId: userId,
+          signal,
+        });
       });
     }
   });
