@@ -2,9 +2,9 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   User, MessageSquare, Phone, Video, Info, X,
-  BellOff, Bell, Search, ChevronDown, Lock, Sparkles,
+  BellOff, Bell, Search, ChevronDown, Sparkles,
   Palette, AtSign, SmilePlus, Image, FileText,
-  ShieldBan, Flag, ChevronRight, Users, LogOut,
+  ShieldBan, ChevronRight, Users, LogOut,
   Camera, Loader2, UserPlus, Plus, MoreVertical,
   MessageCircle, UserMinus, Shield, Check, Archive, Pin,
   ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf, ShieldCheck
@@ -183,17 +183,12 @@ function ChatPage() {
   )
 
   const handleToggleMute = async () => {
-    try {
-      const updatedConv = await conversationService.toggleMuteConversation(selectedConversation._id)
-      setSelectedConversation(updatedConv)
-      localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
-      if (sidebarRef.current?.updateConversationDetails) {
-        sidebarRef.current.updateConversationDetails(updatedConv)
+    if (sidebarRef.current?.handleMute) {
+      const updatedConv = await sidebarRef.current.handleMute(selectedConversation._id)
+      if (updatedConv) {
+        setSelectedConversation(updatedConv)
+        localStorage.setItem('last_conversation', JSON.stringify(updatedConv))
       }
-      const nowMuted = updatedConv.mutedBy?.some(id => (id._id || id).toString() === currentUserId)
-      toast.success(nowMuted ? 'Đã tắt thông báo' : 'Đã bật thông báo')
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra')
     }
   }
 
@@ -1354,10 +1349,6 @@ function ChatPage() {
                   : (selectedConversation.nicknames?.[otherMember?._id] || otherMember?.fullName || t('chat.unknownUser'))}
               </h3>
             )}
-            <div className="info-panel__encryption">
-              <Lock size={12} />
-              <span>{t('chat.endToEndEncrypted')}</span>
-            </div>
             {isGroup && (
               <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>
                 <button
@@ -2027,10 +2018,6 @@ function ChatPage() {
                     <span>{isBlockingUser ? 'Đang xử lý...' : t('chat.blockUser')}</span>
                   </button>
                 )}
-                <button className="info-panel__action-row info-panel__action-row--danger">
-                  <Flag size={16} />
-                  <span>{t('chat.reportConversation')}</span>
-                </button>
               </div>
             )}
           </div>

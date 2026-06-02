@@ -142,6 +142,10 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     isConversationMuted(conversationId) {
       return !!muteMap[conversationId]
     },
+
+    handleMute(conversationId) {
+      setMuteMap(prev => ({ ...prev, [conversationId]: !prev[conversationId] }))
+    },
   }), [muteMap])
 
   useEffect(() => {
@@ -302,9 +306,25 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     setPinMap(prev => ({ ...prev, [convId]: !prev[convId] }))
   }, [])
 
-  const handleMute = useCallback((convId) => {
+  const handleMute = useCallback(async (convId) => {
+    const prevMuted = !!muteMap[convId]
     setMuteMap(prev => ({ ...prev, [convId]: !prev[convId] }))
-  }, [])
+    try {
+      const updatedConv = await conversationService.toggleMuteConversation(convId)
+      setConversations(prev =>
+        prev.map(conv => conv._id === convId ? { ...conv, ...updatedConv } : conv)
+      )
+      const uid = user?._id?.toString()
+      const nowMuted = updatedConv.mutedBy?.some(id => (id._id || id).toString() === uid)
+      setMuteMap(prev => ({ ...prev, [convId]: !!nowMuted }))
+      toast.success(nowMuted ? 'Đã tắt thông báo' : 'Đã bật thông báo')
+      return updatedConv
+    } catch {
+      setMuteMap(prev => ({ ...prev, [convId]: prevMuted }))
+      toast.error('Có lỗi xảy ra')
+      return null
+    }
+  }, [muteMap, user?._id])
 
   const handleArchive = useCallback(async (convId) => {
     try {

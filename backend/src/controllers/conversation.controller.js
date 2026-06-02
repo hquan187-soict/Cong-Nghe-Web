@@ -801,9 +801,11 @@ export const getConversations = async (req, res, next) => {
 
     const result = filteredConversations.map(conversation => {
       const obj = conversation.toJSON();
+      const uid = currentUserId.toString();
       return {
         ...obj,
         unreadCount: unreadCountMap[conversation._id.toString()] || 0,
+        isMuted: (conversation.mutedBy || []).some(id => id.toString() === uid),
       };
     });
 
