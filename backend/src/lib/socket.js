@@ -7,16 +7,13 @@ import Conversation from "../models/Conversation.js";
 import Call from "../models/Call.js";
 import Message from "../models/Message.js";
 import { getContactSocketIds } from "./socketHelper.js";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [process.env.CLIENT_URL],
+    origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : [],
     credentials: true,
   },
 });
