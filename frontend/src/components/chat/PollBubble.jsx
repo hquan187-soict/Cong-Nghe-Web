@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Lock } from 'lucide-react'
+import { Lock, Pin } from 'lucide-react'
 import PollDetailModal from './PollDetailModal'
 import Avatar from '../ui/Avatar'
+import { messageService } from '../../services/message.service'
 
 function formatDeadline(deadline) {
   if (!deadline) return null
@@ -13,9 +14,22 @@ function formatDeadline(deadline) {
   return `${hh}:${mm} ngày ${dd}/${mo}`
 }
 
-export default function PollBubble({ message, currentUserId, conversation }) {
+export default function PollBubble({ message, currentUserId, conversation, isGroup }) {
   const [showDetail, setShowDetail] = useState(false)
+  const [pinLoading, setPinLoading] = useState(false)
   const poll = message.poll
+
+  const handleTogglePin = async (e) => {
+    e.stopPropagation()
+    if (pinLoading) return
+    setPinLoading(true)
+    try {
+      await messageService.togglePinMessage(message._id)
+    } catch {
+    } finally {
+      setPinLoading(false)
+    }
+  }
 
   const totalVotesCount = useMemo(() => {
     return poll.options.reduce((sum, opt) => sum + opt.voters.length, 0)
@@ -44,7 +58,17 @@ export default function PollBubble({ message, currentUserId, conversation }) {
 
   return (
     <>
-      <div className="poll-bubble-centered">
+      <div className="poll-bubble-centered" style={{ position: 'relative' }}>
+        {isGroup && (
+          <button
+            className={`poll-bubble-centered__pin-btn ${message.isPinned ? 'poll-bubble-centered__pin-btn--active' : ''}`}
+            onClick={handleTogglePin}
+            disabled={pinLoading}
+            title={message.isPinned ? 'Bỏ ghim' : 'Ghim bình chọn'}
+          >
+            <Pin size={14} />
+          </button>
+        )}
         <div className="poll-bubble-centered__question">{poll.question}</div>
 
         {poll.deadline && (

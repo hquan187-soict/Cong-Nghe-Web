@@ -59,6 +59,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
   const [hasMore, setHasMore] = useState(false)
   const [sending, setSending] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
+  const [jumpedMode, setJumpedMode] = useState(false)
 
   // Reply state
   const [replyingTo, setReplyingTo] = useState(null)
@@ -78,6 +79,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
   const scrollContainerRef = useRef(null)
   const prevScrollHeightRef = useRef(0)
   const messageInputRef = useRef(null)
+  const jumpedModeRef = useRef(false)
 
   const currentUserId = user?._id?.toString()
 
@@ -100,7 +102,9 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
     jumpToMessages: (msgs, targetId) => {
       setMessages(msgs)
       setPage(null)
-      setHasMore(false)
+      setHasMore(true)
+      setJumpedMode(true)
+      jumpedModeRef.current = true
       setTimeout(() => {
         const el = document.getElementById(`msg-${targetId}`)
         if (el) {
@@ -111,6 +115,8 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
       }, 100)
     },
     returnToLatest: () => {
+      setJumpedMode(false)
+      jumpedModeRef.current = false
       setPage(1)
       setHasMore(false)
       fetchMessages(conversationId, 1, false)
@@ -184,6 +190,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
 
     const handleNewMessage = ({ conversationId: incomingConvId, message }) => {
       if (incomingConvId !== conversationId) return
+      if (jumpedModeRef.current) return
       setMessages((prev) => {
         const alreadyExists = prev.some((m) => m._id === message._id)
         if (alreadyExists) return prev
@@ -381,6 +388,29 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
     }
   }, [loadingMore])
 
+  const loadMoreJumped = useCallback(async () => {
+    if (!jumpedMode || loadingMore || !messages.length) return
+    setLoadingMore(true)
+    prevScrollHeightRef.current = scrollContainerRef.current?.scrollHeight ?? 0
+    try {
+      const oldestMsg = messages[0]
+      const res = await messageService.getMessagesAround(conversationId, oldestMsg._id, 15)
+      const fetched = res?.messages || res?.data?.messages || []
+      const existingIds = new Set(messages.map(m => m._id))
+      const olderMsgs = fetched.filter(m => !existingIds.has(m._id) && new Date(m.createdAt) < new Date(oldestMsg.createdAt))
+      if (olderMsgs.length > 0) {
+        olderMsgs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        setMessages(prev => [...olderMsgs, ...prev])
+      } else {
+        setHasMore(false)
+      }
+    } catch {
+      setHasMore(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [jumpedMode, loadingMore, messages, conversationId])
+
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
     if (!el) return
@@ -389,9 +419,13 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
     setShowScrollBtn(distanceFromBottom > 200)
 
     if (!loadingMore && hasMore && el.scrollTop < 60) {
-      fetchMessages(conversationId, page + 1, true)
+      if (jumpedMode) {
+        loadMoreJumped()
+      } else {
+        fetchMessages(conversationId, page + 1, true)
+      }
     }
-  }, [loadingMore, hasMore, conversationId, page, fetchMessages])
+  }, [loadingMore, hasMore, conversationId, page, fetchMessages, jumpedMode, loadMoreJumped])
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -404,6 +438,8 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
     })
     setReplyingTo(null)
     setIsBlocked(false)
+    setJumpedMode(false)
+    jumpedModeRef.current = false
   }, [conversationId])
 
   useEffect(() => {
@@ -772,6 +808,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
                     message={msg}
                     currentUserId={currentUserId}
                     conversation={convProp}
+                    isGroup={isGroup}
                   />
                 </div>
               )

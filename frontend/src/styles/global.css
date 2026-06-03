@@ -1854,6 +1854,43 @@ a:hover {
   background: var(--color-border-subtle);
 }
 
+.poll-bubble-centered__pin-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--color-hover-bg);
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background 0.2s, color 0.2s;
+  z-index: 2;
+}
+
+.poll-bubble-centered__pin-btn:hover {
+  background: var(--color-border-subtle);
+  color: var(--color-primary);
+}
+
+.poll-bubble-centered__pin-btn--active {
+  color: var(--color-primary);
+  background: var(--color-primary-light, rgba(99, 102, 241, 0.1));
+}
+
+.poll-bubble-centered__pin-btn--active:hover {
+  background: var(--color-border-subtle);
+}
+
+.poll-bubble-centered__pin-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ===========================
    POLL DETAIL MODAL
    =========================== */

@@ -309,11 +309,12 @@ function ChatPage() {
   const searchMessageTimerRef = useRef(null)
 
   useEffect(() => {
-    // Reset search when conversation changes
+    // Reset search and jump state when conversation changes
     setShowSearchPanel(false)
     setSearchQuery('')
     setSearchResults([])
     setIsSearchingMessage(false)
+    setJumpedToMessage(false)
   }, [selectedConversation?._id])
 
   const handleMessageSearch = (query) => {
@@ -336,23 +337,35 @@ function ChatPage() {
     }, 300)
   }
 
-  const handleSearchResultClick = (messageId) => {
+  const handleSearchResultClick = async (messageId) => {
     const isMobile = window.innerWidth < 768
     if (isMobile) {
       setShowSearchPanel(false)
       setShowInfoPanel(false)
     }
     const delay = isMobile ? 350 : 0
-    setTimeout(() => {
-      const el = document.getElementById(`msg-${messageId}`)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        el.classList.add('mention-flash')
-        setTimeout(() => el.classList.remove('mention-flash'), 2500)
+    await new Promise(r => setTimeout(r, delay))
+
+    const el = document.getElementById(`msg-${messageId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('mention-flash')
+      setTimeout(() => el.classList.remove('mention-flash'), 2500)
+      return
+    }
+
+    try {
+      const res = await messageService.getMessagesAround(selectedConversation._id, messageId)
+      const msgs = res?.messages || res?.data?.messages || []
+      if (msgs.length > 0 && chatWindowRef.current?.jumpToMessages) {
+        chatWindowRef.current.jumpToMessages(msgs, messageId)
+        setJumpedToMessage(true)
       } else {
-        toast.info('Tin nhắn này quá cũ hoặc chưa được tải, vui lòng cuộn lên để tìm.')
+        toast.info('Không thể tải tin nhắn.')
       }
-    }, delay)
+    } catch {
+      toast.info('Không thể tải tin nhắn.')
+    }
   }
 
   const handleAddMemberSearch = (query) => {
@@ -781,26 +794,40 @@ function ChatPage() {
 
   const handleNotificationClick = useCallback(async (conversationId, messageId) => {
     if (!conversationId) return
+    let convMatch = null
     if (selectedConvIdRef.current !== conversationId) {
       try {
         const convs = await conversationService.getConversations()
-        const match = (Array.isArray(convs) ? convs : []).find(c => c._id === conversationId)
-        if (match) {
-          handleSelectConversation(match)
+        convMatch = (Array.isArray(convs) ? convs : []).find(c => c._id === conversationId)
+        if (convMatch) {
+          handleSelectConversation(convMatch)
         }
       } catch {}
     }
     if (messageId) {
-      setTimeout(() => {
-        const el = document.getElementById(`msg-${messageId}`)
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          el.classList.add('mention-flash')
-          setTimeout(() => el.classList.remove('mention-flash'), 2500)
+      await new Promise(r => setTimeout(r, 500))
+
+      const el = document.getElementById(`msg-${messageId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('mention-flash')
+        setTimeout(() => el.classList.remove('mention-flash'), 2500)
+        return
+      }
+
+      const convId = convMatch?._id || conversationId
+      try {
+        const res = await messageService.getMessagesAround(convId, messageId)
+        const msgs = res?.messages || res?.data?.messages || []
+        if (msgs.length > 0 && chatWindowRef.current?.jumpToMessages) {
+          chatWindowRef.current.jumpToMessages(msgs, messageId)
+          setJumpedToMessage(true)
         } else {
-          toast.info('Tin nhắn quá cũ hoặc chưa được tải, vui lòng cuộn lên để tìm.')
+          toast.info('Không thể tải tin nhắn.')
         }
-      }, 500)
+      } catch {
+        toast.info('Không thể tải tin nhắn.')
+      }
     }
   }, [handleSelectConversation, toast])
 
@@ -1522,24 +1549,36 @@ function ChatPage() {
                         borderRadius: '8px', borderBottom: '1px solid var(--color-border-subtle)',
                         cursor: 'pointer'
                       }}
-                        onClick={() => {
+                        onClick={async () => {
                           const isMobile = window.innerWidth < 768
                           setInfoPinnedOpen(false)
                           if (isMobile) {
                             setShowInfoPanel(false)
                           }
                           const delay = isMobile ? 350 : 100
-                          setTimeout(() => {
-                            const el = document.getElementById(`msg-${msg._id}`)
-                            if (el) {
-                              el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                              el.style.transition = 'background 0.3s'
-                              el.style.background = 'var(--color-primary-light)'
-                              setTimeout(() => { el.style.background = '' }, 1500)
+                          await new Promise(r => setTimeout(r, delay))
+
+                          const el = document.getElementById(`msg-${msg._id}`)
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            el.style.transition = 'background 0.3s'
+                            el.style.background = 'var(--color-primary-light)'
+                            setTimeout(() => { el.style.background = '' }, 1500)
+                            return
+                          }
+
+                          try {
+                            const res = await messageService.getMessagesAround(selectedConversation._id, msg._id)
+                            const msgs = res?.messages || res?.data?.messages || []
+                            if (msgs.length > 0 && chatWindowRef.current?.jumpToMessages) {
+                              chatWindowRef.current.jumpToMessages(msgs, msg._id)
+                              setJumpedToMessage(true)
                             } else {
-                              toast.info('Tin nhắn này quá cũ hoặc chưa được tải, vui lòng cuộn lên để tìm.')
+                              toast.info('Không thể tải tin nhắn.')
                             }
-                          }, delay)
+                          } catch {
+                            toast.info('Không thể tải tin nhắn.')
+                          }
                         }}
                       >
                         <Avatar src={sender?.avatar} alt={sender?.fullName || '?'} size="sm" />
