@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { Upload, ArrowDown, X, Reply } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
@@ -45,7 +45,7 @@ function softenForDark(hex) {
   return `#${(1 << 24 | sr << 16 | sg << 8 | sb).toString(16).slice(1)}`
 }
 
-function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKicked = false, conversation: convProp, onAvatarClick }) {
+const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKicked = false, conversation: convProp, onAvatarClick }, ref) {
   const { user } = useAuth()
   const { socket, isConnected, joinConversation, leaveConversation } = useSocket()
   const toast = useToast()
@@ -94,6 +94,27 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     if (readByIds.length > 1) return 'read'
     return 'sent'
   }
+
+  useImperativeHandle(ref, () => ({
+    jumpToMessages: (msgs, targetId) => {
+      setMessages(msgs)
+      setPage(null)
+      setHasMore(false)
+      setTimeout(() => {
+        const el = document.getElementById(`msg-${targetId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('mention-flash')
+          setTimeout(() => el.classList.remove('mention-flash'), 2500)
+        }
+      }, 100)
+    },
+    returnToLatest: () => {
+      setPage(1)
+      setHasMore(false)
+      fetchMessages(conversationId, 1, false)
+    },
+  }))
 
   const fetchMessages = useCallback(async (convId, pageNum, isLoadMore = false) => {
     if (isLoadMore) {
@@ -277,6 +298,25 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       );
     }
 
+    const handlePollVoteUpdated = ({ conversationId: cId, messageId, poll }) => {
+      if (cId !== conversationId) return;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId ? { ...msg, poll } : msg
+        )
+      );
+    }
+
+    const handlePollResurface = ({ conversationId: cId, messageId, message: pollMsg }) => {
+      if (cId !== conversationId) return;
+      setMessages((prev) => {
+        const exists = prev.some((m) => m._id === messageId);
+        if (!exists) return [...prev, pollMsg];
+        const without = prev.filter((m) => m._id !== messageId);
+        return [...without, pollMsg];
+      });
+    }
+
     socket.on('sendMessage', handleNewMessage)
     socket.on('messagesRead', handleMessagesRead)
     socket.on('typing_start', handleTypingStart)
@@ -285,6 +325,8 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
     socket.on('messageEdited', handleEditMessage)
     socket.on('messageRecalled', handleRecallMessage)
     socket.on('messagePinned', handleMessagePinned)
+    socket.on('pollVoteUpdated', handlePollVoteUpdated)
+    socket.on('pollResurface', handlePollResurface)
     return () => {
       socket.off('sendMessage', handleNewMessage)
       socket.off('messagesRead', handleMessagesRead)
@@ -294,6 +336,8 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       socket.off('messageEdited', handleEditMessage)
       socket.off('messageRecalled', handleRecallMessage)
       socket.off('messagePinned', handleMessagePinned)
+      socket.off('pollVoteUpdated', handlePollVoteUpdated)
+      socket.off('pollResurface', handlePollResurface)
       setTypingUsers((prev) => {
         prev.forEach((val) => { if (val.timeoutId) clearTimeout(val.timeoutId) })
         return new Map()
@@ -775,6 +819,8 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
                   setMessages((prev) => prev.filter((m) => m._id !== messageId))
                 }}
                 onAvatarClick={onAvatarClick}
+                conversation={convProp}
+                currentUserId={currentUserId}
               />
             )
           })
@@ -848,7 +894,9 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
                 <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {replyingTo.messageType === 'like'
                     ? 'Đã gửi biểu tượng cảm xúc'
-                    : (replyingTo.text || (replyingTo.image ? 'Đã gửi một ảnh' : replyingTo.file ? 'Đã gửi một tệp' : ''))}
+                    : replyingTo.messageType === 'poll'
+                      ? '📊 Bình chọn'
+                      : (replyingTo.text || (replyingTo.image ? 'Đã gửi một ảnh' : replyingTo.file ? 'Đã gửi một tệp' : ''))}
                 </div>
               </div>
               <button
@@ -875,6 +923,6 @@ function ChatWindow({ conversationId, otherMember, isGroup, onMessageSent, isKic
       )}
     </div>
   )
-}
+})
 
 export default ChatWindow

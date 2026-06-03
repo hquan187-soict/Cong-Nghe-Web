@@ -163,6 +163,7 @@ export const getMessages = async (req, res, next) => {
         populate: { path: "senderId", select: "fullName avatar" },
       })
       .populate("mentions", "fullName avatar")
+      .populate("poll.options.voters", "fullName avatar")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit + 1);
@@ -624,6 +625,7 @@ export const getPinnedMessages = async (req, res, next) => {
       isDeletedBy: { $ne: currentUserId },
     })
       .populate("senderId", "fullName avatar")
+      .populate("poll.options.voters", "fullName avatar")
       .sort({ createdAt: -1 });
 
     return res.status(200).json(messages);
@@ -707,6 +709,12 @@ export const forwardMessage = async (req, res, next) => {
 
     if (originalMessage.isRecalled) {
       const error = new Error("Không thể chuyển tiếp tin nhắn đã thu hồi.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (originalMessage.messageType === "poll") {
+      const error = new Error("Không thể chuyển tiếp tin nhắn bình chọn.");
       error.statusCode = 400;
       throw error;
     }
@@ -808,8 +816,8 @@ export const editMessage = async (req, res, next) => {
       throw error;
     }
 
-    if (message.messageType === "system" || message.messageType === "like") {
-      const error = new Error("Không thể sửa tin nhắn hệ thống hoặc tin nhắn like.");
+    if (message.messageType === "system" || message.messageType === "like" || message.messageType === "poll") {
+      const error = new Error("Không thể sửa tin nhắn hệ thống, tin nhắn like hoặc bình chọn.");
       error.statusCode = 400;
       throw error;
     }
@@ -881,6 +889,9 @@ export const deleteMessage = async (req, res, next) => {
       message.text = "";
       message.image = null;
       message.file = null;
+      if (message.messageType === "poll") {
+        message.poll = undefined;
+      }
       message.isRecalled = true;
       await message.save();
 
@@ -914,6 +925,371 @@ export const deleteMessage = async (req, res, next) => {
   }
 };
 
+export const createPoll = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { conversationId, question, options, allowMultiple, allowChange, deadline } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!conversationId) {
+      const error = new Error("conversationId là bắt buộc.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await checkConversationAccess(conversationId, currentUserId);
+
+    if (!conversation.isGroup) {
+      const error = new Error("Bình chọn chỉ hỗ trợ trong nhóm.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!question || typeof question !== "string" || !question.trim()) {
+      const error = new Error("Tiêu đề bình chọn là bắt buộc.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!Array.isArray(options) || options.length < 2) {
+      const error = new Error("Cần ít nhất 2 lựa chọn.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const cleanOptions = options
+      .map((opt) => (typeof opt === "string" ? opt.trim() : ""))
+      .filter((opt) => opt.length > 0);
+
+    if (cleanOptions.length < 2) {
+      const error = new Error("Cần ít nhất 2 lựa chọn có nội dung.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (cleanOptions.some((opt) => opt.length > 200)) {
+      const error = new Error("Mỗi lựa chọn tối đa 200 ký tự.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    let parsedDeadline = null;
+    if (deadline) {
+      parsedDeadline = new Date(deadline);
+      if (isNaN(parsedDeadline.getTime())) {
+        const error = new Error("Hạn cuối không hợp lệ.");
+        error.statusCode = 400;
+        throw error;
+      }
+      if (parsedDeadline <= new Date()) {
+        const error = new Error("Hạn cuối phải ở tương lai.");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const cleanQuestion = xss(question.trim()).slice(0, 500);
+
+    const message = await Message.create({
+      conversationId,
+      senderId: currentUserId,
+      text: cleanQuestion,
+      messageType: "poll",
+      readBy: [currentUserId],
+      poll: {
+        question: cleanQuestion,
+        options: cleanOptions.map((text) => ({ text: xss(text), voters: [] })),
+        allowMultiple: !!allowMultiple,
+        allowChange: allowChange !== false,
+        deadline: parsedDeadline,
+        isClosed: false,
+      },
+    });
+
+    conversation.lastMessage = message._id;
+    conversation.updatedAt = new Date();
+    if (conversation.archivedBy && conversation.archivedBy.length > 0) {
+      conversation.archivedBy = conversation.archivedBy.filter(
+        (id) => id.toString() !== currentUserId.toString(),
+      );
+    }
+    await conversation.save();
+
+    const populatedMessage = await Message.findById(message._id)
+      .populate("senderId", "fullName avatar email")
+      .populate("readBy", "fullName avatar")
+      .populate("poll.options.voters", "fullName avatar");
+
+    conversation.members.forEach((memberId) => {
+      if (memberId.toString() === currentUserId.toString()) return;
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
+          conversationId: conversation._id.toString(),
+          message: populatedMessage,
+          lastMessage: conversation.lastMessage,
+          updatedAt: conversation.updatedAt,
+        });
+      });
+    });
+
+    return res.status(201).json(populatedMessage);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const votePoll = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { messageId } = req.params;
+    const { optionIds } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      const error = new Error("messageId không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!Array.isArray(optionIds) || optionIds.length === 0) {
+      const error = new Error("Cần chọn ít nhất 1 lựa chọn.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      const error = new Error("Tin nhắn không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (message.messageType !== "poll" || !message.poll) {
+      const error = new Error("Tin nhắn này không phải bình chọn.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await checkConversationAccess(message.conversationId, currentUserId);
+
+    if (message.poll.isClosed) {
+      const error = new Error("Cuộc bình chọn đã kết thúc.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (message.poll.deadline && new Date(message.poll.deadline) <= new Date()) {
+      message.poll.isClosed = true;
+      await message.save();
+      const error = new Error("Cuộc bình chọn đã hết hạn.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!message.poll.allowMultiple && optionIds.length > 1) {
+      const error = new Error("Cuộc bình chọn này chỉ cho phép chọn 1 lựa chọn.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const validOptionIds = new Set(message.poll.options.map((opt) => opt._id.toString()));
+    for (const oid of optionIds) {
+      if (!validOptionIds.has(oid)) {
+        const error = new Error("Lựa chọn không hợp lệ.");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const userAlreadyVoted = message.poll.options.some((opt) =>
+      opt.voters.some((v) => v.toString() === currentUserId.toString()),
+    );
+
+    if (userAlreadyVoted && !message.poll.allowChange) {
+      const error = new Error("Không thể thay đổi lựa chọn trong cuộc bình chọn này.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    message.poll.options.forEach((opt) => {
+      opt.voters = opt.voters.filter((v) => v.toString() !== currentUserId.toString());
+    });
+
+    const selectedIds = new Set(optionIds);
+    message.poll.options.forEach((opt) => {
+      if (selectedIds.has(opt._id.toString())) {
+        opt.voters.push(currentUserId);
+      }
+    });
+
+    await message.save();
+
+    const populatedMessage = await Message.findById(messageId)
+      .populate("senderId", "fullName avatar email")
+      .populate("readBy", "fullName avatar")
+      .populate("poll.options.voters", "fullName avatar");
+
+    conversation.members.forEach((memberId) => {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("pollVoteUpdated", {
+          conversationId: message.conversationId.toString(),
+          messageId: messageId,
+          poll: populatedMessage.poll,
+        });
+      });
+    });
+
+    conversation.members.forEach((memberId) => {
+      if (memberId.toString() === currentUserId.toString()) return;
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("pollResurface", {
+          conversationId: message.conversationId.toString(),
+          messageId: messageId,
+          message: populatedMessage,
+        });
+      });
+    });
+
+    return res.status(200).json(populatedMessage);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getPollDetail = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { messageId } = req.params;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      const error = new Error("messageId không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const message = await Message.findById(messageId)
+      .populate("senderId", "fullName avatar email")
+      .populate("poll.options.voters", "fullName avatar");
+
+    if (!message) {
+      const error = new Error("Tin nhắn không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (message.messageType !== "poll" || !message.poll) {
+      const error = new Error("Tin nhắn này không phải bình chọn.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    await checkConversationAccess(message.conversationId, currentUserId, { allowRemoved: true, checkBlock: false });
+
+    if (message.poll.deadline && !message.poll.isClosed && new Date(message.poll.deadline) <= new Date()) {
+      message.poll.isClosed = true;
+      await message.save();
+    }
+
+    return res.status(200).json(message);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getMessagesAround = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { conversationId, messageId } = req.params;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      const error = new Error("messageId không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await checkConversationAccess(conversationId, currentUserId, { allowRemoved: true, checkBlock: false });
+
+    const targetMessage = await Message.findOne({
+      _id: messageId,
+      conversationId,
+    });
+
+    if (!targetMessage) {
+      const error = new Error("Tin nhắn không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const baseQuery = {
+      conversationId,
+      isDeletedBy: { $ne: currentUserId },
+    };
+
+    if (conversation.deletedAt && conversation.deletedAt.get(currentUserId.toString())) {
+      baseQuery.createdAt = { $gt: conversation.deletedAt.get(currentUserId.toString()) };
+    }
+
+    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 5), 25);
+
+    const [beforeMsgs, afterMsgs] = await Promise.all([
+      Message.find({ ...baseQuery, createdAt: { ...baseQuery.createdAt, $lt: targetMessage.createdAt } })
+        .populate("senderId", "fullName avatar email")
+        .populate("reactions.userId", "fullName avatar")
+        .populate({ path: "replyTo", select: "text senderId image file messageType", populate: { path: "senderId", select: "fullName avatar" } })
+        .populate("mentions", "fullName avatar")
+        .populate("poll.options.voters", "fullName avatar")
+        .sort({ createdAt: -1 })
+        .limit(limit),
+      Message.find({ ...baseQuery, createdAt: { ...baseQuery.createdAt, $gt: targetMessage.createdAt } })
+        .populate("senderId", "fullName avatar email")
+        .populate("reactions.userId", "fullName avatar")
+        .populate({ path: "replyTo", select: "text senderId image file messageType", populate: { path: "senderId", select: "fullName avatar" } })
+        .populate("mentions", "fullName avatar")
+        .populate("poll.options.voters", "fullName avatar")
+        .sort({ createdAt: 1 })
+        .limit(limit),
+    ]);
+
+    const targetPopulated = await Message.findById(messageId)
+      .populate("senderId", "fullName avatar email")
+      .populate("reactions.userId", "fullName avatar")
+      .populate({ path: "replyTo", select: "text senderId image file messageType", populate: { path: "senderId", select: "fullName avatar" } })
+      .populate("mentions", "fullName avatar")
+      .populate("poll.options.voters", "fullName avatar");
+
+    const messages = [...beforeMsgs.reverse(), targetPopulated, ...afterMsgs];
+
+    return res.status(200).json({
+      messages,
+      targetMessageId: messageId,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const searchMessages = async (req, res, next) => {
   try {
     const currentUserId = req.user?._id;
@@ -938,8 +1314,10 @@ export const searchMessages = async (req, res, next) => {
       conversationId,
       isDeletedBy: { $ne: currentUserId },
       isRecalled: { $ne: true },
-      messageType: "text",
-      text: { $regex: escapedQuery, $options: "i" }
+      $or: [
+        { messageType: "text", text: { $regex: escapedQuery, $options: "i" } },
+        { messageType: "poll", "poll.question": { $regex: escapedQuery, $options: "i" } },
+      ],
     })
       .populate("senderId", "fullName avatar")
       .sort({ createdAt: -1 })

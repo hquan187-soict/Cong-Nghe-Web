@@ -64,4 +64,22 @@ export const messageService = {
       params: { q },
     });
   },
+
+  async createPoll(data) {
+    return await axiosInstance.post('/api/messages/poll', data);
+  },
+
+  async votePoll(messageId, optionIds) {
+    return await axiosInstance.post(`/api/messages/${messageId}/vote`, { optionIds });
+  },
+
+  async getPollDetail(messageId) {
+    return await axiosInstance.get(`/api/messages/${messageId}/poll`);
+  },
+
+  async getMessagesAround(conversationId, messageId, limit = 10) {
+    return await axiosInstance.get(`/api/messages/${conversationId}/around/${messageId}`, {
+      params: { limit },
+    });
+  },
 };

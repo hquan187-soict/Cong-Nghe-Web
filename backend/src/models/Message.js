@@ -35,7 +35,7 @@ const messageSchema = new mongoose.Schema(
     ],
     messageType: {
       type: String,
-      enum: ["text", "image", "file", "audio", "system", "like", "call"],
+      enum: ["text", "image", "file", "audio", "system", "like", "call", "poll"],
       default: "text",
     },
     mentions: [
@@ -89,6 +89,19 @@ const messageSchema = new mongoose.Schema(
       callType: { type: String, enum: ["voice", "video"] },
       duration: { type: Number },
       status: { type: String, enum: ["missed", "rejected", "ended", "no_answer"] },
+    },
+    poll: {
+      question: { type: String, trim: true, maxlength: 500 },
+      options: [
+        {
+          text: { type: String, trim: true, maxlength: 200 },
+          voters: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+        },
+      ],
+      allowMultiple: { type: Boolean, default: false },
+      allowChange: { type: Boolean, default: true },
+      deadline: { type: Date, default: null },
+      isClosed: { type: Boolean, default: false },
     },
   },
   { timestamps: true },

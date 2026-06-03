@@ -7,7 +7,8 @@ import {
   ShieldBan, ChevronRight, Users, LogOut,
   Camera, Loader2, UserPlus, Plus, MoreVertical,
   MessageCircle, UserMinus, Shield, Check, Archive, Pin,
-  ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf, ShieldCheck
+  ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf, ShieldCheck,
+  ChevronsDown
 } from 'lucide-react'
 
 const THEME_COLOR_PRESETS = [
@@ -51,6 +52,7 @@ import ProfileModal from '../components/ProfileModal'
 import UserProfileModal from '../components/UserProfileModal'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import ImageLightbox from '../components/chat/ImageLightbox'
+import PinnedPollBar from '../components/chat/PinnedPollBar'
 import { useMentionNotification } from '../context/MentionNotificationContext'
 import { useCall } from '../context/CallContext'
 import { Play } from 'lucide-react'
@@ -985,6 +987,79 @@ function ChatPage() {
       .finally(() => setLoadingPinned(false))
   }, [infoPinnedOpen, selectedConversation?._id])
 
+  const [pinnedPolls, setPinnedPolls] = useState([])
+  const [jumpedToMessage, setJumpedToMessage] = useState(false)
+
+  useEffect(() => {
+    if (!selectedConversation?._id || !selectedConversation?.isGroup) {
+      setPinnedPolls([])
+      return
+    }
+    messageService.getPinnedMessages(selectedConversation._id)
+      .then(msgs => {
+        const arr = Array.isArray(msgs) ? msgs : []
+        setPinnedPolls(arr.filter(m => m.messageType === 'poll'))
+      })
+      .catch(() => setPinnedPolls([]))
+  }, [selectedConversation?._id, selectedConversation?.isGroup])
+
+  useEffect(() => {
+    if (!socket?.connected) return
+    const handlePollPinUpdate = ({ conversationId: cId, messageId, isPinned }) => {
+      if (cId !== selectedConvIdRef.current) return
+      if (isPinned) {
+        messageService.getPinnedMessages(cId)
+          .then(msgs => {
+            const arr = Array.isArray(msgs) ? msgs : []
+            setPinnedPolls(arr.filter(m => m.messageType === 'poll'))
+          })
+          .catch(() => {})
+      } else {
+        setPinnedPolls(prev => prev.filter(m => m._id !== messageId))
+      }
+    }
+    socket.on('messagePinned', handlePollPinUpdate)
+    return () => socket.off('messagePinned', handlePollPinUpdate)
+  }, [socket, isConnected])
+
+  const handlePinnedPollClick = async (messageId) => {
+    const el = document.getElementById(`msg-${messageId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('mention-flash')
+      setTimeout(() => el.classList.remove('mention-flash'), 2500)
+      return
+    }
+    try {
+      const res = await messageService.getMessagesAround(selectedConversation._id, messageId)
+      const msgs = res?.messages || res?.data?.messages || []
+      if (msgs.length > 0 && chatWindowRef.current?.jumpToMessages) {
+        chatWindowRef.current.jumpToMessages(msgs, messageId)
+        setJumpedToMessage(true)
+      } else {
+        toast.info('Không thể tải tin nhắn.')
+      }
+    } catch {
+      toast.info('Không thể tải tin nhắn bình chọn.')
+    }
+  }
+
+  const handleReturnToLatest = () => {
+    if (chatWindowRef.current?.returnToLatest) {
+      chatWindowRef.current.returnToLatest()
+    }
+    setJumpedToMessage(false)
+  }
+
+  const handleUnpinPoll = async (messageId) => {
+    try {
+      await messageService.togglePinMessage(messageId)
+      setPinnedPolls(prev => prev.filter(m => m._id !== messageId))
+    } catch {
+      toast.error('Không thể bỏ ghim.')
+    }
+  }
+
   const [infoChatOpen, setInfoChatOpen] = useState(false)
   const [infoMembersOpen, setInfoMembersOpen] = useState(true) // For groups
   const [infoCustomizeOpen, setInfoCustomizeOpen] = useState(false)
@@ -1149,17 +1224,37 @@ function ChatPage() {
           )}
         </header>
 
-        <div className="chat-main__body">
+        {isGroup && pinnedPolls.length > 0 && (
+          <PinnedPollBar
+            pinnedPolls={pinnedPolls}
+            onClickPoll={handlePinnedPollClick}
+            onUnpin={handleUnpinPoll}
+          />
+        )}
+
+        <div className="chat-main__body" style={{ position: 'relative' }}>
           {selectedConversation ? (
-            <ChatWindow
-              conversationId={selectedConversation._id}
-              otherMember={otherMember}
-              isGroup={isGroup}
-              onMessageSent={handleMessageSent}
-              isKicked={isKicked}
-              conversation={selectedConversation}
-              onAvatarClick={handleOpenUserProfile}
-            />
+            <>
+              <ChatWindow
+                ref={chatWindowRef}
+                conversationId={selectedConversation._id}
+                otherMember={otherMember}
+                isGroup={isGroup}
+                onMessageSent={handleMessageSent}
+                isKicked={isKicked}
+                conversation={selectedConversation}
+                onAvatarClick={handleOpenUserProfile}
+              />
+              {jumpedToMessage && (
+                <button
+                  className="chat-main__return-btn"
+                  onClick={handleReturnToLatest}
+                  title="Quay về tin nhắn mới nhất"
+                >
+                  <ChevronsDown size={20} />
+                </button>
+              )}
+            </>
           ) : (
             <div className="chat-empty-state">
               <div className="chat-empty-state__icon-wrapper">

@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { Send, ImagePlus, Paperclip, X, FileText, Mic, ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf } from 'lucide-react'
+import { Send, ImagePlus, Paperclip, X, FileText, Mic, BarChart2, ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf } from 'lucide-react'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 import VoiceRecorder from './VoiceRecorder'
+import PollCreator from './PollCreator'
 
 function removeAccents(str) {
   if (!str) return '';
@@ -31,6 +32,7 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
   const [imageBase64, setImageBase64] = useState(null)
   const [fileData, setFileData] = useState(null)
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false)
+  const [showPollCreator, setShowPollCreator] = useState(false)
   
   // Mentions state
   const [showMentionList, setShowMentionList] = useState(false)
@@ -366,6 +368,15 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
           />
         </div>
       )}
+      {showPollCreator && isGroup && (
+        <div className="message-input__voice-recorder-popup">
+          <PollCreator
+            conversationId={conversationId}
+            onClose={() => setShowPollCreator(false)}
+            onCreated={() => setShowPollCreator(false)}
+          />
+        </div>
+      )}
       {hasAttachment && (
         <div className="message-input__preview">
           {imagePreview && (
@@ -412,10 +423,27 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
           className="message-input__file-input"
           onChange={handleFileSelect}
         />
+        {isGroup && (
+          <button
+            type="button"
+            className={`message-input__action-btn tooltip-wrapper ${showPollCreator ? 'message-input__action-btn--active' : ''}`}
+            onClick={() => {
+              setShowPollCreator(v => !v)
+              setShowVoiceRecorder(false)
+            }}
+            disabled={disabled}
+          >
+            <BarChart2 size={20} />
+            <span className="tooltip tooltip--top tooltip--right">Tạo bình chọn</span>
+          </button>
+        )}
         <button
           type="button"
           className={`message-input__action-btn tooltip-wrapper ${showVoiceRecorder ? 'message-input__action-btn--active' : ''}`}
-          onClick={() => setShowVoiceRecorder(v => !v)}
+          onClick={() => {
+            setShowVoiceRecorder(v => !v)
+            setShowPollCreator(false)
+          }}
           disabled={disabled}
         >
           <Mic size={20} />

@@ -12,6 +12,7 @@ const LIKE_ICONS = {
 import Avatar from './ui/Avatar'
 import AudioPlayer from './chat/AudioPlayer'
 import ImageLightbox from './chat/ImageLightbox'
+import PollBubble from './chat/PollBubble'
 import { messageService } from '../services/message.service'
 
 /**
@@ -164,7 +165,7 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
   )
 }
 
-function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, isMentioned = false, deleteMessage, onReply, scrollContainerRef, onAvatarClick }) {
+function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, isMentioned = false, deleteMessage, onReply, scrollContainerRef, onAvatarClick, conversation, currentUserId }) {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState(null)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -407,6 +408,17 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       )
     }
 
+    if (message.messageType === 'poll' && message.poll) {
+      return (
+        <PollBubble
+          message={message}
+          currentUserId={currentUserId}
+          isOwn={isOwn}
+          conversation={conversation}
+        />
+      )
+    }
+
     if (isEditing) {
       return (
         <div className="message-bubble__edit-box">
@@ -439,6 +451,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       if (!message.replyTo) return ''
       const rt = message.replyTo
       if (rt.messageType === 'like') return 'Đã gửi biểu tượng cảm xúc'
+      if (rt.messageType === 'poll') return '📊 Bình chọn'
       if (rt.messageType === 'audio') return '🎤 Tin nhắn thoại'
       if (rt.file && rt.file.type && rt.file.type.startsWith('video/')) return '🎬 Đã gửi một video'
       if (rt.text) return rt.text
