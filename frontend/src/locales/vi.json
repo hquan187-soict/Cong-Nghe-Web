@@ -203,6 +203,7 @@
   },
   "contacts": {
     "title": "Danh bạ",
+    "searchResults": "Kết quả tìm kiếm",
     "friends": "Bạn bè",
     "friendRequests": "Lời mời kết bạn",
     "received": "Đã nhận",

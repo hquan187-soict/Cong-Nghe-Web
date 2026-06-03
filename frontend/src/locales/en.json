@@ -203,6 +203,7 @@
   },
   "contacts": {
     "title": "Contacts",
+    "searchResults": "Search results",
     "friends": "Friends",
     "friendRequests": "Friend Requests",
     "received": "Received",
