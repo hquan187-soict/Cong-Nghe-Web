@@ -27,4 +27,8 @@ export const authService = {
   async resetPassword(data) {
     return await axiosInstance.post('/api/auth/reset-password', data);
   },
+
+  async getMe() {
+    return await axiosInstance.get('/api/auth/me');
+  },
 };

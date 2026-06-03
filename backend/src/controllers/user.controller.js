@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 
 const validateUserId = (userId) => {
@@ -115,6 +116,7 @@ export const getFriendRequests = async (req, res, next) => {
 export const getUserById = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const currentUserId = req.user?._id;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       const error = new Error("ID người dùng không hợp lệ.");
@@ -122,7 +124,9 @@ export const getUserById = async (req, res, next) => {
       throw error;
     }
 
-    const user = await User.findById(id).select("fullName email avatar isOnline lastSeen showActiveStatus");
+    const user = await User.findById(id).select(
+      "fullName email avatar coverColor isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests"
+    );
 
     if (!user) {
       const error = new Error("Người dùng không tồn tại.");
@@ -130,7 +134,56 @@ export const getUserById = async (req, res, next) => {
       throw error;
     }
 
-    return res.status(200).json(user);
+    let relationshipStatus = "none";
+    if (currentUserId && currentUserId.toString() !== id) {
+      const currentUser = await User.findById(currentUserId).select("friends friendRequests");
+      const isFriend = currentUser.friends.some((fId) => fId.toString() === id);
+      if (isFriend) {
+        relationshipStatus = "friends";
+      } else {
+        const sentRequest = user.friendRequests.some(
+          (fId) => fId.toString() === currentUserId.toString()
+        );
+        if (sentRequest) {
+          relationshipStatus = "request_sent";
+        } else {
+          const receivedRequest = currentUser.friendRequests.some(
+            (fId) => fId.toString() === id
+          );
+          if (receivedRequest) {
+            relationshipStatus = "request_received";
+          }
+        }
+      }
+
+      const isFriendForVisibility = relationshipStatus === "friends";
+      const visibilityFields = [
+        "birthday", "gender", "phone", "address",
+        "hometown", "hobbies", "occupation", "education", "bio",
+      ];
+      const profileData = user.toObject();
+      const visibility = profileData.profileVisibility || {};
+
+      for (const field of visibilityFields) {
+        const vis = visibility[field] || "friends";
+        if (vis === "private") {
+          profileData[field] = undefined;
+        } else if (vis === "friends" && !isFriendForVisibility) {
+          profileData[field] = undefined;
+        }
+      }
+
+      delete profileData.friends;
+      delete profileData.friendRequests;
+
+      return res.status(200).json({ ...profileData, relationshipStatus });
+    }
+
+    const profileData = user.toObject();
+    delete profileData.friends;
+    delete profileData.friendRequests;
+
+    return res.status(200).json(profileData);
   } catch (error) {
     return next(error);
   }
@@ -180,7 +233,10 @@ export const  updateProfile = async (req, res, next) => {
       throw error;
     }
 
-    const allowedFields = ["fullName", "avatar"];
+    const allowedFields = [
+      "fullName", "avatar", "coverColor", "birthday", "gender", "phone",
+      "address", "hometown", "hobbies", "occupation", "education", "bio",
+    ];
     const updateData = {};
 
     for (const field of allowedFields) {
@@ -189,18 +245,62 @@ export const  updateProfile = async (req, res, next) => {
       }
     }
 
+    if (req.body.profileVisibility !== undefined) {
+      const validVisibilities = ["private", "friends", "public"];
+      const visFields = [
+        "birthday", "gender", "phone", "address",
+        "hometown", "hobbies", "occupation", "education", "bio",
+      ];
+      const vis = {};
+      for (const f of visFields) {
+        if (req.body.profileVisibility[f] !== undefined) {
+          if (!validVisibilities.includes(req.body.profileVisibility[f])) {
+            const error = new Error(`Giá trị visibility không hợp lệ cho ${f}.`);
+            error.statusCode = 400;
+            throw error;
+          }
+          vis[`profileVisibility.${f}`] = req.body.profileVisibility[f];
+        }
+      }
+      Object.assign(updateData, vis);
+    }
+
     if (updateData.fullName !== undefined && typeof updateData.fullName !== "string") {
       const error = new Error("fullName phải là chuỗi.");
       error.statusCode = 400;
       throw error;
     }
 
+    if (updateData.bio !== undefined && typeof updateData.bio === "string" && updateData.bio.length > 500) {
+      const error = new Error("Tiểu sử không được vượt quá 500 ký tự.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (updateData.birthday !== undefined) {
+      if (updateData.birthday === "" || updateData.birthday === null) {
+        updateData.birthday = null;
+      } else {
+        const bday = new Date(updateData.birthday);
+        if (isNaN(bday.getTime()) || bday > new Date()) {
+          const error = new Error("Ngày sinh không hợp lệ.");
+          error.statusCode = 400;
+          throw error;
+        }
+        updateData.birthday = bday;
+      }
+    }
+
     if (updateData.avatar !== undefined) {
-      const avatarUrl = await cloudinary.uploader.upload(updateData.avatar, {
-        folder: "avatars",
-        public_id: `avatar_${currentUserId}`,
-      });
-      updateData.avatar = avatarUrl.secure_url;
+      if (updateData.avatar === "" || updateData.avatar === null) {
+        updateData.avatar = "";
+      } else if (updateData.avatar.startsWith("data:")) {
+        const avatarUrl = await cloudinary.uploader.upload(updateData.avatar, {
+          folder: "avatars",
+          public_id: `avatar_${currentUserId}`,
+        });
+        updateData.avatar = avatarUrl.secure_url;
+      }
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -225,6 +325,67 @@ export const  updateProfile = async (req, res, next) => {
     }
 
     return res.status(200).json(updatedUser);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const changePassword = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      const error = new Error("Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+      const error = new Error("Mật khẩu phải là chuỗi.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (newPassword.length < 6) {
+      const error = new Error("Mật khẩu mới phải có ít nhất 6 ký tự.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (newPassword.length > 64) {
+      const error = new Error("Mật khẩu mới không được vượt quá 64 ký tự.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const user = await User.findById(currentUserId);
+    if (!user) {
+      const error = new Error("Người dùng không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      const error = new Error("Mật khẩu hiện tại không đúng.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    user.password = hashedPassword;
+    user.passwordChangedAt = new Date();
+    await user.save();
+
+    return res.status(200).json({ message: "Đổi mật khẩu thành công." });
   } catch (error) {
     return next(error);
   }

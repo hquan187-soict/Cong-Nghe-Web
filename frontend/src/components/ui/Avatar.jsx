@@ -2,12 +2,14 @@ const sizes = {
   sm: "w-10 h-10 ring-2",
   md: "w-14 h-14 ring-2",
   lg: "w-20 h-20 ring-4",
+  xl: "w-28 h-28 ring-4",
 };
 
 const badgeSizes = {
   sm: "w-3 h-3 border-2 right-0 bottom-0",
   md: "w-4 h-4 border-2 right-0 bottom-0",
   lg: "w-5 h-5 border-[3px] right-1 bottom-1",
+  xl: "w-6 h-6 border-[3px] right-2 bottom-2",
 };
 
 const Avatar = ({ src, size = "md", isOnline, alt = "Avatar" }) => {

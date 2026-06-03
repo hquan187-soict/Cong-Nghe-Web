@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, MessageSquare, UserPlus, UserMinus, Clock, ShieldBan, ShieldCheck, Mail, User, Loader2 } from 'lucide-react'
+import { X, MessageSquare, UserPlus, UserMinus, Clock, ShieldBan, ShieldCheck, Mail, User, Loader2, Cake, MapPin, Heart, Briefcase, GraduationCap, Phone } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { useToast } from '../context/ToastContext'
@@ -40,7 +40,11 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
       .then((data) => {
         if (fetchId !== fetchIdRef.current) return
         setProfileUser(data)
-        computeRelationship(data)
+        if (data.relationshipStatus) {
+          setRelationshipStatus(data.relationshipStatus)
+        } else {
+          setRelationshipStatus('none')
+        }
       })
       .catch((err) => {
         if (fetchId !== fetchIdRef.current) return
@@ -60,76 +64,6 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
       setIsBlocked(!!blocked)
     }
   }, [currentUser, userId])
-
-  function computeRelationship(fetchedUser) {
-    if (!currentUser || !fetchedUser) return
-
-    const isFriend = currentUser.friends?.some(
-      f => (f?._id || f)?.toString() === fetchedUser._id
-    )
-    if (isFriend) {
-      setRelationshipStatus('friends')
-      return
-    }
-
-    const sentRequest = currentUser.friendRequests?.some(
-      r => {
-        const toId = r?.to?._id || r?.to
-        return toId?.toString() === fetchedUser._id && r?.status === 'pending'
-      }
-    )
-    if (sentRequest) {
-      setRelationshipStatus('request_sent')
-      return
-    }
-
-    const receivedRequest = currentUser.friendRequests?.some(
-      r => {
-        const fromId = r?.from?._id || r?.from
-        return fromId?.toString() === fetchedUser._id && r?.status === 'pending'
-      }
-    )
-    if (receivedRequest) {
-      setRelationshipStatus('request_received')
-      return
-    }
-
-    const friendsOfUser = fetchedUser.friends || []
-    const isFriendAlt = friendsOfUser.some(
-      f => (f?._id || f)?.toString() === currentUser._id
-    )
-    if (isFriendAlt) {
-      setRelationshipStatus('friends')
-      return
-    }
-
-    const reqsOfUser = fetchedUser.friendRequests || []
-    const sentAlt = reqsOfUser.some(r => {
-      const fromId = r?.from?._id || r?.from
-      return fromId?.toString() === currentUser._id && r?.status === 'pending'
-    })
-    if (sentAlt) {
-      setRelationshipStatus('request_sent')
-      return
-    }
-
-    const receivedAlt = reqsOfUser.some(r => {
-      const toId = r?.to?._id || r?.to
-      return toId?.toString() === currentUser._id && r?.status === 'pending'
-    })
-    if (receivedAlt) {
-      setRelationshipStatus('request_received')
-      return
-    }
-
-    setRelationshipStatus('none')
-  }
-
-  useEffect(() => {
-    if (profileUser && currentUser) {
-      computeRelationship(profileUser)
-    }
-  }, [currentUser])
 
   useEffect(() => {
     if (!isOpen) return
@@ -235,6 +169,20 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
     onClose()
   }
 
+  function formatBirthday(dateStr) {
+    if (!dateStr) return null
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return null
+    return d.toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+
+  function getGenderLabel(g) {
+    if (g === 'male') return t('profile.genderMale')
+    if (g === 'female') return t('profile.genderFemale')
+    if (g === 'other') return t('profile.genderOther')
+    return null
+  }
+
   const renderSkeleton = () => (
     <div className="user-profile-modal">
       <button className="profile-modal__close-btn" onClick={onClose}><X size={20} /></button>
@@ -309,6 +257,58 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
     }
   }
 
+  const renderExtendedInfo = () => {
+    if (!profileUser) return null
+    const infoItems = []
+
+    if (profileUser.bio) {
+      infoItems.push({ icon: <User size={16} />, label: t('profile.bio'), value: profileUser.bio, cls: 'indigo' })
+    }
+    if (profileUser.birthday) {
+      infoItems.push({ icon: <Cake size={16} />, label: t('profile.birthday'), value: formatBirthday(profileUser.birthday), cls: 'purple' })
+    }
+    const gLabel = getGenderLabel(profileUser.gender)
+    if (gLabel) {
+      infoItems.push({ icon: <User size={16} />, label: t('profile.gender'), value: gLabel, cls: 'indigo' })
+    }
+    if (profileUser.phone) {
+      infoItems.push({ icon: <Phone size={16} />, label: t('profile.phone'), value: profileUser.phone, cls: 'emerald' })
+    }
+    if (profileUser.address) {
+      infoItems.push({ icon: <MapPin size={16} />, label: t('profile.address'), value: profileUser.address, cls: 'purple' })
+    }
+    if (profileUser.hometown) {
+      infoItems.push({ icon: <MapPin size={16} />, label: t('profile.hometown'), value: profileUser.hometown, cls: 'indigo' })
+    }
+    if (profileUser.occupation) {
+      infoItems.push({ icon: <Briefcase size={16} />, label: t('profile.occupation'), value: profileUser.occupation, cls: 'emerald' })
+    }
+    if (profileUser.education) {
+      infoItems.push({ icon: <GraduationCap size={16} />, label: t('profile.education'), value: profileUser.education, cls: 'purple' })
+    }
+    if (profileUser.hobbies) {
+      infoItems.push({ icon: <Heart size={16} />, label: t('profile.hobbies'), value: profileUser.hobbies, cls: 'indigo' })
+    }
+
+    if (infoItems.length === 0) return null
+
+    return (
+      <div className="profile-modal__info-list" style={{ marginTop: 12 }}>
+        {infoItems.map((item, idx) => (
+          <div key={idx} className="profile-modal__info-item" style={{ padding: '10px 14px', gap: 10 }}>
+            <div className={`profile-modal__info-icon profile-modal__info-icon--${item.cls}`} style={{ width: 32, height: 32, borderRadius: 8 }}>
+              {item.icon}
+            </div>
+            <div className="profile-modal__info-content">
+              <span className="profile-modal__info-label">{item.label}</span>
+              <span className="profile-modal__info-value" style={{ fontSize: 13, wordBreak: 'break-word' }}>{item.value}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="profile-modal__overlay" onClick={handleOverlayClick}>
       {loading ? renderSkeleton() : error ? renderError() : profileUser && (
@@ -345,16 +345,6 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
 
             <div className="profile-modal__info-list">
               <div className="profile-modal__info-item">
-                <div className="profile-modal__info-icon profile-modal__info-icon--indigo">
-                  <User size={18} />
-                </div>
-                <div className="profile-modal__info-content">
-                  <span className="profile-modal__info-label">{t('profile.fullName')}</span>
-                  <span className="profile-modal__info-value">{profileUser.fullName || '—'}</span>
-                </div>
-              </div>
-
-              <div className="profile-modal__info-item">
                 <div className="profile-modal__info-icon profile-modal__info-icon--purple">
                   <Mail size={18} />
                 </div>
@@ -364,6 +354,8 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
                 </div>
               </div>
             </div>
+
+            {renderExtendedInfo()}
 
             <div className="user-profile-modal__actions">
               <button

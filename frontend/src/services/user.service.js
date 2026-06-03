@@ -25,14 +25,12 @@ export const userService = {
     return await axiosInstance.put('/api/users/profile', data);
   },
 
-  /**
-   * Đổi mật khẩu
-   * PUT /api/users/change-password
-   * @param {Object} data - { currentPassword, newPassword }
-   * Response: { message: "..." }
-   */
   async changePassword(data) {
     return await axiosInstance.put('/api/users/change-password', data);
+  },
+
+  async removeAvatar() {
+    return await axiosInstance.put('/api/users/profile', { avatar: '' });
   },
 
   async getUserById(id) {

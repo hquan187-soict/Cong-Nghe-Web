@@ -4,6 +4,7 @@ import {
   searchUsers,
   getUserById,
   updateProfile,
+  changePassword,
   toggleActiveStatus,
   getFriends,
   getFriendRequests,
@@ -21,6 +22,7 @@ router.get("/search", protect, searchUsers);
 router.get("/friends", protect, getFriends);
 router.get("/friend-requests", protect, getFriendRequests);
 router.put("/profile", protect, updateProfile);
+router.put("/change-password", protect, changePassword);
 router.put("/active-status", protect, toggleActiveStatus);
 
 router.post("/friend-requests/:userId", protect, sendFriendRequest);
