@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, ArrowLeft, MessageSquare, Phone, ChevronsLeft, ChevronsRight, Settings, Sun, Moon, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, Volume2, Play } from 'lucide-react';
+import { Search, Users, ArrowLeft, MessageSquare, Phone, ChevronsLeft, ChevronsRight, Settings, Sun, Moon, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, Volume2, Play, UsersRound } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSocket } from '../context/SocketContext';
@@ -29,8 +29,10 @@ export default function ContactsPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
@@ -196,19 +198,22 @@ export default function ContactsPage() {
   const fetchFriendsAndRequests = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [friendsData, requestsData] = await Promise.all([
+      const [friendsData, requestsData, convsData] = await Promise.all([
         userService.getFriends(),
         userService.getFriendRequests(),
+        conversationService.getConversations(),
       ]);
       setFriends(Array.isArray(friendsData) ? friendsData : []);
       setFriendRequests(Array.isArray(requestsData) ? requestsData : []);
+      const groupConvs = (Array.isArray(convsData) ? convsData : []).filter(c => c.isGroup && !c.removedMembers?.includes(user?._id));
+      setGroups(groupConvs);
     } catch (err) {
       console.error("Fetch friends error:", err);
       toast.error("Không thể tải danh sách bạn bè");
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, user?._id]);
 
   useEffect(() => {
     fetchFriendsAndRequests();
@@ -496,9 +501,9 @@ export default function ContactsPage() {
                     <ContactItem
                       key={contact._id}
                       contact={{ ...contact, isFriend: true }}
-                      isActive={selectedContact?._id === contact._id}
+                      isActive={selectedContact?._id === contact._id && !selectedGroup}
                       isOnline={isUserOnline(contact._id)}
-                      onClick={(c) => setSelectedContact({ ...c, isFriend: true })}
+                      onClick={(c) => { setSelectedContact({ ...c, isFriend: true }); setSelectedGroup(null); }}
                       onMessage={handleMessage}
                       collapsed={sidebarCollapsed}
                     />
@@ -508,6 +513,50 @@ export default function ContactsPage() {
                     <Users size={sidebarCollapsed ? 24 : 48} />
                     {!sidebarCollapsed && <p>{t('contacts.noFriends')}</p>}
                   </div>
+                )}
+
+                {/* Groups section */}
+                {!isLoading && (
+                  <>
+                    {!sidebarCollapsed && (
+                      <>
+                        <div className="sidebar__divider" style={{ margin: '8px 16px' }} />
+                        <div className="contacts-list__title">
+                          {t('contacts.groups')} ({groups.length})
+                        </div>
+                      </>
+                    )}
+                    {groups.length > 0 ? (
+                      groups.map(group => (
+                        <div
+                          key={group._id}
+                          className={`contact-item ${selectedGroup?._id === group._id ? 'contact-item--active' : ''}`}
+                          onClick={() => { setSelectedGroup(group); setSelectedContact(null); }}
+                          style={sidebarCollapsed ? { justifyContent: 'center', padding: '10px 0' } : {}}
+                        >
+                          <div className="contact-item__avatar" style={{ position: 'relative' }}>
+                            {group.avatar ? (
+                              <img src={group.avatar} alt={group.name} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}>
+                                <UsersRound size={20} />
+                              </div>
+                            )}
+                          </div>
+                          {!sidebarCollapsed && (
+                            <div className="contact-item__info">
+                              <span className="contact-item__name">{group.name || t('chat.createGroup')}</span>
+                              <span className="contact-item__mutual">{group.members?.length || 0} {t('chat.members')}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : !sidebarCollapsed ? (
+                      <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center' }}>
+                        {t('contacts.noGroups')}
+                      </div>
+                    ) : null}
+                  </>
                 )}
               </>
             )}
@@ -774,18 +823,88 @@ export default function ContactsPage() {
           <span style={{ fontWeight: 600, fontSize: '16px' }}>{t('profile.title')}</span>
         </div>
 
-        {selectedContact ? (
-          <div className="mini-profile-wrapper">
-            <MiniProfile
-              contact={selectedContact}
-              isOnline={isUserOnline(selectedContact._id)}
-              onSendMessage={() => handleMessage(selectedContact)}
-              onUnfriend={() => handleUnfriend(selectedContact)}
-              onAddFriend={() => handleAddFriend(selectedContact)}
-              onAcceptRequest={() => handleAcceptRequest(selectedContact._id)}
-              isLoading={friendActionLoading}
-            />
+        {selectedGroup ? (
+          <div style={{ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--color-bg)' }}>
+            {/* Group banner */}
+            <div style={{ height: 180, background: 'linear-gradient(135deg, var(--color-primary), #7c3aed)', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, opacity: 0.08, backgroundImage: 'repeating-linear-gradient(45deg,transparent,transparent 30px,rgba(255,255,255,0.1) 30px,rgba(255,255,255,0.1) 60px)' }} />
+            </div>
+            <div style={{ maxWidth: 800, margin: '0 auto', padding: '0 24px' }}>
+              {/* Group header */}
+              <div style={{ display: 'flex', gap: 20, marginTop: -48, position: 'relative', zIndex: 5, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flexShrink: 0 }}>
+                  {selectedGroup.avatar ? (
+                    <img src={selectedGroup.avatar} alt={selectedGroup.name} style={{ width: 112, height: 112, borderRadius: '50%', objectFit: 'cover', border: '4px solid var(--color-bg)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
+                  ) : (
+                    <div style={{ width: 112, height: 112, borderRadius: '50%', background: 'var(--color-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', border: '4px solid var(--color-bg)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                      <UsersRound size={48} />
+                    </div>
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0, paddingTop: 54 }}>
+                  <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 }}>{selectedGroup.name || t('chat.createGroup')}</h1>
+                  <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--color-text-muted)' }}>
+                    {selectedGroup.members?.length || 0} {t('chat.members')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Open chat button */}
+              <div style={{ marginTop: 20 }}>
+                <button onClick={() => { localStorage.setItem('last_conversation', JSON.stringify(selectedGroup)); navigate(`/chat/${selectedGroup._id}`); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 24px', borderRadius: 999, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                  <MessageSquare size={16} /> {t('contacts.openChat')}
+                </button>
+              </div>
+
+              <div style={{ height: 1, background: 'var(--color-border-subtle)', margin: '24px 0' }} />
+
+              {/* Members list */}
+              <div>
+                <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 12px' }}>
+                  {t('contacts.groupMembers')} ({selectedGroup.members?.length || 0})
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                  {(selectedGroup.members || []).map(member => (
+                    <div key={member._id} style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                      borderRadius: 12, background: 'var(--color-surface)', border: '1px solid var(--color-border-subtle)',
+                    }}>
+                      {member.avatar ? (
+                        <img src={member.avatar} alt={member.fullName} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
+                          {(member.fullName || '?').charAt(0)}
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {member.fullName || t('chat.unknownUser')}
+                          {member._id === user?._id && <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginLeft: 4 }}>({t('call.you')})</span>}
+                        </div>
+                        {selectedGroup.admins?.some(a => (a?._id || a)?.toString() === member._id) && (
+                          <span style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 600 }}>{t('chat.admin')}</span>
+                        )}
+                      </div>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: isUserOnline(member._id) ? '#22c55e' : 'var(--color-text-muted)', flexShrink: 0 }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ height: 40 }} />
+            </div>
           </div>
+        ) : selectedContact ? (
+          <MiniProfile
+            contact={selectedContact}
+            isOnline={isUserOnline(selectedContact._id)}
+            onSendMessage={() => handleMessage(selectedContact)}
+            onUnfriend={() => handleUnfriend(selectedContact)}
+            onAddFriend={() => handleAddFriend(selectedContact)}
+            onAcceptRequest={() => handleAcceptRequest(selectedContact._id)}
+            isLoading={friendActionLoading}
+            lastSeen={selectedContact.lastSeen}
+          />
         ) : (
           <div className="contacts-empty-state" style={{ background: 'var(--color-bg)' }}>
             <div style={{ padding: '24px', background: 'var(--color-surface)', borderRadius: '50%', marginBottom: '24px', boxShadow: 'var(--shadow-sm)' }}>

@@ -357,10 +357,10 @@ function ProfilePage() {
     },
     container: { maxWidth: 960, margin: '0 auto', padding: '0 24px' },
     headerSection: {
-      display: 'flex', alignItems: 'flex-end', gap: 24, marginTop: -60, position: 'relative', zIndex: 5, flexWrap: 'wrap',
+      display: 'flex', gap: 24, marginTop: -56, position: 'relative', zIndex: 5, flexWrap: 'wrap', alignItems: 'flex-end',
     },
     avatarWrap: { position: 'relative', flexShrink: 0 },
-    nameSection: { flex: 1, minWidth: 0, paddingBottom: 10 },
+    nameSection: { flex: 1, minWidth: 0, paddingTop: 60 },
     nameText: { margin: 0, fontSize: 32, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 },
     bioText: { margin: '6px 0 0', fontSize: 16, color: 'var(--color-text-muted)', wordBreak: 'break-word' },
     sectionTitle: {

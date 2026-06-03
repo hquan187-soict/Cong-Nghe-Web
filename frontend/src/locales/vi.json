@@ -283,7 +283,11 @@
     "declineError": "Không thể từ chối lời mời kết bạn",
     "cancelError": "Không thể hủy lời mời kết bạn",
     "unfriendError": "Không thể hủy kết bạn",
-    "noResults": "Không tìm thấy người dùng"
+    "noResults": "Không tìm thấy người dùng",
+    "groups": "Nhóm",
+    "noGroups": "Chưa tham gia nhóm nào",
+    "groupMembers": "Thành viên",
+    "openChat": "Mở cuộc trò chuyện"
   },
   "userProfile": {
     "title": "Thông tin người dùng",
@@ -305,7 +309,9 @@
     "acceptSuccess": "Đã chấp nhận lời mời kết bạn!",
     "unfriendSuccess": "Đã hủy kết bạn!",
     "blockSuccess": "Đã chặn người dùng!",
-    "unblockSuccess": "Đã bỏ chặn người dùng!"
+    "unblockSuccess": "Đã bỏ chặn người dùng!",
+    "viewDetails": "Xem chi tiết",
+    "hideDetails": "Ẩn chi tiết"
   },
   "settings": {
     "title": "Cài đặt",

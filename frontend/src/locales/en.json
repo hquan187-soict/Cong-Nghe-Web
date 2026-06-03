@@ -283,7 +283,11 @@
     "declineError": "Failed to decline friend request",
     "cancelError": "Failed to cancel friend request",
     "unfriendError": "Failed to unfriend",
-    "noResults": "No users found"
+    "noResults": "No users found",
+    "groups": "Groups",
+    "noGroups": "No groups joined yet",
+    "groupMembers": "Members",
+    "openChat": "Open Chat"
   },
   "userProfile": {
     "title": "User Profile",
@@ -305,7 +309,9 @@
     "acceptSuccess": "Friend request accepted!",
     "unfriendSuccess": "Unfriended successfully!",
     "blockSuccess": "User blocked!",
-    "unblockSuccess": "User unblocked!"
+    "unblockSuccess": "User unblocked!",
+    "viewDetails": "View details",
+    "hideDetails": "Hide details"
   },
   "settings": {
     "title": "Settings",
