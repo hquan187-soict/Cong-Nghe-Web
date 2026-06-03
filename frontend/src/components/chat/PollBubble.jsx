@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
-import { BarChart2, Lock, Repeat, CheckCircle } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import PollDetailModal from './PollDetailModal'
+import Avatar from '../ui/Avatar'
 
 function formatDeadline(deadline) {
   if (!deadline) return null
@@ -12,20 +13,9 @@ function formatDeadline(deadline) {
   return `${hh}:${mm} ngày ${dd}/${mo}`
 }
 
-export default function PollBubble({ message, currentUserId, isOwn, conversation }) {
+export default function PollBubble({ message, currentUserId, conversation }) {
   const [showDetail, setShowDetail] = useState(false)
   const poll = message.poll
-
-  const totalVotes = useMemo(() => {
-    const voterSet = new Set()
-    poll.options.forEach(opt => {
-      opt.voters.forEach(v => {
-        const vid = typeof v === 'object' ? v._id : v
-        voterSet.add(vid?.toString())
-      })
-    })
-    return voterSet.size
-  }, [poll])
 
   const totalVotesCount = useMemo(() => {
     return poll.options.reduce((sum, opt) => sum + opt.voters.length, 0)
@@ -42,50 +32,63 @@ export default function PollBubble({ message, currentUserId, isOwn, conversation
     return ids
   }, [poll, currentUserId])
 
+  const hasVoted = userVotedOptionIds.size > 0
   const isExpired = poll.deadline && new Date(poll.deadline) <= new Date()
   const isClosed = poll.isClosed || isExpired
+  const isLocked = hasVoted && !poll.allowChange
+
+  const getNickname = (userId) => {
+    const id = typeof userId === 'object' ? userId._id : userId
+    return conversation?.nicknames?.[id?.toString()] || null
+  }
 
   return (
     <>
-      <div className="poll-bubble" onClick={() => setShowDetail(true)}>
-        <div className="poll-bubble__header">
-          <BarChart2 size={16} />
-          <span className="poll-bubble__question">{poll.question}</span>
-        </div>
+      <div className="poll-bubble-centered">
+        <div className="poll-bubble-centered__question">{poll.question}</div>
 
         {poll.deadline && (
-          <div className="poll-bubble__deadline">
+          <div className="poll-bubble-centered__deadline">
             {isClosed ? 'Đã kết thúc' : `Kéo dài đến ${formatDeadline(poll.deadline)}`}
           </div>
         )}
 
-        <div className="poll-bubble__tags">
-          <span className="poll-bubble__tag">
-            {poll.allowMultiple ? 'Chọn nhiều' : 'Chọn 1'}
-          </span>
-          {!poll.allowChange && (
-            <span className="poll-bubble__tag poll-bubble__tag--lock">
-              <Lock size={10} /> Khóa lựa chọn
-            </span>
-          )}
-        </div>
-
-        <div className="poll-bubble__options-preview">
+        <div className="poll-bubble-centered__options">
           {poll.options.map(opt => {
             const pct = totalVotesCount > 0
               ? Math.round((opt.voters.length / totalVotesCount) * 100)
               : 0
-            const isVoted = userVotedOptionIds.has(opt._id)
+            const voters = opt.voters || []
+
             return (
-              <div key={opt._id} className="poll-bubble__option">
-                <div className="poll-bubble__option-info">
-                  {isVoted && <CheckCircle size={12} className="poll-bubble__voted-icon" />}
-                  <span className="poll-bubble__option-text">{opt.text}</span>
-                  <span className="poll-bubble__option-pct">{pct}%</span>
+              <div key={opt._id} className="poll-bubble-centered__option">
+                <div className="poll-bubble-centered__option-row">
+                  <span className="poll-bubble-centered__option-text">{opt.text}</span>
+                  {voters.length > 0 && (
+                    <div className="poll-bubble-centered__voters-inline">
+                      {voters.slice(0, 2).map((voter, vi) => {
+                        const v = typeof voter === 'object' ? voter : { _id: voter }
+                        const displayName = getNickname(v._id) || v.fullName || 'Người dùng'
+                        return (
+                          <div
+                            key={v._id || vi}
+                            className="poll-bubble-centered__voter-avatar"
+                            style={{ zIndex: 5 - vi }}
+                            title={displayName}
+                          >
+                            <Avatar src={v.avatar} alt={displayName} size="sm" />
+                          </div>
+                        )
+                      })}
+                      {voters.length > 2 && (
+                        <span className="poll-bubble-centered__voters-count">+{voters.length - 2}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="poll-bubble__bar-track">
+                <div className="poll-bubble-centered__bar-track">
                   <div
-                    className={`poll-bubble__bar-fill ${isVoted ? 'poll-bubble__bar-fill--voted' : ''}`}
+                    className={`poll-bubble-centered__bar-fill ${pct > 0 ? 'poll-bubble-centered__bar-fill--active' : ''}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -94,12 +97,24 @@ export default function PollBubble({ message, currentUserId, isOwn, conversation
           })}
         </div>
 
-        <div className="poll-bubble__footer-info">
-          {totalVotes > 0
-            ? `${totalVotes} người đã bình chọn`
-            : 'Chưa có ai bình chọn'}
-          <span className="poll-bubble__tap-hint"> · Bấm để xem chi tiết</span>
-        </div>
+        {!poll.allowChange && (
+          <div className="poll-bubble-centered__lock-tag">
+            <Lock size={10} /> Khóa lựa chọn
+          </div>
+        )}
+
+        <button
+          className="poll-bubble-centered__action-btn"
+          onClick={() => setShowDetail(true)}
+        >
+          {isClosed
+            ? 'Xem kết quả'
+            : isLocked
+              ? 'Xem bình chọn'
+              : hasVoted
+                ? 'Thay đổi bình chọn'
+                : 'Bình chọn'}
+        </button>
       </div>
 
       {showDetail && (

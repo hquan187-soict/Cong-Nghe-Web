@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { X, Loader2, Lock, AlertCircle } from 'lucide-react'
+import { X, Loader2, Lock, AlertCircle, Plus } from 'lucide-react'
 import { messageService } from '../../services/message.service'
 import { useToast } from '../../context/ToastContext'
 import Avatar from '../ui/Avatar'
@@ -20,6 +20,11 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const [newOptionText, setNewOptionText] = useState('')
+  const [addingOption, setAddingOption] = useState(false)
+
+  const senderId = typeof message.senderId === 'object' ? message.senderId?._id : message.senderId
+  const isCreator = senderId?.toString() === currentUserId
 
   useEffect(() => {
     let cancelled = false
@@ -88,6 +93,22 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleAddOption = async () => {
+    if (!newOptionText.trim() || addingOption) return
+    setAddingOption(true)
+    try {
+      const res = await messageService.addPollOption(message._id, newOptionText.trim())
+      const updated = res?.poll || res?.data?.poll
+      if (updated) setPoll(updated)
+      setNewOptionText('')
+      toast.success('Đã thêm lựa chọn mới!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra.')
+    } finally {
+      setAddingOption(false)
     }
   }
 
@@ -198,6 +219,27 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {isCreator && !isClosed && (
+            <div className="poll-detail-modal__add-option">
+              <input
+                type="text"
+                className="poll-detail-modal__add-option-input"
+                placeholder="Thêm lựa chọn mới..."
+                value={newOptionText}
+                onChange={e => setNewOptionText(e.target.value)}
+                maxLength={200}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddOption() }}
+              />
+              <button
+                className="poll-detail-modal__add-option-btn"
+                onClick={handleAddOption}
+                disabled={!newOptionText.trim() || addingOption}
+              >
+                {addingOption ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              </button>
             </div>
           )}
 

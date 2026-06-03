@@ -14,6 +14,7 @@ import {
   searchMessages,
   createPoll,
   votePoll,
+  addPollOption,
   getPollDetail,
   getMessagesAround,
 } from "../controllers/message.controller.js";
@@ -30,6 +31,7 @@ router.post("/", protect, sendMessage);
 router.post("/:conversationId/read", protect, markMessagesAsRead);
 router.post("/:messageId/reaction", protect, toggleReaction);
 router.post("/:messageId/vote", protect, votePoll);
+router.post("/:messageId/poll-option", protect, addPollOption);
 router.get("/:messageId/poll", protect, getPollDetail);
 router.put("/:messageId/pin", protect, togglePinMessage);
 router.post("/:messageId/forward", protect, forwardMessage);

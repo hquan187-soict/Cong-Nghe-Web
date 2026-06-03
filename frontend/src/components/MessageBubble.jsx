@@ -12,7 +12,6 @@ const LIKE_ICONS = {
 import Avatar from './ui/Avatar'
 import AudioPlayer from './chat/AudioPlayer'
 import ImageLightbox from './chat/ImageLightbox'
-import PollBubble from './chat/PollBubble'
 import { messageService } from '../services/message.service'
 
 /**
@@ -405,17 +404,6 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           <CallIcon size={20} color={iconColor} />
           <span className="message-bubble__call-label text-sm font-semibold">{label}</span>
         </div>
-      )
-    }
-
-    if (message.messageType === 'poll' && message.poll) {
-      return (
-        <PollBubble
-          message={message}
-          currentUserId={currentUserId}
-          isOwn={isOwn}
-          conversation={conversation}
-        />
       )
     }
 

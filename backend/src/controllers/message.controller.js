@@ -1025,8 +1025,28 @@ export const createPoll = async (req, res, next) => {
       .populate("readBy", "fullName avatar")
       .populate("poll.options.voters", "fullName avatar");
 
+    const currentUser = await User.findById(currentUserId).select("fullName");
+    const nickname = conversation.nicknames?.get(currentUserId.toString()) || currentUser?.fullName || "Người dùng";
+    const systemMsg = await Message.create({
+      conversationId,
+      senderId: currentUserId,
+      text: `${nickname} đã tạo một cuộc thăm dò ý kiến`,
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "fullName avatar");
+
     conversation.members.forEach((memberId) => {
-      if (memberId.toString() === currentUserId.toString()) return;
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
+          conversationId: conversation._id.toString(),
+          message: populatedSystemMsg,
+        });
+      });
+    });
+
+    conversation.members.forEach((memberId) => {
       getReceiverSocketIds(memberId.toString()).forEach((sid) => {
         io.to(sid).emit("sendMessage", {
           conversationId: conversation._id.toString(),
@@ -1041,6 +1061,37 @@ export const createPoll = async (req, res, next) => {
   } catch (error) {
     return next(error);
   }
+};
+
+const truncateOptionText = (text, max = 30) => {
+  if (!text || text.length <= max) return text;
+  return text.slice(0, max) + "...";
+};
+
+const buildVoteSystemText = (nickname, oldVotedIds, newVotedIds, optionMap, allowMultiple) => {
+  const added = [...newVotedIds].filter((id) => !oldVotedIds.has(id));
+  const removed = [...oldVotedIds].filter((id) => !newVotedIds.has(id));
+
+  if (added.length === 0 && removed.length === 0) return null;
+
+  const fmtList = (ids) => ids.map((id) => `"${truncateOptionText(optionMap.get(id))}"`).join(", ");
+
+  if (oldVotedIds.size === 0 && added.length > 0) {
+    return `${nickname} đã bình chọn cho ${fmtList(added)} trong cuộc thăm dò ý kiến`;
+  }
+  if (newVotedIds.size === 0 && removed.length > 0) {
+    return `${nickname} đã gỡ bình chọn cho ${fmtList(removed)} trong cuộc thăm dò ý kiến`;
+  }
+  if (removed.length === 0 && added.length > 0) {
+    return `${nickname} đã bình chọn thêm cho ${fmtList(added)} trong cuộc thăm dò ý kiến`;
+  }
+  if (added.length === 0 && removed.length > 0) {
+    return `${nickname} đã gỡ bình chọn cho ${fmtList(removed)} trong cuộc thăm dò ý kiến`;
+  }
+  if (!allowMultiple && added.length === 1 && removed.length === 1) {
+    return `${nickname} đã thay đổi bình chọn từ ${fmtList(removed)} sang ${fmtList(added)} trong cuộc thăm dò ý kiến`;
+  }
+  return `${nickname} đã thay đổi bình chọn trong cuộc thăm dò ý kiến`;
 };
 
 export const votePoll = async (req, res, next) => {
@@ -1061,8 +1112,8 @@ export const votePoll = async (req, res, next) => {
       throw error;
     }
 
-    if (!Array.isArray(optionIds) || optionIds.length === 0) {
-      const error = new Error("Cần chọn ít nhất 1 lựa chọn.");
+    if (!Array.isArray(optionIds)) {
+      const error = new Error("optionIds phải là mảng.");
       error.statusCode = 400;
       throw error;
     }
@@ -1111,9 +1162,16 @@ export const votePoll = async (req, res, next) => {
       }
     }
 
-    const userAlreadyVoted = message.poll.options.some((opt) =>
-      opt.voters.some((v) => v.toString() === currentUserId.toString()),
-    );
+    const oldVotedIds = new Set();
+    const optionMap = new Map();
+    message.poll.options.forEach((opt) => {
+      optionMap.set(opt._id.toString(), opt.text);
+      if (opt.voters.some((v) => v.toString() === currentUserId.toString())) {
+        oldVotedIds.add(opt._id.toString());
+      }
+    });
+
+    const userAlreadyVoted = oldVotedIds.size > 0;
 
     if (userAlreadyVoted && !message.poll.allowChange) {
       const error = new Error("Không thể thay đổi lựa chọn trong cuộc bình chọn này.");
@@ -1121,13 +1179,25 @@ export const votePoll = async (req, res, next) => {
       throw error;
     }
 
+    if (optionIds.length === 0 && !userAlreadyVoted) {
+      const error = new Error("Cần chọn ít nhất 1 lựa chọn.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const newVotedIds = new Set(optionIds);
+
+    const isSame = oldVotedIds.size === newVotedIds.size && [...oldVotedIds].every((id) => newVotedIds.has(id));
+    if (isSame) {
+      return res.status(200).json({ message: "Không có thay đổi." });
+    }
+
     message.poll.options.forEach((opt) => {
       opt.voters = opt.voters.filter((v) => v.toString() !== currentUserId.toString());
     });
 
-    const selectedIds = new Set(optionIds);
     message.poll.options.forEach((opt) => {
-      if (selectedIds.has(opt._id.toString())) {
+      if (newVotedIds.has(opt._id.toString())) {
         opt.voters.push(currentUserId);
       }
     });
@@ -1138,6 +1208,31 @@ export const votePoll = async (req, res, next) => {
       .populate("senderId", "fullName avatar email")
       .populate("readBy", "fullName avatar")
       .populate("poll.options.voters", "fullName avatar");
+
+    const currentUser = await User.findById(currentUserId).select("fullName");
+    const nickname = conversation.nicknames?.get(currentUserId.toString()) || currentUser?.fullName || "Người dùng";
+    const systemText = buildVoteSystemText(nickname, oldVotedIds, newVotedIds, optionMap, message.poll.allowMultiple);
+
+    if (systemText) {
+      const systemMsg = await Message.create({
+        conversationId: message.conversationId,
+        senderId: currentUserId,
+        text: systemText,
+        messageType: "system",
+        readBy: conversation.members,
+      });
+      const populatedSystemMsg = await Message.findById(systemMsg._id)
+        .populate("senderId", "fullName avatar");
+
+      conversation.members.forEach((memberId) => {
+        getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+          io.to(sid).emit("sendMessage", {
+            conversationId: message.conversationId.toString(),
+            message: populatedSystemMsg,
+          });
+        });
+      });
+    }
 
     conversation.members.forEach((memberId) => {
       getReceiverSocketIds(memberId.toString()).forEach((sid) => {
@@ -1150,7 +1245,128 @@ export const votePoll = async (req, res, next) => {
     });
 
     conversation.members.forEach((memberId) => {
-      if (memberId.toString() === currentUserId.toString()) return;
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("pollResurface", {
+          conversationId: message.conversationId.toString(),
+          messageId: messageId,
+          message: populatedMessage,
+        });
+      });
+    });
+
+    return res.status(200).json(populatedMessage);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const addPollOption = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { messageId } = req.params;
+    const { text } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      const error = new Error("messageId không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!text || typeof text !== "string" || !text.trim()) {
+      const error = new Error("Nội dung lựa chọn là bắt buộc.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (text.trim().length > 200) {
+      const error = new Error("Lựa chọn tối đa 200 ký tự.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      const error = new Error("Tin nhắn không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (message.messageType !== "poll" || !message.poll) {
+      const error = new Error("Tin nhắn này không phải bình chọn.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (message.senderId.toString() !== currentUserId.toString()) {
+      const error = new Error("Chỉ người tạo cuộc bình chọn mới có thể thêm lựa chọn.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const conversation = await checkConversationAccess(message.conversationId, currentUserId);
+
+    if (message.poll.isClosed) {
+      const error = new Error("Cuộc bình chọn đã kết thúc.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (message.poll.deadline && new Date(message.poll.deadline) <= new Date()) {
+      message.poll.isClosed = true;
+      await message.save();
+      const error = new Error("Cuộc bình chọn đã hết hạn.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const cleanText = xss(text.trim());
+    message.poll.options.push({ text: cleanText, voters: [] });
+    await message.save();
+
+    const populatedMessage = await Message.findById(messageId)
+      .populate("senderId", "fullName avatar email")
+      .populate("readBy", "fullName avatar")
+      .populate("poll.options.voters", "fullName avatar");
+
+    const currentUser = await User.findById(currentUserId).select("fullName");
+    const nickname = conversation.nicknames?.get(currentUserId.toString()) || currentUser?.fullName || "Người dùng";
+
+    const systemMsg = await Message.create({
+      conversationId: message.conversationId,
+      senderId: currentUserId,
+      text: `${nickname} đã thêm lựa chọn mới vào cuộc thăm dò ý kiến`,
+      messageType: "system",
+      readBy: conversation.members,
+    });
+    const populatedSystemMsg = await Message.findById(systemMsg._id)
+      .populate("senderId", "fullName avatar");
+
+    conversation.members.forEach((memberId) => {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("sendMessage", {
+          conversationId: message.conversationId.toString(),
+          message: populatedSystemMsg,
+        });
+      });
+    });
+
+    conversation.members.forEach((memberId) => {
+      getReceiverSocketIds(memberId.toString()).forEach((sid) => {
+        io.to(sid).emit("pollVoteUpdated", {
+          conversationId: message.conversationId.toString(),
+          messageId: messageId,
+          poll: populatedMessage.poll,
+        });
+      });
+    });
+
+    conversation.members.forEach((memberId) => {
       getReceiverSocketIds(memberId.toString()).forEach((sid) => {
         io.to(sid).emit("pollResurface", {
           conversationId: message.conversationId.toString(),

@@ -7,6 +7,7 @@ import { useLang } from '../context/LangContext'
 import { messageService } from '../services/message.service'
 import { conversationService } from '../services/conversation.service'
 import MessageBubble from './MessageBubble'
+import PollBubble from './chat/PollBubble'
 import MessageInput from './chat/MessageInput'
 import TypingIndicator from './chat/TypingIndicator'
 import Spinner from './ui/Spinner'
@@ -764,14 +765,26 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
               )
             }
 
+            if (msg.messageType === 'poll' && msg.poll) {
+              return (
+                <div key={msg._id} id={`msg-${msg._id}`} className="poll-bubble-wrapper">
+                  <PollBubble
+                    message={msg}
+                    currentUserId={currentUserId}
+                    conversation={convProp}
+                  />
+                </div>
+              )
+            }
+
             const msgSenderId = getSenderId(msg.senderId)
             const isOwn = msgSenderId === currentUserId
             const nextMsg = messages[idx + 1]
-            const nextSenderId = nextMsg && nextMsg.messageType !== 'system' ? getSenderId(nextMsg.senderId) : null
+            const nextSenderId = nextMsg && nextMsg.messageType !== 'system' && nextMsg.messageType !== 'poll' ? getSenderId(nextMsg.senderId) : null
             const showAvatar = nextSenderId !== msgSenderId
 
             const prevMsg = messages[idx - 1]
-            const prevSenderId = prevMsg && prevMsg.messageType !== 'system' ? getSenderId(prevMsg.senderId) : null
+            const prevSenderId = prevMsg && prevMsg.messageType !== 'system' && prevMsg.messageType !== 'poll' ? getSenderId(prevMsg.senderId) : null
             let senderAvatar, senderName
             const nicknames = convProp?.nicknames
             const getNickname = (id) => {

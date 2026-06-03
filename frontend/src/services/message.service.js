@@ -73,6 +73,10 @@ export const messageService = {
     return await axiosInstance.post(`/api/messages/${messageId}/vote`, { optionIds });
   },
 
+  async addPollOption(messageId, text) {
+    return await axiosInstance.post(`/api/messages/${messageId}/poll-option`, { text });
+  },
+
   async getPollDetail(messageId) {
     return await axiosInstance.get(`/api/messages/${messageId}/poll`);
   },
