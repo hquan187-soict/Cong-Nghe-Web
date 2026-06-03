@@ -1203,7 +1203,10 @@ export const votePoll = async (req, res, next) => {
     });
 
     await message.save();
-    await Message.updateOne({ _id: messageId }, { $set: { createdAt: new Date() } });
+    await Message.collection.updateOne(
+      { _id: message._id },
+      { $set: { createdAt: new Date() } }
+    );
 
     const populatedMessage = await Message.findById(messageId)
       .populate("senderId", "fullName avatar email")
@@ -1329,7 +1332,10 @@ export const addPollOption = async (req, res, next) => {
     const cleanText = xss(text.trim());
     message.poll.options.push({ text: cleanText, voters: [] });
     await message.save();
-    await Message.updateOne({ _id: messageId }, { $set: { createdAt: new Date() } });
+    await Message.collection.updateOne(
+      { _id: message._id },
+      { $set: { createdAt: new Date() } }
+    );
 
     const populatedMessage = await Message.findById(messageId)
       .populate("senderId", "fullName avatar email")
