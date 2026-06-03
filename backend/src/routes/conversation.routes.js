@@ -14,6 +14,7 @@ import {
   updateNickname,
   updateEmoji,
   updateThemeColor,
+  togglePinConversation,
   toggleMuteConversation,
   toggleArchiveConversation,
   deleteChat,
@@ -32,6 +33,7 @@ router.put("/:id/add-member-permission", protect, updateAddMemberPermission);
 router.put("/:id/nickname", protect, updateNickname);
 router.put("/:id/emoji", protect, updateEmoji);
 router.put("/:id/theme-color", protect, updateThemeColor);
+router.post("/:id/toggle-pin", protect, togglePinConversation);
 router.post("/:id/toggle-mute", protect, toggleMuteConversation);
 router.post("/:id/toggle-archive", protect, toggleArchiveConversation);
 router.post("/:id/request-add-member", protect, requestAddMember);

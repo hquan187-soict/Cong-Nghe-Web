@@ -193,8 +193,8 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
       <div className="conversation-item__content">
         <div className="conversation-item__header">
           <span className={`conversation-item__name ${hasUnread ? 'conversation-item__name--unread' : ''}`}>
+            {conversation.isPinned && <Pin size={16} style={{ marginRight: '6px', color: '#e6a817', flexShrink: 0 }} />}
             {displayTitle}
-            {conversation.isPinned && <Pin size={12} style={{ marginLeft: '6px', color: 'var(--color-primary)' }} />}
           </span>
           <span className="conversation-item__time" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {conversation.isMuted && <BellOff size={10} />}

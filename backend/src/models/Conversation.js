@@ -60,6 +60,13 @@ const conversationSchema = new mongoose.Schema(
       },
     ],
 
+    pinnedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     mutedBy: [
       {
         type: mongoose.Schema.Types.ObjectId,

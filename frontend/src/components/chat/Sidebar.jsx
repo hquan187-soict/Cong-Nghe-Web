@@ -52,6 +52,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const settingsBtnRef = useRef(null)
   const dropdownRef = useRef(null)
   const a11yPanelRef = useRef(null)
+  const handleMuteRef = useRef(null)
   const activeStatusPanelRef = useRef(null)
   const activeStatusBtnRef = useRef(null)
   const notifPanelRef = useRef(null)
@@ -144,7 +145,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     },
 
     handleMute(conversationId) {
-      setMuteMap(prev => ({ ...prev, [conversationId]: !prev[conversationId] }))
+      return handleMuteRef.current?.(conversationId)
     },
   }), [muteMap])
 
@@ -302,9 +303,23 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     onSelectConversation(newConversation)
   }, [onSelectConversation])
 
-  const handlePin = useCallback((convId) => {
+  const handlePin = useCallback(async (convId) => {
+    const prevPinned = !!pinMap[convId]
     setPinMap(prev => ({ ...prev, [convId]: !prev[convId] }))
-  }, [])
+    try {
+      const updatedConv = await conversationService.togglePinConversation(convId)
+      setConversations(prev =>
+        prev.map(conv => conv._id === convId ? { ...conv, ...updatedConv } : conv)
+      )
+      const uid = user?._id?.toString()
+      const nowPinned = updatedConv.pinnedBy?.some(id => (id._id || id).toString() === uid)
+      setPinMap(prev => ({ ...prev, [convId]: !!nowPinned }))
+      toast.success(nowPinned ? 'Đã ghim đoạn chat' : 'Đã bỏ ghim đoạn chat')
+    } catch {
+      setPinMap(prev => ({ ...prev, [convId]: prevPinned }))
+      toast.error('Có lỗi xảy ra')
+    }
+  }, [pinMap, user?._id])
 
   const handleMute = useCallback(async (convId) => {
     const prevMuted = !!muteMap[convId]
@@ -325,6 +340,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       return null
     }
   }, [muteMap, user?._id])
+  handleMuteRef.current = handleMute
 
   const handleArchive = useCallback(async (convId) => {
     try {
@@ -339,6 +355,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           return { ...c, archivedBy: updatedConv.archivedBy }
         })
       )
+      if (isNowArchived) {
+        setPinMap(prev => ({ ...prev, [convId]: false }))
+      }
       toast.success(isNowArchived ? 'Đã lưu trữ cuộc trò chuyện' : 'Đã bỏ lưu trữ cuộc trò chuyện')
       if (isNowArchived && selectedConversation?._id === convId) {
         onSelectConversation(null)
@@ -353,6 +372,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     try {
       await conversationService.leaveGroup(convId)
       setConversations(prev => prev.filter(c => c._id !== convId))
+      setPinMap(prev => { const next = { ...prev }; delete next[convId]; return next })
       if (selectedConversation?._id === convId) {
         onSelectConversation(null)
       }
@@ -380,6 +400,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
           delete next[convId]
           return next
         })
+        setPinMap(prev => { const next = { ...prev }; delete next[convId]; return next })
         if (selectedConversation?._id === convId) {
           onSelectConversation(null)
         }

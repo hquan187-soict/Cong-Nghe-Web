@@ -155,6 +155,9 @@ export const leaveGroup = async (req, res, next) => {
     conversation.members = conversation.members.filter(
       (mId) => mId.toString() !== currentUserId.toString()
     );
+    conversation.pinnedBy = (conversation.pinnedBy || []).filter(
+      (mId) => mId.toString() !== currentUserId.toString()
+    );
 
     const wasAdmin = conversation.admins.some(
       (aId) => aId.toString() === currentUserId.toString()
@@ -269,6 +272,9 @@ export const removeMember = async (req, res, next) => {
     );
     conversation.admins = conversation.admins.filter(
       (aId) => aId.toString() !== userId.toString()
+    );
+    conversation.pinnedBy = (conversation.pinnedBy || []).filter(
+      (mId) => mId.toString() !== userId.toString()
     );
     if (!conversation.removedMembers) conversation.removedMembers = [];
     conversation.removedMembers.push(userId);
@@ -805,6 +811,7 @@ export const getConversations = async (req, res, next) => {
       return {
         ...obj,
         unreadCount: unreadCountMap[conversation._id.toString()] || 0,
+        isPinned: (conversation.pinnedBy || []).some(id => id.toString() === uid),
         isMuted: (conversation.mutedBy || []).some(id => id.toString() === uid),
       };
     });
@@ -1098,6 +1105,9 @@ export const toggleArchiveConversation = async (req, res, next) => {
     else {
       if (!conversation.archivedBy) conversation.archivedBy = [];
       conversation.archivedBy.push(currentUserId);
+      conversation.pinnedBy = (conversation.pinnedBy || []).filter(
+        (mId) => mId.toString() !== currentUserId.toString()
+      );
     }
     await conversation.save();
 
@@ -1345,7 +1355,12 @@ export const deleteChat = async (req, res, next) => {
         (archivedId) => archivedId.toString() !== currentUserId.toString()
       );
     }
-    
+    if (conversation.pinnedBy && conversation.pinnedBy.length > 0) {
+      conversation.pinnedBy = conversation.pinnedBy.filter(
+        (pinnedId) => pinnedId.toString() !== currentUserId.toString()
+      );
+    }
+
     await conversation.save();
 
     return res.status(200).json({ message: "Đã xóa đoạn chat thành công.", conversation });
@@ -1394,6 +1409,56 @@ export const markAsUnread = async (req, res, next) => {
     }
 
     return res.status(200).json({ message: "Đã đánh dấu là chưa đọc", conversation });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const togglePinConversation = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+    const isPinned = conversation.pinnedBy?.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+    if (isPinned) {
+      conversation.pinnedBy = conversation.pinnedBy.filter(
+        (mId) => mId.toString() !== currentUserId.toString()
+      );
+    } else {
+      if (!conversation.pinnedBy) conversation.pinnedBy = [];
+      conversation.pinnedBy.push(currentUserId);
+    }
+    await conversation.save();
+    const updatedConversation = await Conversation.findById(id)
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
+      .populate("lastMessage");
+    return res.status(200).json(updatedConversation);
   } catch (error) {
     return next(error);
   }

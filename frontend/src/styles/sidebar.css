@@ -478,6 +478,8 @@
   text-overflow: ellipsis;
   flex: 1;
   margin-right: 8px;
+  display: flex;
+  align-items: center;
 }
 
 .conversation-item__time {
