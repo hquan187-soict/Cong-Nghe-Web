@@ -329,6 +329,7 @@ export function CallProvider({ children }) {
 
     if (wasEnabled) {
       oldTrack.enabled = false
+      oldTrack.stop()
       setIsVideoEnabled(false)
       socketRef.current?.emit('call_toggle_media', {
         callId: activeCallRef.current?.callId,

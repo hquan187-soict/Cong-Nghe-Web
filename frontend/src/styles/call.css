@@ -133,12 +133,28 @@
 /* ===== Call Window ===== */
 .call-window {
   position: fixed;
-  inset: 0;
   z-index: 10003;
   display: flex;
   flex-direction: column;
   background: #111;
   color: #fff;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), inset 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.call-window--floating {
+  width: 350px;
+  height: 500px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.call-window--expanded {
+  inset: 0;
+  border-radius: 0;
+  width: auto;
+  height: auto;
 }
 
 .call-window__header {
@@ -147,11 +163,38 @@
   left: 0;
   right: 0;
   z-index: 2;
-  padding: 20px 24px;
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+  cursor: grab;
+}
+
+.call-window__header:active {
+  cursor: grabbing;
+}
+
+.call-window__expand-btn {
+  position: absolute;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+  z-index: 3;
+}
+
+.call-window__expand-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
 }
 
 .call-window__header-info {
@@ -223,6 +266,14 @@
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  transition: width 0.3s, height 0.3s, bottom 0.3s, right 0.3s;
+}
+
+.call-window--floating .call-window__video-tile--local {
+  width: 100px;
+  height: 75px;
+  bottom: 80px;
+  right: 12px;
 }
 
 .call-window__grid--quad .call-window__video-tile--local,
@@ -388,6 +439,21 @@
   gap: 20px;
   padding: 24px;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+}
+
+.call-window--floating .call-window__controls {
+  padding: 16px;
+  gap: 12px;
+}
+
+.call-window--floating .call-window__control-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.call-window--floating .call-window__control-btn--end {
+  width: 50px;
+  height: 50px;
 }
 
 .call-window__control-btn {

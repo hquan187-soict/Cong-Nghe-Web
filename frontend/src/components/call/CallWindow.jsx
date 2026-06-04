@@ -1,5 +1,5 @@
-import { useEffect, useRef, useMemo } from 'react'
-import { Mic, MicOff, Video, VideoOff, PhoneOff } from 'lucide-react'
+import { useEffect, useRef, useMemo, useState } from 'react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2 } from 'lucide-react'
 import { useCall } from '../../context/CallContext'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
@@ -66,6 +66,36 @@ export default function CallWindow() {
   const { user } = useAuth()
   const { t } = useLang()
 
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [position, setPosition] = useState({ x: 24, y: 80 }) // default top-right
+  const dragRef = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 })
+
+  const handlePointerDown = (e) => {
+    if (isExpanded) return
+    dragRef.current = {
+      isDragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: position.x,
+      initialY: position.y
+    }
+    e.target.setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e) => {
+    if (!dragRef.current.isDragging || isExpanded) return
+    const dx = dragRef.current.startX - e.clientX // reversed for 'right' positioning
+    const dy = e.clientY - dragRef.current.startY // normal for 'top' positioning
+    setPosition({ x: dragRef.current.initialX + dx, y: dragRef.current.initialY + dy })
+  }
+
+  const handlePointerUp = (e) => {
+    dragRef.current.isDragging = false
+    e.target.releasePointerCapture(e.pointerId)
+  }
+
+  const toggleExpand = () => setIsExpanded(!isExpanded)
+
   const statusText = useMemo(() => {
     if (!activeCall) return ''
     switch (activeCall.status) {
@@ -90,8 +120,16 @@ export default function CallWindow() {
       : 'call-window__grid--many'
 
   return (
-    <div className={`call-window ${isVideo ? 'call-window--video' : 'call-window--voice'}`}>
-      <div className="call-window__header">
+    <div 
+      className={`call-window ${isVideo ? 'call-window--video' : 'call-window--voice'} ${isExpanded ? 'call-window--expanded' : 'call-window--floating'}`}
+      style={!isExpanded ? { right: `${position.x}px`, top: `${position.y}px` } : {}}
+    >
+      <div 
+        className="call-window__header"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+      >
         <div className="call-window__header-info">
           <span className="call-window__header-name">
             {activeCall.isGroup
@@ -100,7 +138,16 @@ export default function CallWindow() {
           </span>
           <span className="call-window__timer">{statusText}</span>
         </div>
+        <button 
+          className="call-window__expand-btn"
+          onClick={toggleExpand}
+          onPointerDown={(e) => e.stopPropagation()}
+          title={isExpanded ? (t('call.minimize') || 'Thu nhỏ') : (t('call.maximize') || 'Phóng to')}
+        >
+          {isExpanded ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+        </button>
       </div>
+
 
       {isVideo ? (
         <div className={`call-window__grid ${gridClass}`}>
