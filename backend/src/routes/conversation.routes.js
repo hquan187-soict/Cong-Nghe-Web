@@ -19,6 +19,7 @@ import {
   toggleArchiveConversation,
   deleteChat,
   markAsUnread,
+  updateLabel,
 } from "../controllers/conversation.controller.js";
 
 const router = express.Router();
@@ -41,5 +42,6 @@ router.post("/:id/approve-request", protect, approveRequest);
 router.post("/:id/reject-request", protect, rejectRequest);
 router.delete("/:id/deleteChat", protect, deleteChat);
 router.post("/:id/mark-unread", protect, markAsUnread);
+router.put("/:id/label", protect, updateLabel);
 
 export default router;

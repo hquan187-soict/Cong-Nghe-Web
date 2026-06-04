@@ -88,6 +88,13 @@ const conversationSchema = new mongoose.Schema(
       default: {},
     },
 
+    // Map userId (string) -> label string ("Gia đình", "Bạn bè", "Công việc", "Khách hàng", "Khác")
+    labels: {
+      type: Map,
+      of: String,
+      default: {},
+    },
+
     emoji: {
       type: String,
       default: "ThumbsUp",

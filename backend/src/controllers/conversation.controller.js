@@ -1463,3 +1463,59 @@ export const togglePinConversation = async (req, res, next) => {
     return next(error);
   }
 };
+
+export const updateLabel = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    const { id } = req.params;
+    const { label } = req.body;
+
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const error = new Error("ID cuộc trò chuyện không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      const error = new Error("Cuộc trò chuyện không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMember = conversation.members.some(
+      (mId) => mId.toString() === currentUserId.toString()
+    );
+
+    if (!isMember) {
+      const error = new Error("Bạn không có quyền chỉnh sửa cuộc trò chuyện này.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (!conversation.labels) conversation.labels = new Map();
+
+    if (!label || !label.trim()) {
+      conversation.labels.delete(currentUserId.toString());
+    } else {
+      conversation.labels.set(currentUserId.toString(), label.trim());
+    }
+
+    await conversation.save();
+
+    const updatedConversation = await Conversation.findById(id)
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("admins", "fullName avatar email")
+      .populate("lastMessage");
+
+    return res.status(200).json(updatedConversation);
+  } catch (error) {
+    return next(error);
+  }
+};

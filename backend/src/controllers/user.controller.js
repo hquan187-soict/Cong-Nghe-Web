@@ -176,7 +176,17 @@ export const getUserById = async (req, res, next) => {
       delete profileData.friends;
       delete profileData.friendRequests;
 
-      return res.status(200).json({ ...profileData, relationshipStatus });
+      let chatLabel = null;
+      const conversation = await Conversation.findOne({
+        isGroup: false,
+        members: { $all: [new mongoose.Types.ObjectId(currentUserId), new mongoose.Types.ObjectId(id)] },
+        $expr: { $eq: [{ $size: "$members" }, 2] },
+      });
+      if (conversation && conversation.labels) {
+        chatLabel = conversation.labels.get(currentUserId.toString()) || null;
+      }
+
+      return res.status(200).json({ ...profileData, relationshipStatus, chatLabel });
     }
 
     const profileData = user.toObject();

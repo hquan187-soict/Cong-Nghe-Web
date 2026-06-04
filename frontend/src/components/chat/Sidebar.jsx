@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus, Archive, Volume2, Play, Phone } from 'lucide-react'
+import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus, Archive, Volume2, Play, Phone, Tag } from 'lucide-react'
 import logoImg from '../../assets/logo.png'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
@@ -65,7 +65,8 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const [unreadMap, setUnreadMap] = useState({})
   const [pinMap, setPinMap] = useState({})
   const [muteMap, setMuteMap] = useState({})
-  const [activeFilter, setActiveFilter] = useState('all') // 'all' | 'unread' | 'archived'
+  const [activeFilter, setActiveFilter] = useState('all') // 'all' | 'unread' | 'archived' | 'label:...'
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
 
   useImperativeHandle(ref, () => ({
     updateLastMessage(conversationId, lastMessage) {
@@ -496,6 +497,31 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       console.error('Mark as unread error:', err)
     }
   }, [user?._id])
+  const handleUpdateLabel = useCallback(async (convId, label) => {
+    setConversations(prev => prev.map(c => {
+      if (c._id !== convId) return c
+      const uid = user?._id?.toString() || user?._id
+      let newLabels = {};
+      if (c.labels instanceof Map) {
+        newLabels = Object.fromEntries(c.labels);
+      } else {
+        newLabels = { ...(c.labels || {}) };
+      }
+      
+      if (label) {
+        newLabels[uid] = label;
+      } else {
+        delete newLabels[uid];
+      }
+      return { ...c, labels: newLabels }
+    }))
+    try {
+      await conversationService.updateLabel(convId, label)
+    } catch (err) {
+      console.error('Update label error:', err)
+      toast.error('Có lỗi xảy ra khi cập nhật phân loại')
+    }
+  }, [user?._id, toast])
 
   const handleDeleteChat = useCallback((convId) => {
     setConfirmModalData({ isOpen: true, type: 'deleteChat', convId, otherId: null })
@@ -594,6 +620,14 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     // 1. Filter
     if (activeFilter === 'archived') {
       filtered = filtered.filter(conv => isConvArchived(conv))
+    } else if (activeFilter.startsWith('label:')) {
+      const targetLabel = activeFilter.split(':')[1];
+      filtered = filtered.filter(conv => {
+         if (isConvArchived(conv)) return false;
+         const uid = currentUserIdSidebar;
+         const lbl = conv.labels ? (conv.labels instanceof Map ? conv.labels.get(uid) : conv.labels[uid]) : null;
+         return lbl === targetLabel;
+      });
     } else {
       filtered = filtered.filter(conv => !isConvArchived(conv))
       if (activeFilter === 'unread') {
@@ -771,6 +805,42 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                 >
                   {t('chat.filterUnread')}
                 </button>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                    style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                      background: activeFilter.startsWith('label:') ? 'var(--color-primary-light)' : 'transparent',
+                      color: activeFilter.startsWith('label:') ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                      display: 'flex', alignItems: 'center', gap: '4px'
+                    }}
+                  >
+                    Phân loại <ChevronRight size={14} style={{ transform: showFilterDropdown ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                  </button>
+                  {showFilterDropdown && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '4px', minWidth: '150px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '4px 0', zIndex: 100 }}>
+                      {[
+                        { label: 'Khách hàng', color: '#ef4444' },
+                        { label: 'Gia đình', color: '#22c55e' },
+                        { label: 'Công việc', color: '#f97316' },
+                        { label: 'Bạn bè', color: '#a855f7' },
+                        { label: 'Khác', color: '#eab308' }
+                      ].map(opt => (
+                        <button
+                          key={opt.label}
+                          className="sidebar__settings-item"
+                          style={{ padding: '8px 16px', border: 'none', background: 'transparent', width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px', color: activeFilter === `label:${opt.label}` ? 'var(--color-primary)' : 'var(--color-text)' }}
+                          onClick={() => {
+                            setActiveFilter(`label:${opt.label}`);
+                            setShowFilterDropdown(false);
+                          }}
+                        >
+                          <Tag size={14} color={opt.color} style={{ marginRight: 8 }} />
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {archivedCount > 0 && (
                   <button
                     onClick={() => setActiveFilter(activeFilter === 'archived' ? 'all' : 'archived')}
@@ -838,6 +908,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                 onMarkRead={handleMarkRead}
                 onMarkUnread={handleMarkUnread}
                 onDeleteChat={handleDeleteChat}
+                onUpdateLabel={handleUpdateLabel}
               />
             ))}
           </div>

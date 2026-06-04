@@ -204,6 +204,17 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
     if (profileUser.hobbies) detailItems.push({ icon: <Heart size={15} />, label: t('profile.hobbies'), value: profileUser.hobbies })
   }
 
+  const getLabelColor = (label) => {
+    switch(label) {
+      case 'Khách hàng': return '#ef4444';
+      case 'Gia đình': return '#22c55e';
+      case 'Công việc': return '#f97316';
+      case 'Bạn bè': return '#a855f7';
+      case 'Khác': return '#eab308';
+      default: return 'transparent';
+    }
+  };
+
   return (
     <div className="profile-modal__overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       {loading ? renderSkeleton() : error ? renderError() : profileUser && (
@@ -222,8 +233,13 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
             </div>
 
             <div className="profile-modal__body" style={{ paddingBottom: 8 }}>
-              <h2 className="profile-modal__name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <h2 className="profile-modal__name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 {profileUser.fullName || t('profile.defaultName')}
+                {profileUser.chatLabel && (
+                  <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '12px', backgroundColor: getLabelColor(profileUser.chatLabel), color: '#fff', fontWeight: '500' }}>
+                    {profileUser.chatLabel}
+                  </span>
+                )}
               </h2>
 
               {profileUser.bio && (

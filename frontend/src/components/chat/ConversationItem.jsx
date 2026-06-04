@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   MoreHorizontal, BellOff, Bell, MailOpen, Phone, Video,
-  Archive, Trash2, Pin, PinOff, LogOut, ShieldBan, ShieldCheck
+  Archive, Trash2, Pin, PinOff, LogOut, ShieldBan, ShieldCheck, ChevronRight, ChevronDown, Tag
 } from 'lucide-react'
 import Avatar from '../ui/Avatar'
 import { formatRelativeTime } from '../../utils/timeUtils'
@@ -9,11 +9,12 @@ import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 
-function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup, onArchive, onBlock, onUnblock, onMarkRead, onMarkUnread, onDeleteChat }) {
+function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup, onArchive, onBlock, onUnblock, onMarkRead, onMarkUnread, onDeleteChat, onUpdateLabel }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
   const { onlineUsers: contextOnlineUsers } = useSocket()
   const [showMenu, setShowMenu] = useState(false)
+  const [showLabelSubmenu, setShowLabelSubmenu] = useState(false)
   const menuRef = useRef(null)
 
   const isGroup = conversation.isGroup;
@@ -111,9 +112,10 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     }
   }, [showMenu])
 
-  const handleMenuAction = (action) => (e) => {
+  const handleMenuAction = (action, payload) => (e) => {
     e.stopPropagation()
     setShowMenu(false)
+    setShowLabelSubmenu(false)
     if (action === 'Pin' && onPin) onPin(conversation._id)
     if (action === 'Mute' && onMute) onMute(conversation._id)
     if (action === 'Archive' && onArchive) onArchive(conversation._id)
@@ -123,9 +125,23 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     if (action === 'MarkRead' && onMarkRead) onMarkRead(conversation._id)
     if (action === 'MarkUnread' && onMarkUnread) onMarkUnread(conversation._id)
     if (action === 'Delete' && onDeleteChat) onDeleteChat(conversation._id)
+    if (action === 'Label' && onUpdateLabel) onUpdateLabel(conversation._id, payload)
   }
 
   const isBlockedByMe = user?.blockedUsers?.some(id => id?.toString() === otherMemberId)
+  
+  const currentLabel = conversation.labels ? (conversation.labels instanceof Map ? conversation.labels.get(user?._id?.toString()) : conversation.labels[user?._id?.toString()]) : null;
+
+  const getLabelColor = (label) => {
+    switch(label) {
+      case 'Khách hàng': return '#ef4444';
+      case 'Gia đình': return '#22c55e';
+      case 'Công việc': return '#f97316';
+      case 'Bạn bè': return '#a855f7';
+      case 'Khác': return '#eab308';
+      default: return 'transparent';
+    }
+  };
 
   const renderAvatar = () => {
     const hasCustomAvatar = isGroup && !!(conversation.avatar || conversation.groupAvatar);
@@ -192,9 +208,10 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
 
       <div className="conversation-item__content">
         <div className="conversation-item__header">
-          <span className={`conversation-item__name ${hasUnread ? 'conversation-item__name--unread' : ''}`}>
-            {conversation.isPinned && <Pin size={16} style={{ marginRight: '6px', color: '#e6a817', flexShrink: 0 }} />}
-            {displayTitle}
+          <span className={`conversation-item__name ${hasUnread ? 'conversation-item__name--unread' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {conversation.isPinned && <Pin size={16} style={{ color: '#e6a817', flexShrink: 0 }} />}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle}</span>
+            {currentLabel && <Tag size={14} color={getLabelColor(currentLabel)} style={{ flexShrink: 0, marginTop: '2px' }} title={currentLabel} />}
           </span>
           <span className="conversation-item__time" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {conversation.isMuted && <BellOff size={10} />}
@@ -239,6 +256,37 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
               <MailOpen size={14} />
               <span>{hasUnread ? 'Đánh dấu là đã đọc' : 'Đánh dấu là chưa đọc'}</span>
             </button>
+            
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <button 
+                className="conversation-item__dropdown-item" 
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '8px', width: '100%' }}
+                onClick={(e) => { e.stopPropagation(); setShowLabelSubmenu(!showLabelSubmenu) }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Tag size={14} />
+                  <span>Phân loại</span>
+                </div>
+                {showLabelSubmenu ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+              
+              {showLabelSubmenu && (
+                <div style={{ background: 'var(--color-surface-hover)', borderRadius: '4px', margin: '4px 8px', overflow: 'hidden' }}>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khách hàng')}><Tag size={12} color="#ef4444" style={{marginRight: 8}}/> Khách hàng</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Gia đình')}><Tag size={12} color="#22c55e" style={{marginRight: 8}}/> Gia đình</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Công việc')}><Tag size={12} color="#f97316" style={{marginRight: 8}}/> Công việc</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Bạn bè')}><Tag size={12} color="#a855f7" style={{marginRight: 8}}/> Bạn bè</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khác')}><Tag size={12} color="#eab308" style={{marginRight: 8}}/> Khác</button>
+                   {currentLabel && (
+                     <>
+                        <div className="conversation-item__dropdown-divider" style={{ margin: '4px 0', height: 1, backgroundColor: 'var(--color-border-subtle)' }} />
+                        <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Label', null)} style={{ color: '#ef4444', paddingLeft: '32px', fontSize: '13px' }}>Xóa phân loại</button>
+                     </>
+                   )}
+                </div>
+              )}
+            </div>
+
             <div className="conversation-item__dropdown-divider" />
             {!isGroup && (
               <>

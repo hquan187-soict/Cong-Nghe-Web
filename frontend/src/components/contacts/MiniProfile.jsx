@@ -123,6 +123,17 @@ export default function MiniProfile({ contact, isOnline, onSendMessage, onUnfrie
     </button>);
   };
 
+  const getLabelColor = (label) => {
+    switch(label) {
+      case 'Khách hàng': return '#ef4444';
+      case 'Gia đình': return '#22c55e';
+      case 'Công việc': return '#f97316';
+      case 'Bạn bè': return '#a855f7';
+      case 'Khác': return '#eab308';
+      default: return 'transparent';
+    }
+  };
+
   const gl = genderLabel(profile.gender);
   const hasExtended = profile.birthday || gl || profile.phone || profile.address || profile.hometown || profile.occupation || profile.education || profile.hobbies;
 
@@ -141,7 +152,14 @@ export default function MiniProfile({ contact, isOnline, onSendMessage, onUnfrie
             <Avatar src={contact.avatar} alt={contact.fullName || '?'} size="xl" isOnline={isOnline} />
           </div>
           <div style={{ flex: 1, minWidth: 0, paddingTop: 54 }}>
-            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 }}>{contact.fullName}</h1>
+            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              {contact.fullName}
+              {fullProfile?.chatLabel && (
+                <span style={{ fontSize: '14px', padding: '2px 10px', borderRadius: '12px', backgroundColor: getLabelColor(fullProfile.chatLabel), color: '#fff', fontWeight: '500' }}>
+                  {fullProfile.chatLabel}
+                </span>
+              )}
+            </h1>
             {profile.bio && (
               <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--color-text-muted)', wordBreak: 'break-word' }}>{profile.bio}</p>
             )}

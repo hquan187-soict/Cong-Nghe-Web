@@ -101,5 +101,9 @@ export const conversationService = {
 
   async markAsUnread(conversationId) {
     return await axiosInstance.post(`/api/conversations/${conversationId}/mark-unread`);
+  },
+
+  async updateLabel(conversationId, label) {
+    return await axiosInstance.put(`/api/conversations/${conversationId}/label`, { label });
   }
 };
