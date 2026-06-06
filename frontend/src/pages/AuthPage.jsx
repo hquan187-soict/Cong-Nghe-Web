@@ -14,9 +14,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function CardHeader({ title, subtitle }) {
   return (
     <div className="mb-8 text-center">
-      <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl mx-auto mb-4 shadow-lg shadow-indigo-500/30 flex items-center justify-center text-white">
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-      </div>
+      <img src="/logo.png" alt="Logo" className="w-16 h-16 rounded-2xl mx-auto mb-4 shadow-lg shadow-indigo-500/30" />
       <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{title}</h2>
       <p className="text-slate-500 mt-2 text-sm">{subtitle}</p>
     </div>

@@ -28,13 +28,26 @@ const isSafeUrl = (url) => {
 
 function formatTime(dateInput) {
   const date = new Date(dateInput)
-  const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
-  const dayLabel = days[date.getDay()]
-  const d = date.getDate()
-  const m = date.getMonth() + 1
+  const now = new Date()
   const hh = String(date.getHours()).padStart(2, '0')
   const mm = String(date.getMinutes()).padStart(2, '0')
-  return `${dayLabel} ${d}/${m} ${hh}:${mm}`
+
+  const isToday = date.getDate() === now.getDate()
+    && date.getMonth() === now.getMonth()
+    && date.getFullYear() === now.getFullYear()
+
+  if (isToday) return `Hôm nay ${hh}:${mm}`
+
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  const isYesterday = date.getDate() === yesterday.getDate()
+    && date.getMonth() === yesterday.getMonth()
+    && date.getFullYear() === yesterday.getFullYear()
+
+  if (isYesterday) return `Hôm qua ${hh}:${mm}`
+
+  const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+  return `${days[date.getDay()]} ${date.getDate()}/${date.getMonth() + 1} ${hh}:${mm}`
 }
 
 function formatFileSize(bytes) {
