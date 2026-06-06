@@ -4,6 +4,7 @@ import { Lock, Eye, EyeOff, Mail, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { GoogleLogin } from '@react-oauth/google'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import { authService } from '../services/auth.service'
@@ -25,7 +26,7 @@ function CardHeader({ title, subtitle }) {
 // ─── Login Form ────────────────────────────────────────
 function LoginForm({ onNavigate }) {
   const { t } = useLang()
-  const { login } = useAuth()
+  const { login, loginWithGoogle } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -34,6 +35,9 @@ function LoginForm({ onNavigate }) {
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+
+
 
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -104,6 +108,43 @@ function LoginForm({ onNavigate }) {
           {t('login.submit')}
         </Button>
 
+        <div className="relative my-2">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-200"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-slate-500">Hoặc</span>
+          </div>
+        </div>
+
+
+        <div className="flex justify-center w-full [&_iframe]:!rounded-xl [&>div]:!rounded-xl overflow-hidden">
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              setGoogleLoading(true);
+              try {
+                await loginWithGoogle(credentialResponse.credential);
+                toast.success(t('login.success') || 'Đăng nhập thành công');
+                navigate('/chat', { replace: true });
+              } catch (error) {
+                toast.error(error.response?.data?.message || 'Đăng nhập Google thất bại');
+              } finally {
+                setGoogleLoading(false);
+              }
+            }}
+            onError={() => {
+              console.log('Login Failed');
+              toast.error('Đăng nhập Google thất bại!');
+            }}
+            shape="pill"
+            size="large"
+            width="320"
+            theme="outline"
+            text="signin_with"
+            logo_alignment="left"
+          />
+        </div>
+
         {serverError && (
           <p className="text-rose-500 text-sm font-medium text-center">{serverError}</p>
         )}
@@ -138,8 +179,13 @@ function RegisterForm({ onNavigate }) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [sendingOtp, setSendingOtp] = useState(false)
   const [otpCooldown, setOtpCooldown] = useState(0)
+  const { loginWithGoogle } = useAuth()
+  const navigate = useNavigate()
+
+
 
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -281,6 +327,43 @@ function RegisterForm({ onNavigate }) {
         <Button type="submit" variant="primary" className="w-full mt-1" isLoading={loading}>
           {t('register.submit')}
         </Button>
+
+        <div className="relative my-2">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-200"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-slate-500">Hoặc</span>
+          </div>
+        </div>
+
+
+        <div className="flex justify-center w-full [&_iframe]:!rounded-xl [&>div]:!rounded-xl overflow-hidden">
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              setGoogleLoading(true);
+              try {
+                await loginWithGoogle(credentialResponse.credential);
+                toast.success(t('login.success') || 'Đăng nhập thành công');
+                navigate('/chat', { replace: true });
+              } catch (error) {
+                toast.error(error.response?.data?.message || 'Đăng nhập Google thất bại');
+              } finally {
+                setGoogleLoading(false);
+              }
+            }}
+            onError={() => {
+              console.log('Login Failed');
+              toast.error('Đăng nhập Google thất bại!');
+            }}
+            shape="pill"
+            size="large"
+            width="320"
+            theme="outline"
+            text="signup_with"
+            logo_alignment="left"
+          />
+        </div>
 
         {serverError && (
           <p className="text-rose-500 text-sm font-medium text-center">{serverError}</p>

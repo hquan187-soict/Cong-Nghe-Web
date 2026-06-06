@@ -44,7 +44,7 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-function renderTextWithMentions(text, mentions, mentionAll) {
+function renderTextWithMentions(text, mentions, mentionAll, isOwn = false) {
   if (!text) return text;
   
   const names = mentions ? mentions.map(m => typeof m === 'object' ? m.fullName : null).filter(Boolean) : [];
@@ -60,7 +60,21 @@ function renderTextWithMentions(text, mentions, mentionAll) {
   const parts = text.split(regex);
   return parts.map((part, i) => {
     if (part.startsWith('@') && names.some(name => part === `@${name}`)) {
-      return <span key={i} className="mention-highlight" style={{ fontWeight: 600, color: 'var(--color-primary)', background: 'var(--color-primary-light)', padding: '0 2px', borderRadius: '4px' }}>{part}</span>;
+      return (
+        <span 
+          key={i} 
+          className="mention-highlight" 
+          style={{ 
+            fontWeight: 600, 
+            color: isOwn ? '#fff' : 'var(--color-primary)', 
+            background: isOwn ? 'rgba(255, 255, 255, 0.25)' : 'var(--color-primary-light)', 
+            padding: '0 2px', 
+            borderRadius: '4px' 
+          }}
+        >
+          {part}
+        </span>
+      );
     }
     return part;
   });
@@ -186,8 +200,8 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   const file = message.file
   const isRecalled = message.isRecalled;
   const isEdited = message.isEdited;
-  const isLikeMessage = message.messageType === 'like'
-  const isStickerMessage = message.messageType === 'sticker'
+  const isLikeMessage = message.messageType === 'like' && !isRecalled;
+  const isStickerMessage = message.messageType === 'sticker' && !isRecalled;
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -353,10 +367,6 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
                 <span>Sửa tin nhắn</span>
               </button>
             )}
-            <button className="message-actions__dropdown-item" onClick={handleReport}>
-              <Flag size={14} />
-              <span>Báo cáo</span>
-            </button>
           </div>
         )}
       </div>
@@ -557,7 +567,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         )}
 
         {/* 5. Text */}
-        {message.text && <p className="message-bubble__text" style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithMentions(message.text, message.mentions, message.mentionAll)}</p>}
+        {message.text && <p className="message-bubble__text" style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithMentions(message.text, message.mentions, message.mentionAll, isOwn)}</p>}
       </>
     )
   }

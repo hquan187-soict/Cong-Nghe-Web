@@ -1,5 +1,5 @@
 import express from "express";
-import { signup, login, logout, sendOTP, resetPassword} from "../controllers/auth.controller.js";
+import { signup, login, logout, sendOTP, resetPassword, googleLogin } from "../controllers/auth.controller.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 const router = express.Router();
@@ -38,6 +38,8 @@ const resetPasswordLimiter = createRateLimiter({
 router.post("/signup", signupLimiter, signup);
 
 router.post("/login", loginLimiter, login);
+
+router.post("/google", loginLimiter, googleLogin);
 
 router.post("/logout", logout);
 

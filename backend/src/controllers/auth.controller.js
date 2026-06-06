@@ -1,5 +1,8 @@
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/utils.js";
 import { sendOtpToEmail } from "../lib/OTP.js";
@@ -99,6 +102,12 @@ export const login = async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) {
       const error = new Error("Email hoặc mật khẩu không đúng!");
+      error.statusCode = 400;
+      throw error;
+    }
+    
+    if (!user.password) {
+      const error = new Error("Tài khoản này được đăng ký bằng Google. Vui lòng đăng nhập bằng Google!");
       error.statusCode = 400;
       throw error;
     }
@@ -319,6 +328,42 @@ export const resetPassword = async (req, res, next) => {
     await user.save();
     res.status(200).json({ message: "Mật khẩu đã được cập nhật!" });
   } catch (error) {
+    return next(error);
+  }
+};
+
+export const googleLogin = async (req, res, next) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      const error = new Error("Không tìm thấy Google Token!");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    const { email: rawEmail, name: fullName, picture: avatar, sub: googleId } = payload;
+    const email = rawEmail.toLowerCase();
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({ fullName, email, avatar, googleId, authProvider: 'google' });
+      await user.save();
+    } else if (!user.googleId) {
+      user.googleId = googleId;
+      await user.save();
+    }
+
+    const token = generateToken(user._id, res);
+    res.status(200).json({ _id: user._id, fullName: user.fullName, email: user.email, avatar: user.avatar, token });
+
+  } catch (error) {
+    console.error("Lỗi Google Login Backend:", error);
     return next(error);
   }
 };

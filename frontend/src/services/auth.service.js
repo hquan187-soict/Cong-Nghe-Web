@@ -9,6 +9,10 @@ export const authService = {
     return await axiosInstance.post('/api/auth/login', data);
   },
 
+  async loginWithGoogle(data) {
+    return await axiosInstance.post('/api/auth/google', data);
+  },
+
   async logout() {
     return await axiosInstance.post('/api/auth/logout');
   },

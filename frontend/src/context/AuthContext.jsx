@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { authService } from '../services/auth.service'
 const AuthContext = createContext()
 
 // Key lưu trong localStorage
@@ -48,6 +49,26 @@ export function AuthProvider({ children }) {
     console.log('AuthContext: login thành công', { user: userInfo, token: tokenToStore })
   }, [])
 
+  const loginWithGoogle = useCallback(async (idToken) => {
+    try {
+      const data = await authService.loginWithGoogle({ idToken });
+      const { token: receivedToken, ...userInfo } = data;
+      const tokenToStore = receivedToken;
+
+      setUser(userInfo);
+      setToken(tokenToStore);
+
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userInfo));
+      localStorage.setItem(STORAGE_KEY_TOKEN, tokenToStore);
+
+      console.log('AuthContext: login with Google thành công', { user: userInfo });
+      return data;
+    } catch (error) {
+      console.error('AuthContext: lỗi login với Google', error);
+      throw error;
+    }
+  }, []);
+
   const updateUser = useCallback((newUserData) => {
     if (!newUserData || !newUserData._id) return
     setUser(newUserData)
@@ -66,7 +87,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, loginWithGoogle, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )
