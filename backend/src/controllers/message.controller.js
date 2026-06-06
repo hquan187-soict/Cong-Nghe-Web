@@ -346,13 +346,15 @@ export const sendMessage = async (req, res, next) => {
       }
     }
 
-    const messageType = isAudio && fileData
-      ? "audio"
-      : fileData
-        ? "file"
-        : imageUrl
-          ? "image"
-          : "text";
+    const messageType = reqMsgType === "sticker"
+      ? "sticker"
+      : isAudio && fileData
+        ? "audio"
+        : fileData
+          ? "file"
+          : imageUrl
+            ? "image"
+            : "text";
 
     const message = await Message.create({
       conversationId,

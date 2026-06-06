@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { Send, ImagePlus, Paperclip, X, FileText, Mic, BarChart2, ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf } from 'lucide-react'
+import { Send, ImagePlus, Paperclip, X, FileText, Mic, BarChart2, ThumbsUp, Heart, Smile, Flame, Star, Coffee, Zap, Sun, Moon, Music, Leaf, Sticker } from 'lucide-react'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 import VoiceRecorder from './VoiceRecorder'
 import PollCreator from './PollCreator'
+import StickerPicker from './StickerPicker'
 
 function removeAccents(str) {
   if (!str) return '';
@@ -33,6 +34,7 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
   const [fileData, setFileData] = useState(null)
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false)
   const [showPollCreator, setShowPollCreator] = useState(false)
+  const [showStickerPicker, setShowStickerPicker] = useState(false)
   
   // Mentions state
   const [showMentionList, setShowMentionList] = useState(false)
@@ -377,6 +379,15 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
           />
         </div>
       )}
+      {showStickerPicker && (
+        <StickerPicker
+          onSelectSticker={(url) => {
+            onSend('', url, null, [], 'sticker')
+            setShowStickerPicker(false)
+          }}
+          onClose={() => setShowStickerPicker(false)}
+        />
+      )}
       {hasAttachment && (
         <div className="message-input__preview">
           {imagePreview && (
@@ -443,11 +454,25 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
           onClick={() => {
             setShowVoiceRecorder(v => !v)
             setShowPollCreator(false)
+            setShowStickerPicker(false)
           }}
           disabled={disabled}
         >
           <Mic size={20} />
           <span className="tooltip tooltip--top tooltip--right">Gửi tin nhắn thoại</span>
+        </button>
+        <button
+          type="button"
+          className={`message-input__action-btn tooltip-wrapper ${showStickerPicker ? 'message-input__action-btn--active' : ''}`}
+          onClick={() => {
+            setShowStickerPicker(v => !v)
+            setShowVoiceRecorder(false)
+            setShowPollCreator(false)
+          }}
+          disabled={disabled}
+        >
+          <Sticker size={20} />
+          <span className="tooltip tooltip--top">Gửi nhãn dán</span>
         </button>
         <button
           type="button"

@@ -487,7 +487,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
   }, [conversationId, currentUserId, onMessageSent, toast, t])
 
   // Gửi tin nhắn (text + image + file)
-  const handleSendMessage = useCallback(async (text, imageBase64, fileData, mentions = []) => {
+  const handleSendMessage = useCallback(async (text, imageBase64, fileData, mentions = [], messageType = 'text') => {
     if (!conversationId || !currentUserId) return
     if (!text && !imageBase64 && !fileData) return
 
@@ -503,6 +503,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
       text: text || '',
       image: imageBase64 || null,
       file: fileData ? { url: '', name: fileData.name, size: fileData.size, type: fileData.type } : null,
+      messageType: messageType,
       createdAt: new Date().toISOString(),
       readBy: [currentUserId],
       status: 'sending',
@@ -524,6 +525,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
       if (fileData) payload.file = fileData
       if (replyingTo) payload.replyTo = replyingTo._id
       if (mentions && mentions.length > 0) payload.mentions = mentions
+      if (messageType !== 'text') payload.messageType = messageType
 
       const savedMsg = await messageService.sendMessage(payload)
 

@@ -187,6 +187,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   const isRecalled = message.isRecalled;
   const isEdited = message.isEdited;
   const isLikeMessage = message.messageType === 'like'
+  const isStickerMessage = message.messageType === 'sticker'
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -376,6 +377,14 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
           <LikeIcon size={48} color="var(--color-primary)" strokeWidth={1.5} />
+        </div>
+      )
+    }
+
+    if (isStickerMessage) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img src={message.image || message.text} alt="sticker" style={{ width: '130px', height: '130px', objectFit: 'contain' }} />
         </div>
       )
     }
@@ -591,13 +600,13 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         <div
           className={`message-bubble ${isOwn ? 'message-bubble--own' : 'message-bubble--other'} ${
             status === 'sending' ? 'message-bubble--sending' : ''
-          } ${isLikeMessage ? 'message-bubble--like' : ''}`}
-          style={isLikeMessage ? { background: 'transparent', boxShadow: 'none', padding: '2px 4px' } : undefined}
+          } ${(isLikeMessage || isStickerMessage) ? 'message-bubble--like' : ''}`}
+          style={(isLikeMessage || isStickerMessage) ? { background: 'transparent', boxShadow: 'none', padding: isLikeMessage ? '2px 4px' : 0 } : undefined}
         >
           {renderMessageContent()}
 
-          <div className="message-bubble__footer" style={isLikeMessage ? { color: 'var(--color-text-muted)' } : undefined}>
-            <span className="message-bubble__time" style={isLikeMessage ? { color: 'var(--color-text-muted)' } : undefined}>
+          <div className="message-bubble__footer" style={(isLikeMessage || isStickerMessage) ? { color: 'var(--color-text-muted)' } : undefined}>
+            <span className="message-bubble__time" style={(isLikeMessage || isStickerMessage) ? { color: 'var(--color-text-muted)' } : undefined}>
               {isEdited && !isRecalled && <span className="message-bubble__edited" style={{ fontStyle: 'italic', marginRight: '4px' }}>(đã chỉnh sửa)</span>}
               {time}
             </span>
@@ -605,7 +614,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               <span
                 className={`message-bubble__status message-bubble__status--${status}`}
                 title={STATUS_LABELS[status] || ''}
-                style={isLikeMessage ? { color: 'var(--color-text-muted)' } : undefined}
+                style={(isLikeMessage || isStickerMessage) ? { color: 'var(--color-text-muted)' } : undefined}
               >
                 {status === 'sending' && <Clock size={12} />}
                 {status === 'sent' && <Check size={12} />}
