@@ -96,7 +96,7 @@ export const addMember = async (req, res, next) => {
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
@@ -200,7 +200,7 @@ export const leaveGroup = async (req, res, next) => {
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
@@ -311,7 +311,7 @@ export const removeMember = async (req, res, next) => {
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
@@ -365,7 +365,7 @@ export const updateAddMemberPermission = async (req, res, next) => {
     await conversation.save();
 
     const updated = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
@@ -466,7 +466,7 @@ export const requestAddMember = async (req, res, next) => {
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage")
       .populate("pendingRequests.userId", "fullName avatar email")
@@ -560,7 +560,7 @@ export const approveRequest = async (req, res, next) => {
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage")
       .populate("pendingRequests.userId", "fullName avatar email")
@@ -647,7 +647,7 @@ export const rejectRequest = async (req, res, next) => {
     });
 
     const updated = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage")
       .populate("pendingRequests.userId", "fullName avatar email")
@@ -722,7 +722,7 @@ export const createConversation = async (req, res, next) => {
         isGroup: false,
         $expr: { $eq: [{ $size: "$members" }, 2] },
       })
-        .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+        .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
         .populate("lastMessage");
 
       if (existingConversation) {
@@ -739,7 +739,7 @@ export const createConversation = async (req, res, next) => {
     });
 
     const populatedConversation = await Conversation.findById(conversation._id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
@@ -766,7 +766,7 @@ export const getConversations = async (req, res, next) => {
         { removedMembers: currentUserId },
       ],
     })
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage")
       .populate("pendingRequests.userId", "fullName avatar email")
@@ -895,7 +895,7 @@ export const updateConversation = async (req, res, next) => {
       updateData,
       { new: true }
     )
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
@@ -987,7 +987,7 @@ export const updateNickname = async (req, res, next) => {
       .populate("senderId", "fullName avatar");
 
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
@@ -1051,7 +1051,7 @@ export const toggleMuteConversation = async (req, res, next) => {
     }
     await conversation.save();
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
     return res.status(200).json(updatedConversation);
@@ -1112,7 +1112,7 @@ export const toggleArchiveConversation = async (req, res, next) => {
     await conversation.save();
 
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
     return res.status(200).json(updatedConversation);
@@ -1168,7 +1168,7 @@ export const updateEmoji = async (req, res, next) => {
 
     if (conversation.emoji === emoji) {
       const currentConversation = await Conversation.findById(id)
-        .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+        .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
         .populate("admins", "fullName avatar email")
         .populate("lastMessage");
       return res.status(200).json(currentConversation);
@@ -1196,7 +1196,7 @@ export const updateEmoji = async (req, res, next) => {
       .populate("senderId", "fullName avatar");
 
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
@@ -1286,7 +1286,7 @@ export const updateThemeColor = async (req, res, next) => {
       .populate("senderId", "fullName avatar");
 
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 
@@ -1455,7 +1455,7 @@ export const togglePinConversation = async (req, res, next) => {
     }
     await conversation.save();
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
     return res.status(200).json(updatedConversation);
@@ -1510,7 +1510,7 @@ export const updateLabel = async (req, res, next) => {
     await conversation.save();
 
     const updatedConversation = await Conversation.findById(id)
-      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus")
+      .populate("members", "fullName avatar email isOnline lastSeen showActiveStatus status")
       .populate("admins", "fullName avatar email")
       .populate("lastMessage");
 

@@ -128,6 +128,8 @@ function ProfilePage() {
   const [showAvatarMenu, setShowAvatarMenu] = useState(false)
   const [showDefaultAvatars, setShowDefaultAvatars] = useState(false)
   const [showCoverPicker, setShowCoverPicker] = useState(false)
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
   const avatarMenuRef = useRef(null)
   const coverPickerRef = useRef(null)
 
@@ -319,6 +321,21 @@ function ProfilePage() {
     toast.success(t('profile.logoutSuccess'))
     navigate('/login', { replace: true })
     setLoggingOut(false)
+  }
+
+  async function handleDeleteAccount() {
+    setDeletingAccount(true)
+    try {
+      await userService.deleteMyAccount()
+      logout()
+      toast.success(lang === 'vi' ? 'Tài khoản đã được xóa thành công.' : 'Account deleted successfully.')
+      navigate('/login', { replace: true })
+    } catch (err) {
+      toast.error(err?.message || (lang === 'vi' ? 'Xóa tài khoản thất bại.' : 'Failed to delete account.'))
+    } finally {
+      setDeletingAccount(false)
+      setShowDeleteAccountModal(false)
+    }
   }
 
   function formatBirthday(dateStr) {
@@ -658,6 +675,51 @@ function ProfilePage() {
                 )}
               </div>
             </div>
+
+            {/* Danger Zone */}
+            <div style={{
+              marginTop: 24, padding: 20, borderRadius: 12,
+              border: '1.5px solid #ef4444', background: 'rgba(239, 68, 68, 0.05)',
+            }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#ef4444', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Trash2 size={16} /> {lang === 'vi' ? 'Vùng nguy hiểm' : 'Danger Zone'}
+              </h3>
+              <p style={{ fontSize: 13, color: 'var(--color-text-muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                {lang === 'vi'
+                  ? 'Xóa tài khoản sẽ ẩn danh toàn bộ thông tin cá nhân, xóa bạn khỏi danh sách bạn bè và nhóm chat. Hành động này không thể hoàn tác.'
+                  : 'Deleting your account will anonymize all personal data, remove you from friends lists and group chats. This action cannot be undone.'}
+              </p>
+              <button
+                onClick={() => setShowDeleteAccountModal(true)}
+                disabled={deletingAccount}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 20px', borderRadius: 8, border: '1.5px solid #ef4444',
+                  background: '#ef4444', color: '#fff',
+                  fontSize: 13, fontWeight: 600, cursor: deletingAccount ? 'not-allowed' : 'pointer',
+                  opacity: deletingAccount ? 0.6 : 1, transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={e => { if (!deletingAccount) e.currentTarget.style.opacity = '0.85' }}
+                onMouseLeave={e => { if (!deletingAccount) e.currentTarget.style.opacity = '1' }}
+              >
+                <Trash2 size={14} />
+                {deletingAccount
+                  ? (lang === 'vi' ? 'Đang xóa...' : 'Deleting...')
+                  : (lang === 'vi' ? 'Xóa tài khoản' : 'Delete Account')}
+              </button>
+            </div>
+
+            <ConfirmModal
+              isOpen={showDeleteAccountModal}
+              onCancel={() => setShowDeleteAccountModal(false)}
+              onConfirm={handleDeleteAccount}
+              title={lang === 'vi' ? 'Xác nhận xóa tài khoản' : 'Confirm Account Deletion'}
+              message={lang === 'vi'
+                ? 'Bạn có chắc chắn muốn xóa tài khoản? Toàn bộ thông tin cá nhân sẽ bị ẩn danh, bạn sẽ bị xóa khỏi danh sách bạn bè và các nhóm chat. Hành động này KHÔNG THỂ hoàn tác.'
+                : 'Are you sure you want to delete your account? All personal information will be anonymized, you will be removed from friends lists and group chats. This action CANNOT be undone.'}
+              confirmText={lang === 'vi' ? 'Xóa tài khoản' : 'Delete Account'}
+              danger
+            />
 
             {/* Back to chat + Logout */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 12, margin: '20px 0 40px' }}>

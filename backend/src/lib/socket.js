@@ -48,6 +48,7 @@ async function getVisibleOnlineUsers() {
   const users = await User.find({
     _id: { $in: onlineIds },
     showActiveStatus: { $ne: false },
+    status: { $ne: "deleted" },
   }).select("_id");
   visibleOnlineCache = users.map((u) => u._id.toString());
   visibleOnlineCacheTime = now;

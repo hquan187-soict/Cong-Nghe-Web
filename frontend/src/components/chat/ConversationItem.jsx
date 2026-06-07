@@ -27,11 +27,12 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   )
 
   const otherMemberId = otherMember?._id?.toString()
+  const isOtherDeleted = !isGroup && otherMember?.status === 'deleted'
   const effectiveOnlineUsers = Array.isArray(onlineUsers) && onlineUsers.length > 0 ? onlineUsers : contextOnlineUsers
 
-  const isOtherOnline = isGroup
+  const isOtherOnline = isOtherDeleted ? false : (isGroup
     ? conversation.members.some(m => m._id !== user?._id && effectiveOnlineUsers.some(id => id.toString() === m._id.toString()))
-    : (otherMemberId ? effectiveOnlineUsers.some((id) => id.toString() === otherMemberId) : false);
+    : (otherMemberId ? effectiveOnlineUsers.some((id) => id.toString() === otherMemberId) : false));
 
   const getNickname = (id) => {
     if (!conversation.nicknames || !id) return null
@@ -40,7 +41,11 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     return null
   }
 
-  const displayTitle = isGroup ? (conversation.name || conversation.groupName) : (getNickname(otherMember?._id) || otherMember?.fullName || t('chat.unknownUser'));
+  const displayTitle = isGroup
+    ? (conversation.name || conversation.groupName)
+    : isOtherDeleted
+      ? 'Người dùng đã xóa tài khoản'
+      : (getNickname(otherMember?._id) || otherMember?.fullName || t('chat.unknownUser'));
 
   const lastMessagePreview = (() => {
     const msg = conversation.lastMessage
@@ -165,10 +170,10 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     return (
       <>
         <Avatar
-          src={isGroup ? (conversation.avatar || conversation.groupAvatar) : otherMember?.avatar}
+          src={isOtherDeleted ? '' : (isGroup ? (conversation.avatar || conversation.groupAvatar) : otherMember?.avatar)}
           alt={displayTitle}
           size="sm"
-          isOnline={!isGroup && isOtherOnline}
+          isOnline={!isGroup && !isOtherDeleted && isOtherOnline}
         />
         {hasUnread && (
           <span className="conversation-item__badge conversation-item__badge--dot" />

@@ -4,6 +4,9 @@ import Message from "../models/Message.js";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
+import { io, getReceiverSocketIds } from "../lib/socket.js";
+import TokenBlacklist from "../models/TokenBlacklist.js";
+import jwt from "jsonwebtoken";
 
 const validateUserId = (userId) => {
   if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -37,6 +40,7 @@ export const searchUsers = async (req, res, next) => {
     const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const filter = {
       _id: { $nin: excludeIds },
+      status: { $ne: "deleted" },
       $or: [
         { fullName: { $regex: escapedQ, $options: "i" } },
         { email: { $regex: escapedQ, $options: "i" } },
@@ -125,13 +129,23 @@ export const getUserById = async (req, res, next) => {
     }
 
     const user = await User.findById(id).select(
-      "fullName email avatar coverColor isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests"
+      "fullName email avatar coverColor isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests status"
     );
 
     if (!user) {
       const error = new Error("Người dùng không tồn tại.");
       error.statusCode = 404;
       throw error;
+    }
+
+    if (user.status === "deleted") {
+      return res.status(200).json({
+        _id: user._id,
+        fullName: user.fullName,
+        avatar: "",
+        status: "deleted",
+        isDeleted: true,
+      });
     }
 
     let relationshipStatus = "none";
@@ -614,7 +628,7 @@ export const unblockUser = async (req, res, next) => {
     const currentUserId = req.user?._id;
     const { userId } = req.params;
     validateUserId(userId);
-    
+
     const updatedUser = await User.findByIdAndUpdate(currentUserId, {
       $pull: {
         blockedUsers: userId,
@@ -636,3 +650,153 @@ export const unblockUser = async (req, res, next) => {
     return next(error);
   }
 };
+
+const performAccountDeletion = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    const error = new Error("Người dùng không tồn tại.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (user.status === "deleted") {
+    const error = new Error("Tài khoản này đã bị xóa trước đó.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (user.role === "admin") {
+    const error = new Error("Không thể xóa tài khoản quản trị viên.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const userIdStr = userId.toString();
+
+  const anonymizedEmail = `deleted_${Date.now()}_${user.email}`;
+
+  user.email = anonymizedEmail;
+  user.fullName = "Người dùng đã xóa tài khoản";
+  user.password = undefined;
+  user.googleId = undefined;
+  user.avatar = "";
+  user.status = "deleted";
+  user.deletedAt = new Date();
+  user.isOnline = false;
+  user.lastSeen = new Date();
+  user.showActiveStatus = false;
+  user.friends = [];
+  user.friendRequests = [];
+  user.blockedUsers = [];
+  user.phone = "";
+  user.address = "";
+  user.hometown = "";
+  user.hobbies = "";
+  user.occupation = "";
+  user.education = "";
+  user.bio = "";
+  user.birthday = null;
+  user.gender = "";
+  user.coverColor = "";
+  user.banStatus = "none";
+  user.banExpiresAt = null;
+  await user.save({ validateBeforeSave: false });
+
+  await Promise.all([
+    User.updateMany(
+      { friends: userId },
+      { $pull: { friends: userId } }
+    ),
+    User.updateMany(
+      { friendRequests: userId },
+      { $pull: { friendRequests: userId } }
+    ),
+    User.updateMany(
+      { blockedUsers: userId },
+      { $pull: { blockedUsers: userId } }
+    ),
+  ]);
+
+  await Conversation.updateMany(
+    { isGroup: true, members: userId },
+    {
+      $pull: {
+        members: userId,
+        admins: userId,
+        pinnedBy: userId,
+        mutedBy: userId,
+        archivedBy: userId,
+      },
+      $addToSet: { removedMembers: userId },
+    }
+  );
+
+  try {
+    await cloudinary.uploader.destroy(`avatars/avatar_${userIdStr}`);
+  } catch (cloudinaryErr) {
+    console.error("Cloudinary avatar cleanup failed:", cloudinaryErr.message);
+  }
+
+  const socketIds = getReceiverSocketIds(userIdStr);
+  if (socketIds.length > 0) {
+    socketIds.forEach((sid) => {
+      io.to(sid).emit("account_purged", {
+        reason: "Tài khoản đã bị xóa.",
+      });
+    });
+    setTimeout(() => {
+      socketIds.forEach((sid) => {
+        const s = io.sockets.sockets.get(sid);
+        if (s) s.disconnect(true);
+      });
+    }, 500);
+  }
+
+  return user;
+};
+
+export const deleteMyAccount = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+    if (!currentUserId) {
+      const error = new Error("Bạn chưa đăng nhập.");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    await performAccountDeletion(currentUserId);
+
+    const authHeader = req.headers.authorization;
+    const bearerToken =
+      authHeader && authHeader.startsWith("Bearer ")
+        ? authHeader.split(" ")[1]
+        : null;
+    const token = req.cookies?.jwt || bearerToken;
+    if (token) {
+      try {
+        const decoded = jwt.decode(token);
+        if (decoded && decoded.userId && decoded.exp) {
+          await TokenBlacklist.create({
+            token,
+            userId: decoded.userId,
+            expiresAt: new Date(decoded.exp * 1000),
+          });
+        }
+      } catch (blacklistErr) {
+        console.error("Token blacklist failed:", blacklistErr.message);
+      }
+    }
+
+    res.clearCookie("jwt", {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV !== "development",
+    });
+
+    return res.status(200).json({ message: "Tài khoản đã được xóa thành công." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export { performAccountDeletion };

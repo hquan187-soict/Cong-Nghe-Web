@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Lock, Eye, EyeOff } from 'lucide-react'
 import { useLang } from '../context/LangContext'
@@ -36,6 +36,14 @@ function LoginPage() {
   if (user) {
     return <Navigate to="/chat" replace />
   }
+  useEffect(() => {
+    const purgedMsg = localStorage.getItem('account_purged_msg')
+    if (purgedMsg) {
+      localStorage.removeItem('account_purged_msg')
+      toast.error(purgedMsg)
+    }
+  }, [])
+
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({ email: '', password: '' })
   const [serverError, setServerError] = useState('')

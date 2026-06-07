@@ -14,6 +14,7 @@ import {
   unfriend,
   blockUser,
   unblockUser,
+  deleteMyAccount,
 } from "../controllers/user.controller.js";
 
 const router = express.Router();
@@ -24,6 +25,7 @@ router.get("/friend-requests", protect, getFriendRequests);
 router.put("/profile", protect, updateProfile);
 router.put("/change-password", protect, changePassword);
 router.put("/active-status", protect, toggleActiveStatus);
+router.delete("/account", protect, deleteMyAccount);
 
 router.post("/friend-requests/:userId", protect, sendFriendRequest);
 router.put("/friend-requests/:userId", protect, acceptFriendRequest);

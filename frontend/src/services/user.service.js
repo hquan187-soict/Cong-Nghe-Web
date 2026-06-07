@@ -88,4 +88,8 @@ export const userService = {
   async unblockUser(userId) {
     return await axiosInstance.delete(`/api/users/blocks/${userId}`);
   },
+
+  async deleteMyAccount() {
+    return await axiosInstance.delete('/api/users/account');
+  },
 };

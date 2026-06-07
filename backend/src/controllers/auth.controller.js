@@ -130,7 +130,13 @@ export const login = async (req, res, next) => {
       error.statusCode = 400;
       throw error;
     }
-    
+
+    if (user.status === "deleted") {
+      const error = new Error("Tài khoản này đã bị xóa và không thể đăng nhập.");
+      error.statusCode = 403;
+      throw error;
+    }
+
     if (!user.password) {
       const error = new Error("Tài khoản này được đăng ký bằng Google. Vui lòng đăng nhập bằng Google!");
       error.statusCode = 400;
@@ -383,9 +389,16 @@ export const googleLogin = async (req, res, next) => {
     if (!user) {
       user = new User({ fullName, email, avatar, googleId, authProvider: 'google' });
       await user.save();
-    } else if (!user.googleId) {
-      user.googleId = googleId;
-      await user.save();
+    } else {
+      if (user.status === "deleted") {
+        const error = new Error("Tài khoản này đã bị xóa và không thể đăng nhập.");
+        error.statusCode = 403;
+        throw error;
+      }
+      if (!user.googleId) {
+        user.googleId = googleId;
+        await user.save();
+      }
     }
 
     const { hasWarning } = await checkBanStatus(user);

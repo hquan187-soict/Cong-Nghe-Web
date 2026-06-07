@@ -5,9 +5,11 @@ import { adminService } from '../services/admin.service'
 import { useNavigate } from 'react-router-dom'
 import {
   Users, FileText, Shield, Search, ChevronLeft, ChevronRight,
-  Loader2, AlertTriangle, Eye, LogOut, MessageSquare
+  Loader2, AlertTriangle, Eye, LogOut, MessageSquare, Trash2,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react'
 import Avatar from '../components/ui/Avatar'
+import ConfirmModal from '../components/ui/ConfirmModal'
 
 const BAN_ACTIONS = [
   { value: '', label: '-- Chọn hành động --' },
@@ -24,17 +26,19 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+const badgeBase = { padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600, display: 'inline-block', textAlign: 'center', lineHeight: 1.4, whiteSpace: 'nowrap' }
+
 function BanStatusBadge({ banStatus, banExpiresAt }) {
   if (banStatus === 'banned') {
     const label = banExpiresAt
       ? `Cấm đến ${formatDate(banExpiresAt)}`
       : 'Cấm vĩnh viễn'
-    return <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>{label}</span>
+    return <span style={{ ...badgeBase, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>{label}</span>
   }
   if (banStatus === 'warning') {
-    return <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600, background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }}>Cảnh cáo</span>
+    return <span style={{ ...badgeBase, background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }}>Cảnh cáo</span>
   }
-  return <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' }}>Bình thường</span>
+  return <span style={{ ...badgeBase, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' }}>Bình thường</span>
 }
 
 function ReportStatusBadge({ status }) {
@@ -56,11 +60,15 @@ function UsersTab() {
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [actionLoading, setActionLoading] = useState(null)
+  const [purgeTarget, setPurgeTarget] = useState(null)
+  const [purging, setPurging] = useState(false)
+  const [sortKey, setSortKey] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
 
   const fetchUsers = useCallback(async (page = 1, searchQuery = '') => {
     setLoading(true)
     try {
-      const data = await adminService.getUsers({ page, limit: 15, search: searchQuery })
+      const data = await adminService.getUsers({ page, limit: 10, search: searchQuery })
       setUsers(data.users)
       setPagination(data.pagination)
     } catch (error) {
@@ -71,6 +79,34 @@ function UsersTab() {
   }, [toast])
 
   useEffect(() => { fetchUsers(1, search) }, [search])
+
+  function handleSort(key) {
+    if (sortKey === key) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const banOrder = { none: 0, warning: 1, banned: 2 }
+  const sortedUsers = [...users].sort((a, b) => {
+    if (!sortKey) return 0
+    let cmp = 0
+    if (sortKey === 'fullName') {
+      cmp = (a.fullName || '').localeCompare(b.fullName || '', 'vi')
+    } else if (sortKey === 'banStatus') {
+      cmp = (banOrder[a.banStatus] ?? 0) - (banOrder[b.banStatus] ?? 0)
+    } else if (sortKey === 'createdAt') {
+      cmp = new Date(a.createdAt) - new Date(b.createdAt)
+    }
+    return sortDir === 'desc' ? -cmp : cmp
+  })
+
+  function SortIcon({ field }) {
+    if (sortKey !== field) return <ArrowUpDown size={13} style={{ opacity: 0.4 }} />
+    return sortDir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />
+  }
 
   function handleSearch(e) {
     e.preventDefault()
@@ -88,6 +124,21 @@ function UsersTab() {
       toast.error(error.response?.data?.message || 'Thao tác thất bại.')
     } finally {
       setActionLoading(null)
+    }
+  }
+
+  async function handlePurgeUser() {
+    if (!purgeTarget) return
+    setPurging(true)
+    try {
+      const data = await adminService.purgeUser(purgeTarget._id)
+      toast.success(data.message || 'Xóa tài khoản thành công.')
+      setUsers(prev => prev.map(u => u._id === purgeTarget._id ? { ...u, status: 'deleted', fullName: 'Người dùng đã xóa tài khoản', avatar: '' } : u))
+    } catch (error) {
+      toast.error(error.response?.data?.message || error?.message || 'Xóa tài khoản thất bại.')
+    } finally {
+      setPurging(false)
+      setPurgeTarget(null)
     }
   }
 
@@ -128,15 +179,30 @@ function UsersTab() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Người dùng</th>
+                  <th
+                    onClick={() => handleSort('fullName')}
+                    style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Người dùng <SortIcon field="fullName" /></span>
+                  </th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Email</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b' }}>Trạng thái</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b' }}>Ngày tạo</th>
+                  <th
+                    onClick={() => handleSort('banStatus')}
+                    style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Trạng thái <SortIcon field="banStatus" /></span>
+                  </th>
+                  <th
+                    onClick={() => handleSort('createdAt')}
+                    style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Ngày tạo <SortIcon field="createdAt" /></span>
+                  </th>
                   <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b' }}>Hành động</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => (
+                {sortedUsers.map(u => (
                   <tr key={u._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -150,21 +216,40 @@ function UsersTab() {
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center', color: '#64748b' }}>{formatDate(u.createdAt)}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                      {actionLoading === u._id ? (
+                      {u.status === 'deleted' ? (
+                        <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>Đã xóa</span>
+                      ) : actionLoading === u._id ? (
                         <Loader2 size={18} className="animate-spin" style={{ color: '#4f46e5', margin: '0 auto' }} />
                       ) : (
-                        <select
-                          defaultValue=""
-                          onChange={e => { handleBanAction(u._id, e.target.value); e.target.value = '' }}
-                          style={{
-                            padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0',
-                            fontSize: 13, cursor: 'pointer', background: '#fff',
-                          }}
-                        >
-                          {BAN_ACTIONS.map(a => (
-                            <option key={a.value} value={a.value}>{a.label}</option>
-                          ))}
-                        </select>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
+                          <select
+                            defaultValue=""
+                            onChange={e => { handleBanAction(u._id, e.target.value); e.target.value = '' }}
+                            style={{
+                              padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0',
+                              fontSize: 13, cursor: 'pointer', background: '#fff',
+                            }}
+                          >
+                            {BAN_ACTIONS.map(a => (
+                              <option key={a.value} value={a.value}>{a.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => setPurgeTarget(u)}
+                            title="Xóa tài khoản"
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              padding: '6px 10px', borderRadius: 8, border: '1px solid #ef4444',
+                              background: '#fef2f2', color: '#ef4444', fontSize: 12,
+                              fontWeight: 600, cursor: 'pointer', gap: 4,
+                              whiteSpace: 'nowrap', transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#ef4444' }}
+                          >
+                            <Trash2 size={13} /> Xóa tài khoản
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -195,6 +280,16 @@ function UsersTab() {
           </div>
         </>
       )}
+
+      <ConfirmModal
+        isOpen={!!purgeTarget}
+        onCancel={() => setPurgeTarget(null)}
+        onConfirm={handlePurgeUser}
+        title="Xác nhận xóa tài khoản"
+        message={`Bạn có chắc chắn muốn xóa tài khoản "${purgeTarget?.fullName}" (${purgeTarget?.email})? Thao tác này sẽ ẩn danh hóa toàn bộ thông tin, xóa khỏi bạn bè và nhóm chat. KHÔNG THỂ hoàn tác.`}
+        confirmText="Xóa tài khoản"
+        danger
+      />
     </div>
   )
 }

@@ -59,6 +59,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
   const [hasMore, setHasMore] = useState(false)
   const [sending, setSending] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
+  const [isDeletedUser, setIsDeletedUser] = useState(false)
   const [jumpedMode, setJumpedMode] = useState(false)
 
   // Reply state
@@ -438,9 +439,16 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
     })
     setReplyingTo(null)
     setIsBlocked(false)
+    setIsDeletedUser(false)
     setJumpedMode(false)
     jumpedModeRef.current = false
   }, [conversationId])
+
+  useEffect(() => {
+    if (!isGroup && otherMember) {
+      setIsDeletedUser(otherMember.status === 'deleted')
+    }
+  }, [isGroup, otherMember])
 
   useEffect(() => {
     if (typingUsers.size === 0) return
@@ -834,11 +842,17 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
             }
             const showName = !isOwn && prevSenderId !== msgSenderId
 
+            const senderObj = typeof msg.senderId === 'object' ? msg.senderId : null
+            const isSenderDeleted = !senderObj || senderObj.status === 'deleted'
+
             if (isOwn) {
               senderAvatar = user?.avatar
               senderName = getNickname(currentUserId) || user?.fullName
+            } else if (isSenderDeleted && !isOwn) {
+              senderAvatar = ''
+              senderName = 'Người dùng đã xóa tài khoản'
             } else if (isGroup) {
-              const member = membersMap[msgSenderId] || (typeof msg.senderId === 'object' ? msg.senderId : null)
+              const member = membersMap[msgSenderId] || senderObj
               senderAvatar = member?.avatar
               senderName = getNickname(msgSenderId) || member?.fullName || otherMember?.fullName
             } else {
@@ -923,6 +937,26 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
             <line x1="9" y1="12" x2="15" y2="12"/>
           </svg>
           Bạn không thể trả lời cuộc trò chuyện này
+        </div>
+      ) : isDeletedUser ? (
+        <div style={{
+          padding: '14px 16px',
+          textAlign: 'center',
+          borderTop: '1px solid var(--color-border-subtle)',
+          color: 'var(--color-text-muted)',
+          fontSize: '14px',
+          background: 'var(--color-surface)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+        }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          Bạn không thể phản hồi cuộc trò chuyện này vì người dùng đã xóa tài khoản.
         </div>
       ) : (
         <>

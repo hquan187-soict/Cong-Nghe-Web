@@ -39,6 +39,12 @@ export const protect = async (req, res, next) => {
       return next(error);
     }
 
+    if (user.status === "deleted") {
+      const error = new Error("Tài khoản này đã bị xóa.");
+      error.statusCode = 401;
+      return next(error);
+    }
+
     if (user.passwordChangedAt && decoded.iat < user.passwordChangedAt.getTime() / 1000) {
       const error = new Error("Mật khẩu đã được thay đổi. Vui lòng đăng nhập lại.");
       error.statusCode = 401;

@@ -843,7 +843,8 @@ function ChatPage() {
   )
 
   const otherMemberId = otherMember?._id?.toString()
-  const isOtherOnline = otherMemberId ? onlineUsers.some((id) => id.toString() === otherMemberId) : false
+  const isOtherDeleted = !isGroup && otherMember?.status === 'deleted'
+  const isOtherOnline = otherMemberId && !isOtherDeleted ? onlineUsers.some((id) => id.toString() === otherMemberId) : false
   const [lastSeen, setLastSeen] = useState(null)
 
   // Group calculations
@@ -1185,14 +1186,16 @@ function ChatPage() {
             </button>
             {selectedConversation && renderHeaderAvatar()}
             <div className="chat-header__user-info">
-              <h2>
+              <h2 style={isOtherDeleted ? { color: 'var(--color-text-muted)', fontStyle: 'italic' } : undefined}>
                 {selectedConversation
                   ? (isGroup
                     ? (selectedConversation.name || selectedConversation.groupName)
-                    : (selectedConversation.nicknames?.[otherMember?._id] || otherMember?.fullName || t('chat.title')))
+                    : isOtherDeleted
+                      ? 'Người dùng đã xóa tài khoản'
+                      : (selectedConversation.nicknames?.[otherMember?._id] || otherMember?.fullName || t('chat.title')))
                   : t('chat.title')}
               </h2>
-              {selectedConversation && !isGroup && (
+              {selectedConversation && !isGroup && !isOtherDeleted && (
                 <span className="chat-header__status">
                   {isOtherOnline
                     ? t('chat.activeNow')
@@ -1205,26 +1208,30 @@ function ChatPage() {
           </div>
           {selectedConversation && (
             <div className="chat-header__right">
-              <button
-                type="button"
-                className="chat-header__icon-btn tooltip-wrapper"
-                onClick={handleVoiceCall}
-                disabled={!!activeCall}
-                title={t('call.voiceCall')}
-              >
-                <Phone size={20} />
-                <span className="tooltip">{t('call.voiceCall')}</span>
-              </button>
-              <button
-                type="button"
-                className="chat-header__icon-btn tooltip-wrapper"
-                onClick={handleVideoCall}
-                disabled={!!activeCall}
-                title={t('call.videoCall')}
-              >
-                <Video size={20} />
-                <span className="tooltip">{t('call.videoCall')}</span>
-              </button>
+              {!isOtherDeleted && (
+                <>
+                  <button
+                    type="button"
+                    className="chat-header__icon-btn tooltip-wrapper"
+                    onClick={handleVoiceCall}
+                    disabled={!!activeCall}
+                    title={t('call.voiceCall')}
+                  >
+                    <Phone size={20} />
+                    <span className="tooltip">{t('call.voiceCall')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="chat-header__icon-btn tooltip-wrapper"
+                    onClick={handleVideoCall}
+                    disabled={!!activeCall}
+                    title={t('call.videoCall')}
+                  >
+                    <Video size={20} />
+                    <span className="tooltip">{t('call.videoCall')}</span>
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 className={`chat-header__icon-btn tooltip-wrapper ${showSearchPanel ? 'chat-header__icon-btn--active' : ''}`}

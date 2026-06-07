@@ -120,6 +120,15 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    status: {
+      type: String,
+      enum: ["active", "deleted"],
+      default: "active",
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
     profileVisibility: {
       birthday: { type: String, enum: ["private", "friends", "public"], default: "friends" },
       gender: { type: String, enum: ["private", "friends", "public"], default: "friends" },

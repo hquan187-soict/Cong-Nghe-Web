@@ -155,7 +155,7 @@ export const getMessages = async (req, res, next) => {
     }
 
     const messages = await Message.find(query)
-      .populate("senderId", "fullName avatar email")
+      .populate("senderId", "fullName avatar email status")
       .populate("reactions.userId", "fullName avatar")
       .populate({
         path: "replyTo",

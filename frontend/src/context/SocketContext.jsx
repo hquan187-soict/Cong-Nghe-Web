@@ -5,7 +5,7 @@ import { createSocket } from '../socket/socket'
 const SocketContext = createContext(null)
 
 export function SocketProvider({ children }) {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const socketRef = useRef(null)
   const [isConnected, setIsConnected] = useState(false)
   const [socketInstance, setSocketInstance] = useState(null)
@@ -53,6 +53,17 @@ export function SocketProvider({ children }) {
             return prev.filter((id) => id !== userId)
           }
         })
+      })
+
+      socket.on('account_purged', ({ reason }) => {
+        socket.disconnect()
+        socketRef.current = null
+        setSocketInstance(null)
+        setIsConnected(false)
+        setOnlineUsers([])
+        logout()
+        localStorage.setItem('account_purged_msg', reason || 'Tài khoản của bạn đã bị xóa bởi quản trị viên.')
+        window.location.href = '/login'
       })
 
       setSocketInstance(socket)

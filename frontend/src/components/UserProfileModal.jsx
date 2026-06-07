@@ -219,7 +219,23 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
 
   return (
     <div className="profile-modal__overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      {loading ? renderSkeleton() : error ? renderError() : profileUser && (
+      {loading ? renderSkeleton() : error ? renderError() : profileUser?.isDeleted ? (
+        <div className="user-profile-modal" style={{ display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}>
+          <button className="profile-modal__close-btn" onClick={onClose}><X size={20} /></button>
+          <div className="profile-modal__banner"><div className="profile-modal__banner-pattern" /></div>
+          <div className="profile-modal__avatar-wrapper">
+            <Avatar src="" alt="?" size="lg" />
+          </div>
+          <div className="profile-modal__body" style={{ textAlign: 'center', padding: '20px 28px 40px' }}>
+            <h2 className="profile-modal__name" style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+              Người dùng đã xóa tài khoản
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 8 }}>
+              Tài khoản này đã bị xóa. Thông tin cá nhân không còn khả dụng.
+            </p>
+          </div>
+        </div>
+      ) : profileUser && (
         <div className="user-profile-modal" style={{ display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}>
           <button className="profile-modal__close-btn" onClick={onClose}><X size={20} /></button>
 

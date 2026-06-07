@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import Report from "../models/Report.js";
 import Message from "../models/Message.js";
+import { performAccountDeletion } from "./user.controller.js";
 
 export const getUsers = async (req, res, next) => {
   try {
@@ -18,7 +19,7 @@ export const getUsers = async (req, res, next) => {
 
     const [users, total] = await Promise.all([
       User.find(filter)
-        .select("fullName email avatar banStatus banExpiresAt createdAt isOnline lastSeen")
+        .select("fullName email avatar banStatus banExpiresAt createdAt isOnline lastSeen status")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -224,6 +225,45 @@ export const getReportContext = async (req, res, next) => {
         ? { ...reportedMessage, isReportedMessage: true }
         : null,
       contextMessages,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const purgeUserAccount = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (id === req.user._id.toString()) {
+      const error = new Error("Không thể xóa tài khoản quản trị viên.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const targetUser = await User.findById(id);
+    if (!targetUser) {
+      const error = new Error("Người dùng không tồn tại.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (targetUser.role === "admin") {
+      const error = new Error("Không thể xóa tài khoản quản trị viên.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (targetUser.status === "deleted") {
+      const error = new Error("Tài khoản này đã bị xóa trước đó.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    await performAccountDeletion(id);
+
+    return res.status(200).json({
+      message: "Tài khoản người dùng đã được xóa thành công.",
     });
   } catch (error) {
     return next(error);

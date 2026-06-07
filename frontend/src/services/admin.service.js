@@ -20,4 +20,8 @@ export const adminService = {
   async getReportContext(reportId) {
     return await axiosInstance.get(`/api/admin/reports/${reportId}/context`);
   },
+
+  async purgeUser(userId) {
+    return await axiosInstance.delete(`/api/admin/users/${userId}/purge`);
+  },
 };
