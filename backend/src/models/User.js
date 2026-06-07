@@ -106,6 +106,20 @@ const userSchema = new mongoose.Schema(
       default: "",
       maxlength: 500,
     },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+    },
+    banStatus: {
+      type: String,
+      enum: ["none", "warning", "banned"],
+      default: "none",
+    },
+    banExpiresAt: {
+      type: Date,
+      default: null,
+    },
     profileVisibility: {
       birthday: { type: String, enum: ["private", "friends", "public"], default: "friends" },
       gender: { type: String, enum: ["private", "friends", "public"], default: "friends" },

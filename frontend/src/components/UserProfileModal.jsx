@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, MessageSquare, UserPlus, UserMinus, Clock, ShieldBan, ShieldCheck, Mail, User, Loader2, Cake, MapPin, Heart, Briefcase, GraduationCap, Phone, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, MessageSquare, UserPlus, UserMinus, Clock, ShieldBan, ShieldCheck, Mail, User, Loader2, Cake, MapPin, Heart, Briefcase, GraduationCap, Phone, ChevronDown, ChevronUp, Flag } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import { useToast } from '../context/ToastContext'
@@ -7,6 +7,7 @@ import { useLang } from '../context/LangContext'
 import { userService } from '../services/user.service'
 import { formatLastActive } from '../utils/timeUtils'
 import Avatar from './ui/Avatar'
+import ReportModal from './ReportModal'
 
 const COVER_COLORS = {
   '': 'linear-gradient(135deg, #4f46e5, #7c3aed)',
@@ -36,6 +37,7 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
   const [relationshipStatus, setRelationshipStatus] = useState('none')
   const [isBlocked, setIsBlocked] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
   const fetchIdRef = useRef(0)
 
   useEffect(() => {
@@ -306,6 +308,9 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
               <MessageSquare size={16} /> {t('userProfile.sendMessage')}
             </button>
             {renderFriendButton()}
+            <button className="user-profile-modal__action-btn user-profile-modal__action-btn--ghost" onClick={() => setShowReportModal(true)} style={{ color: '#ef4444' }}>
+              <Flag size={16} /> Báo cáo tài khoản
+            </button>
             {isBlocked ? (
               <button className="user-profile-modal__action-btn user-profile-modal__action-btn--danger" onClick={handleUnblock} disabled={actionLoading}>
                 {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} {t('userProfile.unblock')}
@@ -316,6 +321,14 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
               </button>
             )}
           </div>
+
+          {showReportModal && (
+            <ReportModal
+              isOpen={showReportModal}
+              onClose={() => setShowReportModal(false)}
+              reportedUserId={userId}
+            />
+          )}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import WarningPopup from '../components/WarningPopup'
 import {
   User, MessageSquare, Phone, Video, Info, X,
   BellOff, Bell, Search, ChevronDown, Sparkles,
@@ -2291,7 +2292,7 @@ function ChatPage() {
         </div>
       )}
 
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={confirmModalData.isOpen}
         title={confirmModalData.type === 'block' ? (t('chat.blockUser') || 'Chặn người dùng') : (t('chat.unblockUser') || 'Bỏ chặn người dùng')}
         message={confirmModalData.type === 'block' ? (t('chat.blockUserConfirm') || 'Bạn có chắc chắn muốn chặn người dùng này?') : (t('chat.unblockUserConfirm') || 'Bạn có chắc chắn muốn bỏ chặn người dùng này?')}
@@ -2299,6 +2300,8 @@ function ChatPage() {
         onConfirm={handleConfirmAction}
         onCancel={() => setConfirmModalData(prev => ({ ...prev, isOpen: false }))}
       />
+
+      <WarningPopup />
     </div>
   )
 }

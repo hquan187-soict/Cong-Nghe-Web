@@ -12,6 +12,7 @@ const LIKE_ICONS = {
 import Avatar from './ui/Avatar'
 import AudioPlayer from './chat/AudioPlayer'
 import ImageLightbox from './chat/ImageLightbox'
+import ReportModal from './ReportModal'
 import { messageService } from '../services/message.service'
 
 /**
@@ -204,6 +205,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   const [editText, setEditText] = useState(message.text || '')
   const [editLoading, setEditLoading] = useState(false)
   const [dropdownUp, setDropdownUp] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
   const reactions = message.reactions || []
   const moreMenuRef = useRef(null)
   const emojiPickerRef = useRef(null)
@@ -378,6 +380,12 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               <button className="message-actions__dropdown-item" onClick={handleEdit}>
                 <Edit3 size={14} />
                 <span>Sửa tin nhắn</span>
+              </button>
+            )}
+            {!isOwn && !isRecalled && (
+              <button className="message-actions__dropdown-item" onClick={() => { setShowReportModal(true); setShowMoreMenu(false) }}>
+                <Flag size={14} />
+                <span>Báo cáo</span>
               </button>
             )}
           </div>
@@ -769,6 +777,16 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           src={lightboxSrc}
           alt="attachment"
           onClose={() => setLightboxSrc(null)}
+        />
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          reportedUserId={message.senderId?._id || message.senderId}
+          messageId={message._id}
         />
       )}
     </>

@@ -8,6 +8,7 @@ import { GoogleLogin } from '@react-oauth/google'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import { authService } from '../services/auth.service'
+import { triggerWarningPopup } from '../components/WarningPopup'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -55,12 +56,22 @@ function LoginForm({ onNavigate }) {
     setLoading(true)
     try {
       const data = await authService.login(formData)
-      const { token: receivedToken, ...userInfo } = data
+      const { token: receivedToken, hasWarning, ...userInfo } = data
       login(userInfo, receivedToken)
-      toast.success(t('login.success'))
-      navigate('/chat', { replace: true })
+      if (hasWarning) {
+        triggerWarningPopup()
+      } else {
+        toast.success(t('login.success'))
+      }
+      navigate(userInfo.role === 'admin' ? '/admin' : '/chat', { replace: true })
     } catch (error) {
-      toast.error(error.response?.data?.message || t('login.error'))
+      const status = error.response?.status
+      const message = error.response?.data?.message || t('login.error')
+      if (status === 403) {
+        setServerError(message)
+      } else {
+        toast.error(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -121,11 +132,22 @@ function LoginForm({ onNavigate }) {
             onSuccess={async (credentialResponse) => {
               setGoogleLoading(true);
               try {
-                await loginWithGoogle(credentialResponse.credential);
-                toast.success(t('login.success') || 'Đăng nhập thành công');
-                navigate('/chat', { replace: true });
+                const data = await loginWithGoogle(credentialResponse.credential);
+                if (data?.hasWarning) {
+                  triggerWarningPopup();
+                } else {
+                  toast.success(t('login.success') || 'Đăng nhập thành công');
+                }
+                const role = data?.role || 'user';
+                navigate(role === 'admin' ? '/admin' : '/chat', { replace: true });
               } catch (error) {
-                toast.error(error.response?.data?.message || 'Đăng nhập Google thất bại');
+                const status = error.response?.status;
+                const message = error.response?.data?.message || 'Đăng nhập Google thất bại';
+                if (status === 403) {
+                  setServerError(message);
+                } else {
+                  toast.error(message);
+                }
               } finally {
                 setGoogleLoading(false);
               }
@@ -144,7 +166,17 @@ function LoginForm({ onNavigate }) {
         </div>
 
         {serverError && (
-          <p className="text-rose-500 text-sm font-medium text-center">{serverError}</p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 mt-2">
+            <p className="text-red-600 text-sm font-medium text-center">
+              {serverError.includes('truonghoangquan18072005@gmail.com')
+                ? <>
+                    {serverError.split('truonghoangquan18072005@gmail.com')[0]}
+                    <a href="https://mail.google.com/mail/?view=cm&to=truonghoangquan18072005@gmail.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-bold">truonghoangquan18072005@gmail.com</a>
+                  </>
+                : serverError
+              }
+            </p>
+          </div>
         )}
       </form>
 
@@ -158,6 +190,7 @@ function LoginForm({ onNavigate }) {
           {t('login.registerLink')}
         </button>
       </p>
+
     </>
   )
 }
@@ -341,11 +374,22 @@ function RegisterForm({ onNavigate }) {
             onSuccess={async (credentialResponse) => {
               setGoogleLoading(true);
               try {
-                await loginWithGoogle(credentialResponse.credential);
-                toast.success(t('login.success') || 'Đăng nhập thành công');
-                navigate('/chat', { replace: true });
+                const data = await loginWithGoogle(credentialResponse.credential);
+                if (data?.hasWarning) {
+                  triggerWarningPopup();
+                } else {
+                  toast.success(t('login.success') || 'Đăng nhập thành công');
+                }
+                const role = data?.role || 'user';
+                navigate(role === 'admin' ? '/admin' : '/chat', { replace: true });
               } catch (error) {
-                toast.error(error.response?.data?.message || 'Đăng nhập Google thất bại');
+                const status = error.response?.status;
+                const message = error.response?.data?.message || 'Đăng nhập Google thất bại';
+                if (status === 403) {
+                  setServerError(message);
+                } else {
+                  toast.error(message);
+                }
               } finally {
                 setGoogleLoading(false);
               }
@@ -364,7 +408,17 @@ function RegisterForm({ onNavigate }) {
         </div>
 
         {serverError && (
-          <p className="text-rose-500 text-sm font-medium text-center">{serverError}</p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 mt-2">
+            <p className="text-red-600 text-sm font-medium text-center">
+              {serverError.includes('truonghoangquan18072005@gmail.com')
+                ? <>
+                    {serverError.split('truonghoangquan18072005@gmail.com')[0]}
+                    <a href="https://mail.google.com/mail/?view=cm&to=truonghoangquan18072005@gmail.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-bold">truonghoangquan18072005@gmail.com</a>
+                  </>
+                : serverError
+              }
+            </p>
+          </div>
         )}
       </form>
 
@@ -378,6 +432,7 @@ function RegisterForm({ onNavigate }) {
           {t('register.loginLink')}
         </button>
       </p>
+
     </>
   )
 }
@@ -560,7 +615,7 @@ function AuthPage() {
   const [displayView, setDisplayView] = useState(initialView)
 
   if (user) {
-    return <Navigate to="/chat" replace />
+    return <Navigate to={user.role === 'admin' ? '/admin' : '/chat'} replace />
   }
 
   function handleNavigate(view) {

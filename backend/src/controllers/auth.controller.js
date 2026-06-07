@@ -11,6 +11,30 @@ import TokenBlacklist from "../models/TokenBlacklist.js";
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
 
+const checkBanStatus = async (user) => {
+  if (user.banStatus === "banned") {
+    if (user.banExpiresAt && new Date() >= user.banExpiresAt) {
+      user.banStatus = "none";
+      user.banExpiresAt = null;
+      await user.save();
+      return { allowed: true, hasWarning: false };
+    }
+    let message;
+    if (user.banExpiresAt) {
+      const formatted = user.banExpiresAt.toLocaleDateString("vi-VN", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+      });
+      message = `Bạn đã vi phạm tiêu chuẩn cộng đồng của chúng tôi. Thời hạn bị cấm của bạn đến ngày ${formatted}.`;
+    } else {
+      message = "Bạn đã vi phạm tiêu chuẩn cộng đồng của chúng tôi. Tài khoản của bạn đã bị cấm vĩnh viễn. Nếu có khiếu nại, vui lòng liên hệ đến địa chỉ email: truonghoangquan18072005@gmail.com";
+    }
+    const error = new Error(message);
+    error.statusCode = 403;
+    throw error;
+  }
+  return { allowed: true, hasWarning: user.banStatus === "warning" };
+};
+
 export const signup = async (req, res, next) => {
   try {
     let { fullName, email, password, otp } = req.body;
@@ -81,6 +105,7 @@ export const signup = async (req, res, next) => {
       fullName: savedUser.fullName,
       email: savedUser.email,
       avatar: savedUser.avatar,
+      role: savedUser.role,
       token,
     });
   } catch (error) {
@@ -124,6 +149,8 @@ export const login = async (req, res, next) => {
       throw error;
     }
 
+    const { hasWarning } = await checkBanStatus(user);
+
     const token = generateToken(user._id, res);
 
     res.status(200).json({
@@ -131,7 +158,9 @@ export const login = async (req, res, next) => {
       fullName: user.fullName,
       email: user.email,
       avatar: user.avatar,
+      role: user.role,
       token,
+      hasWarning,
     });
   } catch (error) {
     return next(error);
@@ -359,8 +388,10 @@ export const googleLogin = async (req, res, next) => {
       await user.save();
     }
 
+    const { hasWarning } = await checkBanStatus(user);
+
     const token = generateToken(user._id, res);
-    res.status(200).json({ _id: user._id, fullName: user.fullName, email: user.email, avatar: user.avatar, token });
+    res.status(200).json({ _id: user._id, fullName: user.fullName, email: user.email, avatar: user.avatar, role: user.role, token, hasWarning });
 
   } catch (error) {
     console.error("Lỗi Google Login Backend:", error);

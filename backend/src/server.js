@@ -15,7 +15,10 @@ import messageRoutes from "./routes/message.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import callRoutes from "./routes/call.routes.js";
 import configRoutes from "./routes/config.routes.js";
+import reportRoutes from "./routes/report.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 import { app, server } from './lib/socket.js';
+import { seedAdmin } from './lib/seedAdmin.js';
 
 //test import
 import "./models/User.js";
@@ -24,6 +27,7 @@ import "./models/Message.js";
 import "./models/Call.js";
 import "./models/Notification.js";
 import "./models/TokenBlacklist.js";
+import "./models/Report.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -68,6 +72,8 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/calls", callRoutes);
 app.use("/api/config", configRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/admin", adminRoutes);
 
 
 app.use(globalErrorHandler);
@@ -88,6 +94,7 @@ const startServer = async () => {
   }
 
   await connectDB();
+  await seedAdmin();
 
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

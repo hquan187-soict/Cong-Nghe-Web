@@ -52,7 +52,7 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = useCallback(async (idToken) => {
     try {
       const data = await authService.loginWithGoogle({ idToken });
-      const { token: receivedToken, ...userInfo } = data;
+      const { token: receivedToken, hasWarning, ...userInfo } = data;
       const tokenToStore = receivedToken;
 
       setUser(userInfo);
@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem(STORAGE_KEY_TOKEN, tokenToStore);
 
       console.log('AuthContext: login with Google thành công', { user: userInfo });
-      return data;
+      return { ...data, hasWarning };
     } catch (error) {
       console.error('AuthContext: lỗi login với Google', error);
       throw error;
