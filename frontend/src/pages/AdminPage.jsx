@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Users, FileText, Shield, Search, ChevronLeft, ChevronRight,
   Loader2, AlertTriangle, Eye, LogOut, MessageSquare, Trash2,
-  ArrowUpDown, ArrowUp, ArrowDown
+  ArrowUpDown, ArrowUp, ArrowDown, UserX
 } from 'lucide-react'
 import Avatar from '../components/ui/Avatar'
 import ConfirmModal from '../components/ui/ConfirmModal'
@@ -89,8 +89,10 @@ function UsersTab() {
     }
   }
 
+  const activeUsers = users.filter(u => u.status !== 'deleted')
+
   const banOrder = { none: 0, warning: 1, banned: 2 }
-  const sortedUsers = [...users].sort((a, b) => {
+  const sortedUsers = [...activeUsers].sort((a, b) => {
     if (!sortKey) return 0
     let cmp = 0
     if (sortKey === 'fullName') {
@@ -113,6 +115,21 @@ function UsersTab() {
     setSearch(searchInput)
   }
 
+  async function handlePurgeUser() {
+    if (!purgeTarget) return
+    setPurging(true)
+    try {
+      const data = await adminService.purgeUser(purgeTarget._id)
+      toast.success(data.message || 'Xóa tài khoản thành công.')
+      setUsers(prev => prev.filter(u => u._id !== purgeTarget._id))
+    } catch (error) {
+      toast.error(error.response?.data?.message || error?.message || 'Xóa tài khoản thất bại.')
+    } finally {
+      setPurging(false)
+      setPurgeTarget(null)
+    }
+  }
+
   async function handleBanAction(userId, action) {
     if (!action) return
     setActionLoading(userId)
@@ -124,21 +141,6 @@ function UsersTab() {
       toast.error(error.response?.data?.message || 'Thao tác thất bại.')
     } finally {
       setActionLoading(null)
-    }
-  }
-
-  async function handlePurgeUser() {
-    if (!purgeTarget) return
-    setPurging(true)
-    try {
-      const data = await adminService.purgeUser(purgeTarget._id)
-      toast.success(data.message || 'Xóa tài khoản thành công.')
-      setUsers(prev => prev.map(u => u._id === purgeTarget._id ? { ...u, status: 'deleted', fullName: 'Người dùng đã xóa tài khoản', avatar: '' } : u))
-    } catch (error) {
-      toast.error(error.response?.data?.message || error?.message || 'Xóa tài khoản thất bại.')
-    } finally {
-      setPurging(false)
-      setPurgeTarget(null)
     }
   }
 
@@ -216,9 +218,7 @@ function UsersTab() {
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center', color: '#64748b' }}>{formatDate(u.createdAt)}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                      {u.status === 'deleted' ? (
-                        <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>Đã xóa</span>
-                      ) : actionLoading === u._id ? (
+                      {actionLoading === u._id ? (
                         <Loader2 size={18} className="animate-spin" style={{ color: '#4f46e5', margin: '0 auto' }} />
                       ) : (
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
@@ -290,6 +290,108 @@ function UsersTab() {
         confirmText="Xóa tài khoản"
         danger
       />
+    </div>
+  )
+}
+
+// ─── Deleted Users Tab ────────────────────────────────
+function DeletedUsersTab() {
+  const toast = useToast()
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
+  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+
+  const fetchUsers = useCallback(async (page = 1, searchQuery = '') => {
+    setLoading(true)
+    try {
+      const data = await adminService.getUsers({ page, limit: 50, search: searchQuery })
+      const deletedUsers = data.users.filter(u => u.status === 'deleted')
+      setUsers(deletedUsers)
+      setPagination({ page: 1, totalPages: 1, total: deletedUsers.length })
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Lỗi khi tải danh sách.')
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => { fetchUsers(1, search) }, [search])
+
+  function handleSearch(e) {
+    e.preventDefault()
+    setSearch(searchInput)
+  }
+
+  return (
+    <div>
+      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            placeholder="Tìm theo tên hoặc email..."
+            style={{
+              width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10,
+              border: '1px solid #e2e8f0', fontSize: 14, outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+        <button type="submit" style={{
+          padding: '10px 20px', borderRadius: 10, border: 'none',
+          background: '#4f46e5', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer',
+        }}>
+          Tìm kiếm
+        </button>
+      </form>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <Loader2 size={32} className="animate-spin" style={{ color: '#4f46e5', margin: '0 auto' }} />
+        </div>
+      ) : users.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Không có tài khoản nào đã bị xóa.</div>
+      ) : (
+        <>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Người dùng</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Email (đã ẩn danh)</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b' }}>Trạng thái</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b' }}>Ngày tạo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u._id} style={{ borderBottom: '1px solid #f1f5f9', opacity: 0.7 }}>
+                    <td style={{ padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Avatar src="" alt={u.fullName} size="sm" />
+                        <span style={{ fontWeight: 500, color: '#94a3b8', fontStyle: 'italic' }}>{u.fullName}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{u.email}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      <span style={{ ...badgeBase, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>Đã xóa</span>
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: '#94a3b8' }}>{formatDate(u.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, fontSize: 14, color: '#64748b' }}>
+            <span>Tổng: {users.length} tài khoản đã xóa</span>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -534,6 +636,7 @@ function AdminPage() {
 
   const tabs = [
     { key: 'users', label: 'Quản lý người dùng', icon: <Users size={18} /> },
+    { key: 'deleted', label: 'Tài khoản đã xóa', icon: <UserX size={18} /> },
     { key: 'reports', label: 'Báo cáo vi phạm', icon: <FileText size={18} /> },
   ]
 
@@ -596,6 +699,7 @@ function AdminPage() {
 
         <div style={{ background: '#fff', borderRadius: 16, padding: 24, border: '1px solid #e2e8f0' }}>
           {activeTab === 'users' && <UsersTab />}
+          {activeTab === 'deleted' && <DeletedUsersTab />}
           {activeTab === 'reports' && <ReportsTab />}
         </div>
       </div>
