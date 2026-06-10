@@ -632,7 +632,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           className={`message-bubble ${isOwn ? 'message-bubble--own' : 'message-bubble--other'} ${
             status === 'sending' ? 'message-bubble--sending' : ''
           } ${(isLikeMessage || isStickerMessage) ? 'message-bubble--like' : ''}`}
-          style={(isLikeMessage || isStickerMessage) ? { background: 'transparent', boxShadow: 'none', padding: isLikeMessage ? '2px 4px' : 0 } : undefined}
+          style={(isLikeMessage || isStickerMessage) ? { background: 'transparent', border: 'none', boxShadow: 'none', padding: isLikeMessage ? '2px 4px' : 0 } : undefined}
         >
           {renderMessageContent()}
 
