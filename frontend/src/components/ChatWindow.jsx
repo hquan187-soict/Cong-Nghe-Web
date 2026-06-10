@@ -728,14 +728,21 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
     const lum = relativeLuminance(themeColor)
     const isLightColor = lum > 0.4
     const darkSoftened = softenForDark(themeColor)
+    const themeHover = darkenHex(themeColor)
+    const darkHover = darkenHex(darkSoftened)
     return {
       '--conv-theme': themeColor,
-      '--conv-theme-hover': darkenHex(themeColor),
+      '--conv-theme-rgb': `${r}, ${g}, ${b}`,
+      '--conv-theme-hover': themeHover,
       '--conv-theme-text': isLightColor ? '#1f2937' : '#ffffff',
       '--conv-theme-tint-light': `rgba(${r}, ${g}, ${b}, 0.07)`,
       '--conv-theme-tint-dark': `rgba(${r}, ${g}, ${b}, 0.03)`,
+      '--conv-theme-soft': `rgba(${r}, ${g}, ${b}, 0.12)`,
+      '--conv-theme-muted': `rgba(${r}, ${g}, ${b}, 0.18)`,
+      '--conv-theme-glow': `rgba(${r}, ${g}, ${b}, 0.28)`,
+      '--conv-theme-border': `rgba(${r}, ${g}, ${b}, 0.32)`,
       '--conv-theme-dark': darkSoftened,
-      '--conv-theme-dark-hover': darkenHex(darkSoftened),
+      '--conv-theme-dark-hover': darkHover,
     }
   })() : undefined
 
