@@ -787,6 +787,17 @@ a:hover {
   white-space: pre-wrap;
 }
 
+.message-bubble__like-icon {
+  color: var(--conv-theme, var(--color-primary));
+  filter: drop-shadow(0 6px 14px var(--conv-theme-tint-light, rgba(79, 70, 229, 0.18)));
+  transition: color var(--transition-fast), filter var(--transition-fast), transform var(--transition-fast);
+}
+
+[data-theme="dark"] .message-bubble__like-icon {
+  color: var(--conv-theme-dark, var(--color-primary));
+  filter: drop-shadow(0 6px 14px var(--conv-theme-tint-dark, rgba(96, 205, 255, 0.16)));
+}
+
 .message-bubble-sender-name {
   font-size: 12px;
   font-weight: 600;

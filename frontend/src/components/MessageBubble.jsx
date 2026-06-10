@@ -407,7 +407,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       const LikeIcon = LIKE_ICONS[message.text] || ThumbsUp
       return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
-          <LikeIcon size={48} color="var(--color-primary)" strokeWidth={1.5} />
+          <LikeIcon size={48} className="message-bubble__like-icon" strokeWidth={1.5} />
         </div>
       )
     }
