@@ -396,6 +396,13 @@
     "callBack": "Gọi lại",
     "loadError": "Không thể tải lịch sử cuộc gọi",
     "today": "Hôm nay",
-    "yesterday": "Hôm qua"
+    "yesterday": "Hôm qua",
+    "screenAudioOff": "Tắt âm thanh màn hình",
+    "screenAudioOn": "Bật âm thanh màn hình",
+    "close": "Đóng",
+    "upgradeRequest": "{name} muốn chuyển sang cuộc gọi Video",
+    "waitingAccept": "Đang chờ đối phương chấp nhận...",
+    "rejectedVideo": "Đối phương đã từ chối bật video",
+    "groupVideoDisabled": "Chỉ áp dụng gọi 1-1. Gọi nhóm vui lòng gọi video mới."
   }
 }

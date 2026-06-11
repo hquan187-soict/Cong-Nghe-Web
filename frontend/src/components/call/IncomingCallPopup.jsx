@@ -3,6 +3,16 @@ import { useCall } from '../../context/CallContext'
 import { useLang } from '../../context/LangContext'
 import '../../styles/call.css'
 
+function FallbackAvatar({ src, alt, className }) {
+  if (src) return <img src={src} alt={alt} className={className} />
+  const initial = (alt || '?').charAt(0).toUpperCase()
+  return (
+    <div className={`${className} bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold`} style={{ fontSize: '1.25em' }}>
+      {initial}
+    </div>
+  )
+}
+
 export default function IncomingCallPopup() {
   const { incomingCall, acceptCall, rejectCall } = useCall()
   const { t } = useLang()
@@ -19,9 +29,9 @@ export default function IncomingCallPopup() {
     <div className="incoming-call-popup">
       <div className="incoming-call-popup__avatar-wrap">
         <div className="incoming-call-popup__pulse-ring" />
-        <img
-          src={callerAvatar || '/default-avatar.png'}
-          alt={displayName}
+        <FallbackAvatar
+          src={callerAvatar}
+          alt={displayName || '?'}
           className="incoming-call-popup__avatar"
         />
         <div className="incoming-call-popup__type-badge">

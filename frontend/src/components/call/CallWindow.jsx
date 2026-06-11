@@ -3,12 +3,23 @@ import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2, MonitorUp
 import { useCall } from '../../context/CallContext'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
+import { useToast } from '../../context/ToastContext'
 import '../../styles/call.css'
 
 function formatDuration(seconds) {
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+}
+
+function FallbackAvatar({ src, alt, className }) {
+  if (src) return <img src={src} alt={alt} className={className} />
+  const initial = (alt || '?').charAt(0).toUpperCase()
+  return (
+    <div className={`${className} bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold`} style={{ fontSize: '1.5em' }}>
+      {initial}
+    </div>
+  )
 }
 
 // Audio sink ẩn cho remote stream — đảm bảo audio luôn phát kể cả khi
@@ -50,9 +61,9 @@ function VideoTile({ stream, muted, label, isLocal, avatarUrl, videoEnabled, isS
         />
       ) : (
         <div className="call-window__video-placeholder">
-          <img
-            src={avatarUrl || '/default-avatar.png'}
-            alt={label}
+          <FallbackAvatar
+            src={avatarUrl}
+            alt={label || '?'}
             className="call-window__placeholder-avatar"
           />
         </div>
@@ -83,10 +94,52 @@ export default function CallWindow() {
     toggleScreenShare,
     toggleScreenAudio,
     closeCallWindow,
+    videoUpgradeStatus,
+    upgradeRequesterName,
+    acceptVideoUpgrade,
+    rejectVideoUpgrade,
   } = useCall()
 
   const { user } = useAuth()
   const { t } = useLang()
+  const toast = useToast()
+
+  useEffect(() => {
+    if (videoUpgradeStatus === 'rejected') {
+      toast.error(t('call.rejectedVideo') || 'Đối phương đã từ chối bật video')
+    }
+  }, [videoUpgradeStatus, toast, t])
+
+  const handleToggleVideo = async () => {
+    if (activeCall?.callType === 'voice' && activeCall?.isGroup) {
+      toast.error(t('call.groupVideoDisabled') || 'Tính năng này chỉ hỗ trợ gọi 1-1. Trong nhóm vui lòng gọi lại cuộc gọi video mới.')
+      return
+    }
+    toggleVideo()
+  }
+
+  const renderUpgradeOverlay = () => {
+    if (videoUpgradeStatus === 'requesting') {
+      return (
+        <div className="call-window__upgrade-overlay">
+          <span>{t('call.waitingAccept') || 'Đang chờ đối phương chấp nhận...'}</span>
+        </div>
+      )
+    }
+    if (videoUpgradeStatus === 'incoming') {
+      const msg = (t('call.upgradeRequest') || '{name} muốn chuyển sang cuộc gọi Video').replace('{name}', upgradeRequesterName || (t('call.unknownUser') || 'Người dùng'))
+      return (
+        <div className="call-window__upgrade-overlay call-window__upgrade-overlay--incoming">
+          <span>{msg}</span>
+          <div className="call-window__upgrade-actions">
+            <button className="call-window__upgrade-btn call-window__upgrade-btn--accept" onClick={acceptVideoUpgrade}>{t('call.accept') || 'Chấp nhận'}</button>
+            <button className="call-window__upgrade-btn call-window__upgrade-btn--reject" onClick={rejectVideoUpgrade}>{t('call.reject') || 'Từ chối'}</button>
+          </div>
+        </div>
+      )
+    }
+    return null
+  }
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [position, setPosition] = useState({ x: 24, y: 80 }) // default top-right
@@ -143,7 +196,7 @@ export default function CallWindow() {
           <h3 className="call-window__ended-title">{t('call.ended') || 'Cuộc gọi đã kết thúc'}</h3>
           <p className="call-window__ended-duration">{formatDuration(callDuration)}</p>
           <button className="call-window__ended-close-btn" onClick={closeCallWindow}>
-            {t('common.close') || 'Đóng'}
+            {t('call.close') || 'Đóng'}
           </button>
         </div>
       </div>
@@ -269,6 +322,8 @@ export default function CallWindow() {
       </div>
 
 
+      {renderUpgradeOverlay()}
+
       {showVideoArea ? (
         sharerId ? renderSpotlight() : (
           <div className={`call-window__grid ${gridClass}`}>
@@ -311,9 +366,9 @@ export default function CallWindow() {
             <div className="call-window__voice-single">
               <div className="call-window__voice-avatar-wrap">
                 <div className="call-window__voice-pulse" />
-                <img
-                  src={Array.from(participantInfo.values())[0]?.avatar || '/default-avatar.png'}
-                  alt=""
+                <FallbackAvatar
+                  src={Array.from(participantInfo.values())[0]?.avatar}
+                  alt={Array.from(participantInfo.values())[0]?.fullName || '?'}
                   className="call-window__voice-avatar"
                 />
               </div>
@@ -328,9 +383,9 @@ export default function CallWindow() {
                 const info = participantInfo.get(userId)
                 return (
                   <div key={userId} className="call-window__voice-participant">
-                    <img
-                      src={info?.avatar || '/default-avatar.png'}
-                      alt={info?.fullName || ''}
+                    <FallbackAvatar
+                      src={info?.avatar}
+                      alt={info?.fullName || '?'}
                       className="call-window__voice-avatar"
                     />
                     <span className="call-window__voice-participant-name">
@@ -354,20 +409,18 @@ export default function CallWindow() {
           {isAudioEnabled ? <Mic size={22} /> : <MicOff size={22} />}
         </button>
 
-        {isVideo && (
-          <button
-            className={`call-window__control-btn ${!isVideoEnabled ? 'call-window__control-btn--off' : ''}`}
-            onClick={toggleVideo}
-            disabled={isScreenSharing}
-            title={isScreenSharing
-              ? (t('call.stopShareFirst') || 'Dừng chia sẻ màn hình trước')
-              : (isVideoEnabled ? t('call.cameraOff') : t('call.cameraOn'))}
-          >
-            {isVideoEnabled ? <Video size={22} /> : <VideoOff size={22} />}
-          </button>
-        )}
+        <button
+          className={`call-window__control-btn ${!isVideoEnabled ? 'call-window__control-btn--off' : ''}`}
+          onClick={handleToggleVideo}
+          disabled={isScreenSharing}
+          title={isScreenSharing
+            ? (t('call.stopShareFirst') || 'Dừng chia sẻ màn hình trước')
+            : (isVideoEnabled ? t('call.cameraOff') : t('call.cameraOn'))}
+        >
+          {isVideoEnabled ? <Video size={22} /> : <VideoOff size={22} />}
+        </button>
 
-        {canScreenShare && (
+        {canScreenShare && isVideo && (
           <button
             className={`call-window__control-btn ${isScreenSharing ? 'call-window__control-btn--active' : ''}`}
             onClick={toggleScreenShare}
