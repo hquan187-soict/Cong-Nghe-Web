@@ -304,6 +304,7 @@ function ProfilePage() {
       }
       if (formData.avatar !== (user?.avatar || '')) payload.avatar = formData.avatar
       if (formData.coverColor !== (user?.coverColor || '')) payload.coverColor = formData.coverColor || ''
+      if (formData.coverImage !== (user?.coverImage || '')) payload.coverImage = formData.coverImage || ''
       const oldVis = user?.profileVisibility || {}
       const visDiff = {}
       for (const f of Object.keys(visibilityData)) {
