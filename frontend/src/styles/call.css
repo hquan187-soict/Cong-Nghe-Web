@@ -641,3 +641,63 @@
     height: 54px;
   }
 }
+
+/* ===== Call Ended UI ===== */
+.call-window--ended {
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.call-window__ended-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: white;
+}
+
+.call-window__ended-icon {
+  margin-bottom: 24px;
+  background: rgba(239, 68, 68, 0.15);
+  padding: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.call-window__ended-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.call-window__ended-duration {
+  font-size: 16px;
+  opacity: 0.8;
+  margin-bottom: 32px;
+}
+
+.call-window__ended-close-btn {
+  padding: 10px 32px;
+  background-color: var(--color-primary, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.call-window__ended-close-btn:hover {
+  background-color: var(--color-primary-dark, #1d4ed8);
+  transform: translateY(-1px);
+}
+
+.call-window__ended-close-btn:active {
+  transform: translateY(1px);
+}
