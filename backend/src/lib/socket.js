@@ -735,6 +735,40 @@ io.on("connection", async (socket) => {
     }
   });
 
+  socket.on("call_upgrade_request", ({ callId }) => {
+    const call = activeUserCalls.get(userId);
+    if (!call || call !== callId) return;
+    for (const [uid, cid] of activeUserCalls.entries()) {
+      if (cid === callId && uid !== userId) {
+        const sids = userSocketsMap.get(uid);
+        if (sids) sids.forEach((sid) => io.to(sid).emit("call_upgrade_request", { callId, fromUserId: userId, fromUserName: socket.user.fullName }));
+      }
+    }
+  });
+
+  socket.on("call_upgrade_accept", ({ callId }) => {
+    const call = activeUserCalls.get(userId);
+    if (!call || call !== callId) return;
+    Call.findByIdAndUpdate(callId, { callType: "video" }).catch(() => {});
+    for (const [uid, cid] of activeUserCalls.entries()) {
+      if (cid === callId && uid !== userId) {
+        const sids = userSocketsMap.get(uid);
+        if (sids) sids.forEach((sid) => io.to(sid).emit("call_upgrade_accept", { callId, fromUserId: userId }));
+      }
+    }
+  });
+
+  socket.on("call_upgrade_reject", ({ callId }) => {
+    const call = activeUserCalls.get(userId);
+    if (!call || call !== callId) return;
+    for (const [uid, cid] of activeUserCalls.entries()) {
+      if (cid === callId && uid !== userId) {
+        const sids = userSocketsMap.get(uid);
+        if (sids) sids.forEach((sid) => io.to(sid).emit("call_upgrade_reject", { callId, fromUserId: userId }));
+      }
+    }
+  });
+
   // ============ END CALL EVENTS ============
 
   socket.on("getUserLastSeen", async (targetUserId, callback) => {

@@ -20,7 +20,7 @@ export default function IncomingCallPopup() {
       <div className="incoming-call-popup__avatar-wrap">
         <div className="incoming-call-popup__pulse-ring" />
         <img
-          src={callerAvatar || '/default-avatar.png'}
+          src={callerAvatar || '/default_avatar/avatar_1.png'}
           alt={displayName}
           className="incoming-call-popup__avatar"
         />

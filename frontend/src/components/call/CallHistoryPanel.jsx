@@ -148,7 +148,7 @@ export default function CallHistoryPanel({ onSelectConversation, collapsed }) {
               >
                 <div className="call-history__avatar-wrap">
                   <img
-                    src={otherUser?.avatar || '/default-avatar.png'}
+                    src={otherUser?.avatar || '/default_avatar/avatar_1.png'}
                     alt={otherUser?.fullName || ''}
                     className="call-history__avatar"
                   />
@@ -212,7 +212,7 @@ export default function CallHistoryPanel({ onSelectConversation, collapsed }) {
             >
               <div className="call-history__avatar-wrap">
                 <img
-                  src={otherUser?.avatar || '/default-avatar.png'}
+                  src={otherUser?.avatar || '/default_avatar/avatar_1.png'}
                   alt={otherUser?.fullName || ''}
                   className="call-history__avatar"
                 />

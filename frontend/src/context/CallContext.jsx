@@ -47,6 +47,8 @@ export function CallProvider({ children }) {
   const [participantInfo, setParticipantInfo] = useState(new Map())
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [isScreenAudioEnabled, setIsScreenAudioEnabled] = useState(false)
+  const [videoUpgradeStatus, setVideoUpgradeStatus] = useState(null)
+  const [upgradeRequesterName, setUpgradeRequesterName] = useState(null)
 
   const peersRef = useRef(new Map())
   const pendingPeersRef = useRef(new Set())
@@ -130,6 +132,7 @@ export function CallProvider({ children }) {
     setParticipantMedia(new Map())
     setIsScreenSharing(false)
     setIsScreenAudioEnabled(false)
+    setVideoUpgradeStatus(null)
 
     if (audioContextRef.current) {
       audioContextRef.current.close().catch(() => {})
@@ -195,6 +198,15 @@ export function CallProvider({ children }) {
         return updated
       })
       markOngoing()
+    })
+
+    peer.on('track', (track, stream) => {
+      console.log(`[CALL-FE] peer track received from ${targetUserId}:`, track.kind)
+      setRemoteStreams((prev) => {
+        const updated = new Map(prev)
+        updated.set(targetUserId, stream)
+        return updated
+      })
     })
 
     peer.on('connect', () => {
@@ -356,6 +368,16 @@ export function CallProvider({ children }) {
   const toggleVideo = useCallback(async () => {
     if (!localStreamRef.current) return
     if (screenTrackRef.current) return // đang chia sẻ màn hình — không thao tác camera
+
+    if (activeCallRef.current?.callType === 'voice') {
+      if (activeCallRef.current.isGroup) {
+        return // handled in UI via toast
+      }
+      setVideoUpgradeStatus('requesting')
+      socketRef.current?.emit('call_upgrade_request', { callId: activeCallRef.current.callId })
+      return
+    }
+
     const oldTrack = localStreamRef.current.getVideoTracks()[0]
     if (!oldTrack) return
 
@@ -403,6 +425,44 @@ export function CallProvider({ children }) {
         console.error('[CALL-FE] Failed to re-enable camera:', err)
       }
     }
+  }, [])
+
+  const performVideoUpgrade = useCallback(async () => {
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      const videoTrack = newStream.getVideoTracks()[0]
+      const peerStream = originalStreamRef.current || localStreamRef.current
+      
+      peersRef.current.forEach((peer) => {
+        if (!peer.destroyed) {
+          try { peer.addTrack(videoTrack, peerStream) } catch (e) {}
+        }
+      })
+      
+      localStreamRef.current.addTrack(videoTrack)
+      setLocalStream(new MediaStream(localStreamRef.current.getTracks()))
+      setIsVideoEnabled(true)
+      
+      setActiveCall(prev => ({ ...prev, callType: 'video' }))
+      setVideoUpgradeStatus(null)
+      
+      socketRef.current?.emit('call_toggle_media', { callId: activeCallRef.current?.callId, mediaType: 'video', enabled: true })
+    } catch (err) {
+      console.error('[CALL-FE] Failed to perform video upgrade:', err)
+      setVideoUpgradeStatus(null)
+    }
+  }, [])
+
+  const acceptVideoUpgrade = useCallback(async () => {
+    if (!activeCallRef.current) return
+    socketRef.current?.emit('call_upgrade_accept', { callId: activeCallRef.current.callId })
+    await performVideoUpgrade()
+  }, [performVideoUpgrade])
+
+  const rejectVideoUpgrade = useCallback(() => {
+    if (!activeCallRef.current) return
+    setVideoUpgradeStatus(null)
+    socketRef.current?.emit('call_upgrade_reject', { callId: activeCallRef.current.callId })
   }, [])
 
   const closeCallWindow = useCallback(() => {
@@ -761,6 +821,25 @@ export function CallProvider({ children }) {
       })
     }
 
+    const onCallUpgradeRequest = ({ callId, fromUserName }) => {
+      if (activeCallRef.current?.callId !== callId) return
+      setUpgradeRequesterName(fromUserName)
+      setVideoUpgradeStatus('incoming')
+    }
+
+    const onCallUpgradeAccept = async ({ callId }) => {
+      if (activeCallRef.current?.callId !== callId) return
+      await performVideoUpgrade()
+    }
+
+    const onCallUpgradeReject = ({ callId }) => {
+      if (activeCallRef.current?.callId !== callId) return
+      setVideoUpgradeStatus('rejected')
+      setTimeout(() => {
+        setVideoUpgradeStatus(prev => prev === 'rejected' ? null : prev)
+      }, 3000)
+    }
+
     socket.on('call_incoming', onCallIncoming)
     socket.on('call_user_joined', onCallUserJoined)
     socket.on('call_signal', onCallSignal)
@@ -769,6 +848,9 @@ export function CallProvider({ children }) {
     socket.on('call_no_answer', onCallNoAnswer)
     socket.on('call_user_left', onCallUserLeft)
     socket.on('call_media_toggled', onCallMediaToggled)
+    socket.on('call_upgrade_request', onCallUpgradeRequest)
+    socket.on('call_upgrade_accept', onCallUpgradeAccept)
+    socket.on('call_upgrade_reject', onCallUpgradeReject)
 
     return () => {
       socket.off('call_incoming', onCallIncoming)
@@ -779,8 +861,11 @@ export function CallProvider({ children }) {
       socket.off('call_no_answer', onCallNoAnswer)
       socket.off('call_user_left', onCallUserLeft)
       socket.off('call_media_toggled', onCallMediaToggled)
+      socket.off('call_upgrade_request', onCallUpgradeRequest)
+      socket.off('call_upgrade_accept', onCallUpgradeAccept)
+      socket.off('call_upgrade_reject', onCallUpgradeReject)
     }
-  }, [socket, cleanupCall])
+  }, [socket, cleanupCall, performVideoUpgrade])
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -814,6 +899,10 @@ export function CallProvider({ children }) {
     toggleScreenShare,
     toggleScreenAudio,
     closeCallWindow,
+    videoUpgradeStatus,
+    upgradeRequesterName,
+    acceptVideoUpgrade,
+    rejectVideoUpgrade,
   }
 
   return (

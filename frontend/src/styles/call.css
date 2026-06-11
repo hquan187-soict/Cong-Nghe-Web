@@ -701,3 +701,74 @@
 .call-window__ended-close-btn:active {
   transform: translateY(1px);
 }
+
+/* ===== Upgrade Overlay ===== */
+.call-window__upgrade-overlay {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 12px 20px;
+  border-radius: 12px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  font-size: 14px;
+  text-align: center;
+  animation: slide-down-fade 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  max-width: 90%;
+}
+
+.call-window__upgrade-overlay--incoming {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.call-window__upgrade-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.call-window__upgrade-btn {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.call-window__upgrade-btn:hover {
+  transform: translateY(-1px);
+}
+
+.call-window__upgrade-btn:active {
+  transform: translateY(1px);
+}
+
+.call-window__upgrade-btn--accept {
+  background: #22c55e;
+  color: white;
+}
+
+.call-window__upgrade-btn--reject {
+  background: #4b5563;
+  color: white;
+}
+
+@keyframes slide-down-fade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
