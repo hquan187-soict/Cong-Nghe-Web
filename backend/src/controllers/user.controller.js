@@ -722,6 +722,7 @@ const performAccountDeletion = async (userId) => {
   user.birthday = null;
   user.gender = "";
   user.coverColor = "";
+  user.coverImage = "";
   user.banStatus = "none";
   user.banExpiresAt = null;
   await user.save({ validateBeforeSave: false });
@@ -759,6 +760,11 @@ const performAccountDeletion = async (userId) => {
     await cloudinary.uploader.destroy(`avatars/avatar_${userIdStr}`);
   } catch (cloudinaryErr) {
     console.error("Cloudinary avatar cleanup failed:", cloudinaryErr.message);
+  }
+  try {
+    await cloudinary.uploader.destroy(`covers/cover_${userIdStr}`);
+  } catch (cloudinaryErr) {
+    console.error("Cloudinary cover cleanup failed:", cloudinaryErr.message);
   }
 
   const socketIds = getReceiverSocketIds(userIdStr);
