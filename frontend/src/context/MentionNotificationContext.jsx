@@ -3,6 +3,7 @@ import { useSocket } from './SocketContext'
 import { useAuth } from './AuthContext'
 import { useNotification } from './NotificationContext'
 import { notificationService } from '../services/notification.service'
+import { setUnreadNotifsCount } from '../utils/documentTitle'
 
 const MentionNotificationContext = createContext()
 
@@ -14,6 +15,10 @@ export function MentionNotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setUnreadNotifsCount(unreadCount)
+  }, [unreadCount])
   const [hasMore, setHasMore] = useState(false)
   const [page, setPage] = useState(1)
 

@@ -18,6 +18,7 @@ import CreateGroupModal from './CreateGroupModal'
 import ConfirmModal from '../ui/ConfirmModal'
 import NotificationBell from '../NotificationBell'
 import CallHistoryPanel from '../call/CallHistoryPanel'
+import { setUnreadChatsCount } from '../../utils/documentTitle'
 import '../../styles/sidebar.css'
 
 const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onlineUsers = [], onNotificationClick }, ref) {
@@ -257,6 +258,11 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       socket.off('messagesRead', handleMessagesRead)
     }
   }, [socket])
+
+  useEffect(() => {
+    const sum = Object.values(unreadMap).reduce((a, b) => a + (b || 0), 0)
+    setUnreadChatsCount(sum)
+  }, [unreadMap])
 
   const handleSelectConversation = useCallback(async (conv) => {
     onSelectConversation(conv)

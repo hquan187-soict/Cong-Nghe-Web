@@ -4,6 +4,7 @@ const SimplePeer = _SimplePeer.default || _SimplePeer
 import { useSocket } from './SocketContext'
 import { useAuth } from './AuthContext'
 import axiosInstance from '../utils/axios'
+import { setRingingStatus } from '../utils/documentTitle'
 
 const CallContext = createContext(null)
 
@@ -49,6 +50,10 @@ export function CallProvider({ children }) {
   const [isScreenAudioEnabled, setIsScreenAudioEnabled] = useState(false)
   const [videoUpgradeStatus, setVideoUpgradeStatus] = useState(null)
   const [upgradeRequesterName, setUpgradeRequesterName] = useState(null)
+
+  useEffect(() => {
+    setRingingStatus(!!incomingCall)
+  }, [incomingCall])
 
   const peersRef = useRef(new Map())
   const pendingPeersRef = useRef(new Set())
