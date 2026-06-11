@@ -8,7 +8,7 @@ export default function CallOverlay() {
   return (
     <>
       {incomingCall && !activeCall && <IncomingCallPopup />}
-      {activeCall && activeCall.status !== 'ended' && <CallWindow />}
+      {activeCall && <CallWindow />}
     </>
   )
 }
