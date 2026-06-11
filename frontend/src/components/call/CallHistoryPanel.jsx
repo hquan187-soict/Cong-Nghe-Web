@@ -6,6 +6,16 @@ import { useCall } from '../../context/CallContext'
 import { useLang } from '../../context/LangContext'
 import '../../styles/call-history.css'
 
+function FallbackAvatar({ src, alt, className }) {
+  if (src) return <img src={src} alt={alt} className={className} />
+  const initial = (alt || '?').charAt(0).toUpperCase()
+  return (
+    <div className={`${className} bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold`} style={{ fontSize: '1.2em' }}>
+      {initial}
+    </div>
+  )
+}
+
 function formatDuration(seconds) {
   if (!seconds || seconds <= 0) return ''
   const mins = Math.floor(seconds / 60)
@@ -147,9 +157,9 @@ export default function CallHistoryPanel({ onSelectConversation, collapsed }) {
                 title={`${otherUser?.fullName || ''} — ${status.label}`}
               >
                 <div className="call-history__avatar-wrap">
-                  <img
-                    src={otherUser?.avatar || '/default_avatar/avatar_1.png'}
-                    alt={otherUser?.fullName || ''}
+                  <FallbackAvatar
+                    src={otherUser?.avatar}
+                    alt={otherUser?.fullName || '?'}
                     className="call-history__avatar"
                   />
                   <span className={`call-history__type-icon call-history__type-icon--${status.type}`}>
@@ -211,9 +221,9 @@ export default function CallHistoryPanel({ onSelectConversation, collapsed }) {
               onClick={() => handleItemClick(call)}
             >
               <div className="call-history__avatar-wrap">
-                <img
-                  src={otherUser?.avatar || '/default_avatar/avatar_1.png'}
-                  alt={otherUser?.fullName || ''}
+                <FallbackAvatar
+                  src={otherUser?.avatar}
+                  alt={otherUser?.fullName || '?'}
                   className="call-history__avatar"
                 />
               </div>

@@ -12,6 +12,16 @@ function formatDuration(seconds) {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 }
 
+function FallbackAvatar({ src, alt, className }) {
+  if (src) return <img src={src} alt={alt} className={className} />
+  const initial = (alt || '?').charAt(0).toUpperCase()
+  return (
+    <div className={`${className} bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold`} style={{ fontSize: '1.5em' }}>
+      {initial}
+    </div>
+  )
+}
+
 // Audio sink ẩn cho remote stream — đảm bảo audio luôn phát kể cả khi
 // không render <video> (gọi thoại, hoặc đối phương tắt camera)
 function RemoteAudio({ stream }) {
@@ -51,9 +61,9 @@ function VideoTile({ stream, muted, label, isLocal, avatarUrl, videoEnabled, isS
         />
       ) : (
         <div className="call-window__video-placeholder">
-          <img
-            src={avatarUrl || '/default_avatar/avatar_1.png'}
-            alt={label}
+          <FallbackAvatar
+            src={avatarUrl}
+            alt={label || '?'}
             className="call-window__placeholder-avatar"
           />
         </div>
@@ -186,7 +196,7 @@ export default function CallWindow() {
           <h3 className="call-window__ended-title">{t('call.ended') || 'Cuộc gọi đã kết thúc'}</h3>
           <p className="call-window__ended-duration">{formatDuration(callDuration)}</p>
           <button className="call-window__ended-close-btn" onClick={closeCallWindow}>
-            {t('common.close') || 'Đóng'}
+            {t('call.close') || 'Đóng'}
           </button>
         </div>
       </div>
@@ -356,9 +366,9 @@ export default function CallWindow() {
             <div className="call-window__voice-single">
               <div className="call-window__voice-avatar-wrap">
                 <div className="call-window__voice-pulse" />
-                <img
-                  src={Array.from(participantInfo.values())[0]?.avatar || '/default_avatar/avatar_1.png'}
-                  alt=""
+                <FallbackAvatar
+                  src={Array.from(participantInfo.values())[0]?.avatar}
+                  alt={Array.from(participantInfo.values())[0]?.fullName || '?'}
                   className="call-window__voice-avatar"
                 />
               </div>
@@ -373,9 +383,9 @@ export default function CallWindow() {
                 const info = participantInfo.get(userId)
                 return (
                   <div key={userId} className="call-window__voice-participant">
-                    <img
-                      src={info?.avatar || '/default_avatar/avatar_1.png'}
-                      alt={info?.fullName || ''}
+                    <FallbackAvatar
+                      src={info?.avatar}
+                      alt={info?.fullName || '?'}
                       className="call-window__voice-avatar"
                     />
                     <span className="call-window__voice-participant-name">
@@ -399,18 +409,16 @@ export default function CallWindow() {
           {isAudioEnabled ? <Mic size={22} /> : <MicOff size={22} />}
         </button>
 
-        {(isVideo || (!isVideo && !isGroupCall && !isScreenSharing)) && (
-          <button
-            className={`call-window__control-btn ${!isVideoEnabled ? 'call-window__control-btn--off' : ''}`}
-            onClick={handleToggleVideo}
-            disabled={isScreenSharing}
-            title={isScreenSharing
-              ? (t('call.stopShareFirst') || 'Dừng chia sẻ màn hình trước')
-              : (isVideoEnabled ? t('call.cameraOff') : t('call.cameraOn'))}
-          >
-            {isVideoEnabled ? <Video size={22} /> : <VideoOff size={22} />}
-          </button>
-        )}
+        <button
+          className={`call-window__control-btn ${!isVideoEnabled ? 'call-window__control-btn--off' : ''}`}
+          onClick={handleToggleVideo}
+          disabled={isScreenSharing}
+          title={isScreenSharing
+            ? (t('call.stopShareFirst') || 'Dừng chia sẻ màn hình trước')
+            : (isVideoEnabled ? t('call.cameraOff') : t('call.cameraOn'))}
+        >
+          {isVideoEnabled ? <Video size={22} /> : <VideoOff size={22} />}
+        </button>
 
         {canScreenShare && isVideo && (
           <button
