@@ -129,7 +129,7 @@ export const getUserById = async (req, res, next) => {
     }
 
     const user = await User.findById(id).select(
-      "fullName email avatar coverColor isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests status"
+      "fullName email avatar coverColor coverImage isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests status"
     );
 
     if (!user) {
@@ -258,7 +258,7 @@ export const  updateProfile = async (req, res, next) => {
     }
 
     const allowedFields = [
-      "fullName", "avatar", "coverColor", "birthday", "gender", "phone",
+      "fullName", "avatar", "coverColor", "coverImage", "birthday", "gender", "phone",
       "address", "hometown", "hobbies", "occupation", "education", "bio",
     ];
     const updateData = {};
@@ -324,6 +324,30 @@ export const  updateProfile = async (req, res, next) => {
           public_id: `avatar_${currentUserId}`,
         });
         updateData.avatar = avatarUrl.secure_url;
+      }
+    }
+    if (updateData.coverImage !== undefined) {
+      if (updateData.coverImage === "" || updateData.coverImage === null) {
+        updateData.coverImage = "";
+      } else if (
+        typeof updateData.coverImage === "string" &&
+        updateData.coverImage.startsWith("data:image/")
+      ) {
+        const coverResult = await cloudinary.uploader.upload(updateData.coverImage, {
+          folder: "covers",
+          public_id: `cover_${currentUserId}`,
+          overwrite: true,
+          transformation: [
+            { width: 1600, height: 600, crop: "limit" },
+            { quality: "auto", fetch_format: "auto" },
+          ],
+        });
+
+        updateData.coverImage = coverResult.secure_url;
+      } else {
+        const error = new Error("Ảnh bìa không hợp lệ.");
+        error.statusCode = 400;
+        throw error;
       }
     }
 
