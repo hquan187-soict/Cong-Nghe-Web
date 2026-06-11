@@ -46,6 +46,7 @@ export function CallProvider({ children }) {
   const [participantMedia, setParticipantMedia] = useState(new Map())
   const [participantInfo, setParticipantInfo] = useState(new Map())
   const [isScreenSharing, setIsScreenSharing] = useState(false)
+  const [isScreenAudioEnabled, setIsScreenAudioEnabled] = useState(false)
 
   const peersRef = useRef(new Map())
   const pendingPeersRef = useRef(new Set())
@@ -54,6 +55,11 @@ export function CallProvider({ children }) {
   const originalStreamRef = useRef(null)
   const screenTrackRef = useRef(null)   // track màn hình đang chia sẻ
   const cameraTrackRef = useRef(null)   // track camera lưu lại để khôi phục sau khi dừng share
+  const screenAudioTrackRef = useRef(null)
+  const audioContextRef = useRef(null)
+  const audioDestinationRef = useRef(null)
+  const micSourceRef = useRef(null)
+  const screenAudioSourceRef = useRef(null)
   const timerRef = useRef(null)
   const ringtoneRef = useRef(null)
   const dialtoneRef = useRef(null)
@@ -113,14 +119,29 @@ export function CallProvider({ children }) {
 
     setLocalStream(null)
     setRemoteStreams(new Map())
-    setActiveCall(null)
+    setActiveCall((prev) => {
+      if (prev) return { ...prev, status: 'ended' }
+      return null
+    })
     setIncomingCall(null)
     setIsAudioEnabled(true)
     setIsVideoEnabled(true)
-    setCallDuration(0)
+    // Giữ lại callDuration và participantInfo cho màn hình kết thúc
     setParticipantMedia(new Map())
-    setParticipantInfo(new Map())
     setIsScreenSharing(false)
+    setIsScreenAudioEnabled(false)
+
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {})
+      audioContextRef.current = null
+    }
+    audioDestinationRef.current = null
+    micSourceRef.current = null
+    screenAudioSourceRef.current = null
+    if (screenAudioTrackRef.current) {
+      try { screenAudioTrackRef.current.stop() } catch {}
+      screenAudioTrackRef.current = null
+    }
   }, [])
 
   function markOngoing() {
@@ -384,6 +405,76 @@ export function CallProvider({ children }) {
     }
   }, [])
 
+  const closeCallWindow = useCallback(() => {
+    setActiveCall(null)
+    setCallDuration(0)
+    setParticipantInfo(new Map())
+  }, [])
+
+  const toggleScreenAudio = useCallback(() => {
+    setIsScreenAudioEnabled((prev) => {
+      const nextState = !prev
+      if (nextState) {
+        if (!screenAudioTrackRef.current) {
+          console.warn('[CALL-FE] No screen audio track found')
+          return false
+        }
+        
+        const peerStream = originalStreamRef.current || localStreamRef.current
+        const currentMicTrack = peerStream.getAudioTracks()[0]
+        
+        if (!audioContextRef.current) {
+          try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext
+            const audioCtx = new AudioContext()
+            audioContextRef.current = audioCtx
+            const dest = audioCtx.createMediaStreamDestination()
+            audioDestinationRef.current = dest
+            
+            if (currentMicTrack) {
+              const micStream = new MediaStream([currentMicTrack])
+              const micSource = audioCtx.createMediaStreamSource(micStream)
+              micSource.connect(dest)
+              micSourceRef.current = micSource
+            }
+            
+            const screenStream = new MediaStream([screenAudioTrackRef.current])
+            const screenSource = audioCtx.createMediaStreamSource(screenStream)
+            screenSource.connect(dest)
+            screenAudioSourceRef.current = screenSource
+            
+            const mixedAudioTrack = dest.stream.getAudioTracks()[0]
+            
+            peersRef.current.forEach((peer) => {
+              if (!peer.destroyed && currentMicTrack && mixedAudioTrack) {
+                try { peer.replaceTrack(currentMicTrack, mixedAudioTrack, peerStream) } catch (e) {
+                  console.warn('[CALL-FE] toggleScreenAudio replaceTrack error:', e.message)
+                }
+              }
+            })
+          } catch (e) {
+            console.error('[CALL-FE] Failed to mix audio:', e)
+            return false
+          }
+        } else {
+          if (screenAudioSourceRef.current && audioDestinationRef.current) {
+            try {
+              screenAudioSourceRef.current.connect(audioDestinationRef.current)
+            } catch (e) {}
+          }
+        }
+        return true
+      } else {
+        if (screenAudioSourceRef.current && audioDestinationRef.current) {
+          try {
+            screenAudioSourceRef.current.disconnect(audioDestinationRef.current)
+          } catch (e) {}
+        }
+        return false
+      }
+    })
+  }, [])
+
   // ============ SCREEN SHARE ============
 
   // ID của người KHÁC đang chia sẻ màn hình (giới hạn: 1 người share tại 1 thời điểm)
@@ -431,6 +522,32 @@ export function CallProvider({ children }) {
     }
     setLocalStream(localStreamRef.current)
 
+    // Khôi phục audio gốc nếu đang mix
+    if (audioContextRef.current) {
+      const currentMicTrack = peerStream.getAudioTracks()[0]
+      const mixedAudioTrack = audioDestinationRef.current?.stream.getAudioTracks()[0]
+      
+      peersRef.current.forEach((peer) => {
+        if (!peer.destroyed && currentMicTrack && mixedAudioTrack) {
+          try { peer.replaceTrack(mixedAudioTrack, currentMicTrack, peerStream) } catch (e) {
+            console.warn('[CALL-FE] stopScreenShare restore mic track error:', e.message)
+          }
+        }
+      })
+      
+      audioContextRef.current.close().catch(() => {})
+      audioContextRef.current = null
+      audioDestinationRef.current = null
+      micSourceRef.current = null
+      screenAudioSourceRef.current = null
+    }
+    
+    if (screenAudioTrackRef.current) {
+      try { screenAudioTrackRef.current.stop() } catch {}
+      screenAudioTrackRef.current = null
+    }
+    setIsScreenAudioEnabled(false)
+
     screenTrackRef.current = null
     cameraTrackRef.current = null
     setIsScreenSharing(false)
@@ -461,7 +578,7 @@ export function CallProvider({ children }) {
     try {
       displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
-        audio: false,
+        audio: true,
       })
     } catch (err) {
       // Người dùng bấm "Cancel" trong hộp chọn màn hình — không phải lỗi
@@ -471,6 +588,11 @@ export function CallProvider({ children }) {
 
     const screenTrack = displayStream.getVideoTracks()[0]
     if (!screenTrack) return
+    
+    const screenAudioTrack = displayStream.getAudioTracks()[0] || null
+    if (screenAudioTrack) {
+      screenAudioTrackRef.current = screenAudioTrack
+    }
 
     console.log('[CALL-FE] toggleScreenShare — bắt đầu chia sẻ')
 
@@ -687,8 +809,11 @@ export function CallProvider({ children }) {
     toggleAudio,
     toggleVideo,
     isScreenSharing,
+    isScreenAudioEnabled,
     remoteScreenSharerId,
     toggleScreenShare,
+    toggleScreenAudio,
+    closeCallWindow,
   }
 
   return (

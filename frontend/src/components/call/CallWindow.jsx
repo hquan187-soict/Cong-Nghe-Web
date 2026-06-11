@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2, MonitorUp, MonitorOff } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2, MonitorUp, MonitorOff, Volume2, VolumeX } from 'lucide-react'
 import { useCall } from '../../context/CallContext'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
@@ -78,8 +78,11 @@ export default function CallWindow() {
     toggleAudio,
     toggleVideo,
     isScreenSharing,
+    isScreenAudioEnabled,
     remoteScreenSharerId,
     toggleScreenShare,
+    toggleScreenAudio,
+    closeCallWindow,
   } = useCall()
 
   const { user } = useAuth()
@@ -126,6 +129,26 @@ export default function CallWindow() {
   }, [activeCall, callDuration, t])
 
   if (!activeCall) return null
+
+  if (activeCall.status === 'ended') {
+    return (
+      <div
+        className={`call-window call-window--ended ${isExpanded ? 'call-window--expanded' : 'call-window--floating'}`}
+        style={!isExpanded ? { right: `${position.x}px`, top: `${position.y}px` } : {}}
+      >
+        <div className="call-window__ended-content">
+          <div className="call-window__ended-icon">
+            <PhoneOff size={48} color="#ef4444" />
+          </div>
+          <h3 className="call-window__ended-title">{t('call.ended') || 'Cuộc gọi đã kết thúc'}</h3>
+          <p className="call-window__ended-duration">{formatDuration(callDuration)}</p>
+          <button className="call-window__ended-close-btn" onClick={closeCallWindow}>
+            {t('common.close') || 'Đóng'}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const isVideo = activeCall.callType === 'video'
   const remoteEntries = Array.from(remoteStreams.entries())
@@ -354,6 +377,16 @@ export default function CallWindow() {
               : (isScreenSharing ? t('call.stopShare') : t('call.shareScreen'))}
           >
             {isScreenSharing ? <MonitorOff size={22} /> : <MonitorUp size={22} />}
+          </button>
+        )}
+
+        {isScreenSharing && (
+          <button
+            className={`call-window__control-btn ${!isScreenAudioEnabled ? 'call-window__control-btn--off' : 'call-window__control-btn--active'}`}
+            onClick={toggleScreenAudio}
+            title={isScreenAudioEnabled ? (t('call.screenAudioOff') || 'Tắt âm thanh màn hình') : (t('call.screenAudioOn') || 'Bật âm thanh màn hình')}
+          >
+            {isScreenAudioEnabled ? <Volume2 size={22} /> : <VolumeX size={22} />}
           </button>
         )}
 
