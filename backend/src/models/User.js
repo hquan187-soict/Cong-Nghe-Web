@@ -68,6 +68,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    coverImage: {
+      type: String,
+      default: "",
+    },
     birthday: {
       type: Date,
       default: null,
