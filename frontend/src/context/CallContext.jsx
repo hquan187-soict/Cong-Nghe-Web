@@ -101,8 +101,8 @@ export function CallProvider({ children }) {
     } catch {}
   }
 
-  const cleanupCall = useCallback(() => {
-    console.log('[CALL-FE] cleanupCall')
+  const cleanupCall = useCallback((endReason = null) => {
+    console.log('[CALL-FE] cleanupCall', endReason)
     stopAudioRef(ringtoneRef)
     stopAudioRef(dialtoneRef)
 
@@ -134,7 +134,7 @@ export function CallProvider({ children }) {
     setLocalStream(null)
     setRemoteStreams(new Map())
     setActiveCall((prev) => {
-      if (prev) return { ...prev, status: 'ended' }
+      if (prev) return { ...prev, status: 'ended', endReason }
       return null
     })
     setIncomingCall(null)
@@ -797,12 +797,12 @@ export function CallProvider({ children }) {
 
     const onCallEnded = ({ callId, endReason, duration }) => {
       console.log(`[CALL-FE] call_ended: reason=${endReason}, duration=${duration}`)
-      cleanupCall()
+      cleanupCall(endReason)
     }
 
     const onCallNoAnswer = ({ callId }) => {
       console.log('[CALL-FE] call_no_answer')
-      cleanupCall()
+      cleanupCall('no_answer')
     }
 
     const onCallUserLeft = ({ callId, userId: leftUserId }) => {

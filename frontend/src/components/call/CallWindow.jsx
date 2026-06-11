@@ -184,6 +184,13 @@ export default function CallWindow() {
   if (!activeCall) return null
 
   if (activeCall.status === 'ended') {
+    let title = t('call.ended') || 'Cuộc gọi đã kết thúc'
+    if (activeCall.endReason === 'all_rejected' || activeCall.endReason === 'rejected') {
+      title = t('call.rejected') || 'Đã bị từ chối'
+    } else if (activeCall.endReason === 'no_answer') {
+      title = t('call.noAnswer') || 'Không trả lời'
+    }
+
     return (
       <div
         className={`call-window call-window--ended ${isExpanded ? 'call-window--expanded' : 'call-window--floating'}`}
@@ -193,7 +200,7 @@ export default function CallWindow() {
           <div className="call-window__ended-icon">
             <PhoneOff size={48} color="#ef4444" />
           </div>
-          <h3 className="call-window__ended-title">{t('call.ended') || 'Cuộc gọi đã kết thúc'}</h3>
+          <h3 className="call-window__ended-title">{title}</h3>
           <p className="call-window__ended-duration">{formatDuration(callDuration)}</p>
           <button className="call-window__ended-close-btn" onClick={closeCallWindow}>
             {t('call.close') || 'Đóng'}
