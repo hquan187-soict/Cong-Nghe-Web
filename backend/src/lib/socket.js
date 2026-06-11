@@ -526,10 +526,11 @@ io.on("connection", async (socket) => {
       }
 
       const allHandled = call.participants.every((p) => p.status !== "ringing");
-      const anyJoined = call.participants.some((p) => p.status === "joined") ||
-        call.callerId.toString() === userId;
+      const anyReceiverJoined = call.participants.some(
+        (p) => p.status === "joined" && p.userId.toString() !== call.callerId.toString()
+      );
 
-      if (allHandled && !anyJoined) {
+      if (allHandled && !anyReceiverJoined) {
         call.status = "ended";
         call.endedAt = new Date();
         call.endReason = "all_rejected";

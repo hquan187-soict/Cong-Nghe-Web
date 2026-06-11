@@ -950,6 +950,7 @@ function ChatPage() {
 
   const callConvInfo = selectedConversation ? {
     conversationName: selectedConversation.name || selectedConversation.groupName || null,
+    conversationAvatar: selectedConversation.isGroup ? (selectedConversation.avatar || selectedConversation.groupAvatar) : (otherMember?.avatar || null),
     isGroup: !!selectedConversation.isGroup,
   } : {}
 

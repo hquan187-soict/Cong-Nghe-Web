@@ -314,7 +314,7 @@ export default function CallWindow() {
           <span className="call-window__header-name">
             {activeCall.isGroup
               ? (activeCall.conversationName || t('call.groupCall') || 'Cuộc gọi nhóm')
-              : (Array.from(participantInfo.values()).map(p => p.fullName).filter(Boolean).join(', ') || '')}
+              : (Array.from(participantInfo.values()).map(p => p.fullName).filter(Boolean).join(', ') || activeCall.conversationName || '')}
           </span>
           <span className="call-window__timer">{statusText}</span>
         </div>
@@ -374,13 +374,13 @@ export default function CallWindow() {
               <div className="call-window__voice-avatar-wrap">
                 <div className="call-window__voice-pulse" />
                 <FallbackAvatar
-                  src={Array.from(participantInfo.values())[0]?.avatar}
-                  alt={Array.from(participantInfo.values())[0]?.fullName || '?'}
+                  src={Array.from(participantInfo.values())[0]?.avatar || activeCall.conversationAvatar}
+                  alt={Array.from(participantInfo.values())[0]?.fullName || activeCall.conversationName || '?'}
                   className="call-window__voice-avatar"
                 />
               </div>
               <span className="call-window__voice-name">
-                {Array.from(participantInfo.values())[0]?.fullName || ''}
+                {Array.from(participantInfo.values())[0]?.fullName || activeCall.conversationName || ''}
               </span>
               <span className="call-window__voice-status">{statusText}</span>
             </div>

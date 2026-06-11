@@ -292,6 +292,7 @@ export function CallProvider({ children }) {
           status: 'ringing',
           participants: [],
           conversationName: convInfo.conversationName || null,
+          conversationAvatar: convInfo.conversationAvatar || null,
           isGroup: convInfo.isGroup || false,
         })
 
