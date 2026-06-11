@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2 } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2, MonitorUp, MonitorOff } from 'lucide-react'
 import { useCall } from '../../context/CallContext'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
@@ -11,19 +11,35 @@ function formatDuration(seconds) {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 }
 
-function VideoTile({ stream, muted, label, isLocal, avatarUrl, videoEnabled }) {
+// Audio sink ẩn cho remote stream — đảm bảo audio luôn phát kể cả khi
+// không render <video> (gọi thoại, hoặc đối phương tắt camera)
+function RemoteAudio({ stream }) {
+  const audioRef = useRef(null)
+
+  useEffect(() => {
+    if (audioRef.current && stream) {
+      audioRef.current.srcObject = stream
+      audioRef.current.play().catch(() => {})
+    }
+  }, [stream])
+
+  return <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
+}
+
+function VideoTile({ stream, muted, label, isLocal, avatarUrl, videoEnabled, isScreen }) {
   const videoRef = useRef(null)
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream
     }
-  }, [stream, videoEnabled])
+  }, [stream, videoEnabled, isScreen])
 
-  const showVideo = stream && videoEnabled !== false
+  const hasLiveVideo = !!stream && stream.getVideoTracks().some((t) => t.readyState === 'live')
+  const showVideo = hasLiveVideo && videoEnabled !== false
 
   return (
-    <div className={`call-window__video-tile ${isLocal ? 'call-window__video-tile--local' : ''}`}>
+    <div className={`call-window__video-tile ${isLocal ? 'call-window__video-tile--local' : ''} ${isScreen ? 'call-window__video-tile--screen' : ''}`}>
       {showVideo ? (
         <video
           ref={videoRef}
@@ -61,6 +77,9 @@ export default function CallWindow() {
     endCall,
     toggleAudio,
     toggleVideo,
+    isScreenSharing,
+    remoteScreenSharerId,
+    toggleScreenShare,
   } = useCall()
 
   const { user } = useAuth()
@@ -113,18 +132,96 @@ export default function CallWindow() {
   const isGroupCall = remoteEntries.length > 1
   const participantCount = remoteEntries.length + 1
 
+  // Chia sẻ màn hình chỉ khả dụng trên desktop (mobile không hỗ trợ getDisplayMedia)
+  const canScreenShare = typeof navigator !== 'undefined'
+    && !!navigator.mediaDevices
+    && typeof navigator.mediaDevices.getDisplayMedia === 'function'
+
+  // Ai đang chia sẻ màn hình? Ưu tiên người khác (remote), sau đó tới mình
+  const sharerId = remoteScreenSharerId && remoteStreams.has(remoteScreenSharerId)
+    ? remoteScreenSharerId
+    : (isScreenSharing ? 'local' : null)
+
+  // Khi có người share, luôn hiển thị vùng video (kể cả cuộc gọi thoại)
+  const showVideoArea = isVideo || sharerId !== null
+
   const gridClass = participantCount <= 2
     ? 'call-window__grid--duo'
     : participantCount <= 4
       ? 'call-window__grid--quad'
       : 'call-window__grid--many'
 
+  const renderSpotlight = () => {
+    const isLocalSharer = sharerId === 'local'
+    const mainStream = isLocalSharer ? localStream : remoteStreams.get(sharerId)
+    const sharerInfo = isLocalSharer ? null : participantInfo.get(sharerId)
+    const badgeText = isLocalSharer
+      ? (t('call.youAreSharing') || 'Bạn đang chia sẻ màn hình')
+      : `${sharerInfo?.fullName || ''} ${t('call.sharingScreen') || 'đang chia sẻ màn hình'}`
+
+    const stripEntries = remoteEntries.filter(([uid]) => uid !== sharerId)
+
+    return (
+      <div className="call-window__spotlight">
+        <div className="call-window__spotlight-main">
+          <VideoTile
+            stream={mainStream}
+            muted={true}
+            label=""
+            isLocal={false}
+            avatarUrl={isLocalSharer ? user?.avatar : sharerInfo?.avatar}
+            videoEnabled={true}
+            isScreen={true}
+          />
+          <div className="call-window__share-badge">
+            <MonitorUp size={14} />
+            <span>{badgeText}</span>
+          </div>
+        </div>
+
+        <div className="call-window__spotlight-strip">
+          {stripEntries.map(([userId, stream]) => {
+            const media = participantMedia.get(userId)
+            const info = participantInfo.get(userId)
+            return (
+              <VideoTile
+                key={userId}
+                stream={stream}
+                muted={true}
+                label={info?.fullName || ''}
+                isLocal={false}
+                avatarUrl={info?.avatar}
+                videoEnabled={media?.video !== false}
+              />
+            )
+          })}
+
+          {!isLocalSharer && (
+            <VideoTile
+              stream={localStream}
+              muted={true}
+              label=""
+              isLocal={false}
+              avatarUrl={user?.avatar}
+              videoEnabled={isVideoEnabled}
+            />
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div 
+    <div
       className={`call-window ${isVideo ? 'call-window--video' : 'call-window--voice'} ${isExpanded ? 'call-window--expanded' : 'call-window--floating'}`}
       style={!isExpanded ? { right: `${position.x}px`, top: `${position.y}px` } : {}}
     >
-      <div 
+      {/* Audio sink ẩn — luôn render để audio không phụ thuộc layout */}
+      {remoteEntries.map(([userId, stream]) => (
+        <RemoteAudio key={userId} stream={stream} />
+      ))}
+
+      <div
         className="call-window__header"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -138,7 +235,7 @@ export default function CallWindow() {
           </span>
           <span className="call-window__timer">{statusText}</span>
         </div>
-        <button 
+        <button
           className="call-window__expand-btn"
           onClick={toggleExpand}
           onPointerDown={(e) => e.stopPropagation()}
@@ -149,40 +246,42 @@ export default function CallWindow() {
       </div>
 
 
-      {isVideo ? (
-        <div className={`call-window__grid ${gridClass}`}>
-          {remoteEntries.map(([userId, stream]) => {
-            const media = participantMedia.get(userId)
-            const info = participantInfo.get(userId)
-            return (
-              <VideoTile
-                key={userId}
-                stream={stream}
-                muted={false}
-                label={info?.fullName || ''}
-                isLocal={false}
-                avatarUrl={info?.avatar}
-                videoEnabled={media?.video !== false}
-              />
-            )
-          })}
+      {showVideoArea ? (
+        sharerId ? renderSpotlight() : (
+          <div className={`call-window__grid ${gridClass}`}>
+            {remoteEntries.map(([userId, stream]) => {
+              const media = participantMedia.get(userId)
+              const info = participantInfo.get(userId)
+              return (
+                <VideoTile
+                  key={userId}
+                  stream={stream}
+                  muted={true}
+                  label={info?.fullName || ''}
+                  isLocal={false}
+                  avatarUrl={info?.avatar}
+                  videoEnabled={media?.video !== false}
+                />
+              )
+            })}
 
-          <VideoTile
-            stream={localStream}
-            muted={true}
-            label={t('call.you') || ''}
-            isLocal={!isGroupCall}
-            avatarUrl={user?.avatar}
-            videoEnabled={isVideoEnabled}
-          />
+            <VideoTile
+              stream={localStream}
+              muted={true}
+              label={t('call.you') || ''}
+              isLocal={!isGroupCall}
+              avatarUrl={user?.avatar}
+              videoEnabled={isVideoEnabled}
+            />
 
-          {remoteEntries.length === 0 && (
-            <div className="call-window__waiting">
-              <div className="call-window__waiting-pulse" />
-              <span>{statusText}</span>
-            </div>
-          )}
-        </div>
+            {remoteEntries.length === 0 && (
+              <div className="call-window__waiting">
+                <div className="call-window__waiting-pulse" />
+                <span>{statusText}</span>
+              </div>
+            )}
+          </div>
+        )
       ) : (
         <div className="call-window__voice-ui">
           {remoteEntries.length === 0 ? (
@@ -236,9 +335,25 @@ export default function CallWindow() {
           <button
             className={`call-window__control-btn ${!isVideoEnabled ? 'call-window__control-btn--off' : ''}`}
             onClick={toggleVideo}
-            title={isVideoEnabled ? t('call.cameraOff') : t('call.cameraOn')}
+            disabled={isScreenSharing}
+            title={isScreenSharing
+              ? (t('call.stopShareFirst') || 'Dừng chia sẻ màn hình trước')
+              : (isVideoEnabled ? t('call.cameraOff') : t('call.cameraOn'))}
           >
             {isVideoEnabled ? <Video size={22} /> : <VideoOff size={22} />}
+          </button>
+        )}
+
+        {canScreenShare && (
+          <button
+            className={`call-window__control-btn ${isScreenSharing ? 'call-window__control-btn--active' : ''}`}
+            onClick={toggleScreenShare}
+            disabled={!!remoteScreenSharerId}
+            title={remoteScreenSharerId
+              ? (t('call.someoneSharing') || 'Người khác đang chia sẻ màn hình')
+              : (isScreenSharing ? t('call.stopShare') : t('call.shareScreen'))}
+          >
+            {isScreenSharing ? <MonitorOff size={22} /> : <MonitorUp size={22} />}
           </button>
         )}
 

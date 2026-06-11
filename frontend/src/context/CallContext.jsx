@@ -45,12 +45,15 @@ export function CallProvider({ children }) {
   const [callDuration, setCallDuration] = useState(0)
   const [participantMedia, setParticipantMedia] = useState(new Map())
   const [participantInfo, setParticipantInfo] = useState(new Map())
+  const [isScreenSharing, setIsScreenSharing] = useState(false)
 
   const peersRef = useRef(new Map())
   const pendingPeersRef = useRef(new Set())
   const signalQueueRef = useRef(new Map())
   const localStreamRef = useRef(null)
   const originalStreamRef = useRef(null)
+  const screenTrackRef = useRef(null)   // track màn hình đang chia sẻ
+  const cameraTrackRef = useRef(null)   // track camera lưu lại để khôi phục sau khi dừng share
   const timerRef = useRef(null)
   const ringtoneRef = useRef(null)
   const dialtoneRef = useRef(null)
@@ -99,6 +102,14 @@ export function CallProvider({ children }) {
       localStreamRef.current = null
     }
     originalStreamRef.current = null
+    if (screenTrackRef.current) {
+      try { screenTrackRef.current.stop() } catch {}
+      screenTrackRef.current = null
+    }
+    if (cameraTrackRef.current) {
+      try { cameraTrackRef.current.stop() } catch {}
+      cameraTrackRef.current = null
+    }
 
     setLocalStream(null)
     setRemoteStreams(new Map())
@@ -109,6 +120,7 @@ export function CallProvider({ children }) {
     setCallDuration(0)
     setParticipantMedia(new Map())
     setParticipantInfo(new Map())
+    setIsScreenSharing(false)
   }, [])
 
   function markOngoing() {
@@ -322,6 +334,7 @@ export function CallProvider({ children }) {
 
   const toggleVideo = useCallback(async () => {
     if (!localStreamRef.current) return
+    if (screenTrackRef.current) return // đang chia sẻ màn hình — không thao tác camera
     const oldTrack = localStreamRef.current.getVideoTracks()[0]
     if (!oldTrack) return
 
@@ -370,6 +383,132 @@ export function CallProvider({ children }) {
       }
     }
   }, [])
+
+  // ============ SCREEN SHARE ============
+
+  // ID của người KHÁC đang chia sẻ màn hình (giới hạn: 1 người share tại 1 thời điểm)
+  let remoteScreenSharerId = null
+  for (const [uid, media] of participantMedia.entries()) {
+    if (media.screen) {
+      remoteScreenSharerId = uid
+      break
+    }
+  }
+
+  const stopScreenShare = useCallback(async () => {
+    const peerStream = originalStreamRef.current || localStreamRef.current
+    const screenTrack = screenTrackRef.current
+    if (!screenTrack || !peerStream || !localStreamRef.current) {
+      setIsScreenSharing(false)
+      return
+    }
+
+    console.log('[CALL-FE] stopScreenShare')
+
+    // Chỉ khôi phục camera nếu trước khi share camera đang bật (track còn sống)
+    let restoreTrack = cameraTrackRef.current
+    if (!restoreTrack || restoreTrack.readyState !== 'live') {
+      restoreTrack = null
+    }
+
+    peersRef.current.forEach((peer) => {
+      if (peer.destroyed) return
+      try {
+        if (restoreTrack) {
+          peer.replaceTrack(screenTrack, restoreTrack, peerStream)
+        } else {
+          peer.removeTrack(screenTrack, peerStream)
+        }
+      } catch (e) {
+        console.warn('[CALL-FE] stopScreenShare replaceTrack lỗi:', e.message)
+      }
+    })
+
+    try { localStreamRef.current.removeTrack(screenTrack) } catch {}
+    screenTrack.stop()
+    if (restoreTrack && !localStreamRef.current.getVideoTracks().includes(restoreTrack)) {
+      localStreamRef.current.addTrack(restoreTrack)
+    }
+    setLocalStream(localStreamRef.current)
+
+    screenTrackRef.current = null
+    cameraTrackRef.current = null
+    setIsScreenSharing(false)
+
+    socketRef.current?.emit('call_toggle_media', {
+      callId: activeCallRef.current?.callId,
+      mediaType: 'screen',
+      enabled: false,
+    })
+  }, [])
+
+  const toggleScreenShare = useCallback(async () => {
+    if (isScreenSharing) {
+      await stopScreenShare()
+      return
+    }
+
+    // Chỉ cho phép 1 người chia sẻ màn hình tại 1 thời điểm
+    if (remoteScreenSharerId) {
+      console.log('[CALL-FE] toggleScreenShare bị chặn — người khác đang chia sẻ')
+      return
+    }
+
+    const peerStream = originalStreamRef.current || localStreamRef.current
+    if (!peerStream || !localStreamRef.current) return
+
+    let displayStream
+    try {
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      })
+    } catch (err) {
+      // Người dùng bấm "Cancel" trong hộp chọn màn hình — không phải lỗi
+      console.warn('[CALL-FE] Hủy chia sẻ màn hình:', err.message)
+      return
+    }
+
+    const screenTrack = displayStream.getVideoTracks()[0]
+    if (!screenTrack) return
+
+    console.log('[CALL-FE] toggleScreenShare — bắt đầu chia sẻ')
+
+    const currentVideoTrack = localStreamRef.current.getVideoTracks()[0] || null
+
+    peersRef.current.forEach((peer) => {
+      if (peer.destroyed) return
+      try {
+        if (currentVideoTrack) {
+          peer.replaceTrack(currentVideoTrack, screenTrack, peerStream)
+        } else {
+          peer.addTrack(screenTrack, peerStream)
+        }
+      } catch (e) {
+        console.warn('[CALL-FE] toggleScreenShare replaceTrack lỗi:', e.message)
+      }
+    })
+
+    // Lưu camera track để khôi phục (KHÔNG stop — giữ sống để bật lại tức thì)
+    cameraTrackRef.current = currentVideoTrack
+    screenTrackRef.current = screenTrack
+
+    if (currentVideoTrack) {
+      try { localStreamRef.current.removeTrack(currentVideoTrack) } catch {}
+    }
+    localStreamRef.current.addTrack(screenTrack)
+    setLocalStream(localStreamRef.current)
+    setIsScreenSharing(true)
+
+    // Người dùng bấm nút "Stop sharing" của trình duyệt
+    screenTrack.onended = () => { stopScreenShare() }
+
+    socketRef.current?.emit('call_toggle_media', {
+      callId: activeCallRef.current?.callId,
+      mediaType: 'screen',
+      enabled: true,
+    })
+  }, [isScreenSharing, remoteScreenSharerId, stopScreenShare])
 
   // Socket event listeners — stable deps only
   useEffect(() => {
@@ -484,6 +623,11 @@ export function CallProvider({ children }) {
         updated.delete(leftUserId)
         return updated
       })
+      setParticipantMedia((prev) => {
+        const updated = new Map(prev)
+        updated.delete(leftUserId)
+        return updated
+      })
     }
 
     const onCallMediaToggled = ({ userId: uid, mediaType, enabled }) => {
@@ -542,6 +686,9 @@ export function CallProvider({ children }) {
     endCall,
     toggleAudio,
     toggleVideo,
+    isScreenSharing,
+    remoteScreenSharerId,
+    toggleScreenShare,
   }
 
   return (
