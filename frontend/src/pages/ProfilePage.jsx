@@ -115,6 +115,7 @@ function ProfilePage() {
   const [formData, setFormData] = useState({})
   const [visibilityData, setVisibilityData] = useState({})
   const fileInputRef = useRef(null)
+  const coverInputRef = useRef(null)
   const [formErrors, setFormErrors] = useState({})
 
   const [showPasswordSection, setShowPasswordSection] = useState(false)
@@ -149,6 +150,7 @@ function ProfilePage() {
       fullName: user?.fullName || '',
       avatar: user?.avatar || '',
       coverColor: user?.coverColor || '',
+      coverImage: user?.coverImage || '',
       birthday: user?.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '',
       gender: user?.gender || '',
       phone: user?.phone || '',
@@ -227,6 +229,30 @@ function ProfilePage() {
       setShowAvatarMenu(false)
       setShowDefaultAvatars(false)
     }
+  }
+
+  const handleCoverUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error(lang === 'vi' ? 'Vui lòng chọn một tệp ảnh.' : 'Please select an image file.')
+      e.target.value = ''
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(lang === 'vi' ? 'Ảnh bìa không được vượt quá 5 MB.' : 'Cover image must not exceed 5 MB.')
+      e.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setFormData(prev => ({ ...prev, coverImage: reader.result }))
+      e.target.value = ''
+    }
+    reader.readAsDataURL(file)
   }
 
   function handleSelectDefaultAvatar(url) {
@@ -355,12 +381,22 @@ function ProfilePage() {
   const activeCoverGradient = isEditing
     ? getCoverGradient(formData.coverColor)
     : getCoverGradient(user?.coverColor)
+  const activeCoverImage = isEditing
+    ? formData.coverImage
+    : user?.coverImage
 
   const s = {
     page: { minHeight: '100vh', background: 'var(--color-bg)', overflowY: 'auto' },
     banner: {
-      height: 220, background: activeCoverGradient,
-      position: 'relative', overflow: 'hidden',
+      height: 220,
+      backgroundImage: activeCoverImage
+        ? `url("${activeCoverImage}")`
+        : activeCoverGradient,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      position: 'relative',
+      overflow: 'hidden',
     },
     bannerPattern: {
       position: 'absolute', inset: 0, opacity: 0.08,
@@ -496,8 +532,33 @@ function ProfilePage() {
           </button>
         )}
         {isEditing && (
-          <div ref={coverPickerRef} style={{ position: 'absolute', bottom: 12, right: 24 }}>
+          <div
+            ref={coverPickerRef}
+            style={{
+              position: 'absolute', bottom: 12, right: 24,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
             <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 10,
+                background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)',
+                border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              }}
+            >
+              <Image size={16} /> {lang === 'vi' ? 'Ảnh bìa' : 'Cover image'}
+            </button>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleCoverUpload}
+              style={{ display: 'none' }}
+            />
+            <button
+              type="button"
               onClick={() => setShowCoverPicker(!showCoverPicker)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 10,
