@@ -89,6 +89,13 @@ export function CallProvider({ children }) {
     } catch {}
   }
 
+  function playSingleAudio(src) {
+    try {
+      const audio = new Audio(src)
+      audio.play().catch(() => {})
+    } catch {}
+  }
+
   const cleanupCall = useCallback(() => {
     console.log('[CALL-FE] cleanupCall')
     stopAudioRef(ringtoneRef)
@@ -204,7 +211,7 @@ export function CallProvider({ children }) {
       console.log(`[CALL-FE] peer track received from ${targetUserId}:`, track.kind)
       setRemoteStreams((prev) => {
         const updated = new Map(prev)
-        updated.set(targetUserId, stream)
+        updated.set(targetUserId, new MediaStream(stream.getTracks()))
         return updated
       })
     })
@@ -825,11 +832,14 @@ export function CallProvider({ children }) {
       if (activeCallRef.current?.callId !== callId) return
       setUpgradeRequesterName(fromUserName)
       setVideoUpgradeStatus('incoming')
+      playSingleAudio('/sounds/ringtone.mp3')
     }
 
     const onCallUpgradeAccept = async ({ callId }) => {
       if (activeCallRef.current?.callId !== callId) return
-      await performVideoUpgrade()
+      setTimeout(async () => {
+        await performVideoUpgrade()
+      }, 1000)
     }
 
     const onCallUpgradeReject = ({ callId }) => {
