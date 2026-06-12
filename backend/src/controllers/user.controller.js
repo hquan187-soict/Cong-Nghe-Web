@@ -129,7 +129,7 @@ export const getUserById = async (req, res, next) => {
     }
 
     const user = await User.findById(id).select(
-      "fullName email avatar coverColor coverImage isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests status"
+      "fullName email avatar coverColor coverImage coverPositionY isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests status"
     );
 
     if (!user) {
@@ -258,7 +258,7 @@ export const  updateProfile = async (req, res, next) => {
     }
 
     const allowedFields = [
-      "fullName", "avatar", "coverColor", "coverImage", "birthday", "gender", "phone",
+      "fullName", "avatar", "coverColor", "coverImage", "coverPositionY", "birthday", "gender", "phone",
       "address", "hometown", "hobbies", "occupation", "education", "bio",
     ];
     const updateData = {};
@@ -301,6 +301,16 @@ export const  updateProfile = async (req, res, next) => {
       throw error;
     }
 
+    if (updateData.coverPositionY !== undefined) {
+      const position = Number(updateData.coverPositionY);
+      if (!Number.isFinite(position) || position < 0 || position > 100) {
+        const error = new Error("Vị trí ảnh bìa phải nằm trong khoảng từ 0 đến 100.");
+        error.statusCode = 400;
+        throw error;
+      }
+      updateData.coverPositionY = position;
+    }
+
     if (updateData.birthday !== undefined) {
       if (updateData.birthday === "" || updateData.birthday === null) {
         updateData.birthday = null;
@@ -329,6 +339,7 @@ export const  updateProfile = async (req, res, next) => {
     if (updateData.coverImage !== undefined) {
       if (updateData.coverImage === "" || updateData.coverImage === null) {
         updateData.coverImage = "";
+        updateData.coverPositionY = 50;
       } else if (
         typeof updateData.coverImage === "string" &&
         updateData.coverImage.startsWith("data:image/")
@@ -723,6 +734,7 @@ const performAccountDeletion = async (userId) => {
   user.gender = "";
   user.coverColor = "";
   user.coverImage = "";
+  user.coverPositionY = 50;
   user.banStatus = "none";
   user.banExpiresAt = null;
   await user.save({ validateBeforeSave: false });

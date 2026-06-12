@@ -72,6 +72,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    coverPositionY: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 50,
+    },
     birthday: {
       type: Date,
       default: null,
