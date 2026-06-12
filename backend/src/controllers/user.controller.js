@@ -129,7 +129,7 @@ export const getUserById = async (req, res, next) => {
     }
 
     const user = await User.findById(id).select(
-      "fullName email avatar coverColor coverImage coverPositionY isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests status"
+      "fullName email avatar coverColor coverImage isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests status"
     );
 
     if (!user) {
@@ -258,7 +258,7 @@ export const  updateProfile = async (req, res, next) => {
     }
 
     const allowedFields = [
-      "fullName", "avatar", "coverColor", "coverImage", "coverPositionY", "birthday", "gender", "phone",
+      "fullName", "avatar", "coverColor", "coverImage", "coverOriginalImage", "coverCropArea", "birthday", "gender", "phone",
       "address", "hometown", "hobbies", "occupation", "education", "bio",
     ];
     const updateData = {};
@@ -301,14 +301,33 @@ export const  updateProfile = async (req, res, next) => {
       throw error;
     }
 
-    if (updateData.coverPositionY !== undefined) {
-      const position = Number(updateData.coverPositionY);
-      if (!Number.isFinite(position) || position < 0 || position > 100) {
-        const error = new Error("Vị trí ảnh bìa phải nằm trong khoảng từ 0 đến 100.");
-        error.statusCode = 400;
-        throw error;
+    if (updateData.coverCropArea !== undefined) {
+      const area = updateData.coverCropArea;
+      if (area === null || area === "") {
+        updateData.coverCropArea = null;
+      } else {
+        const values = ["x", "y", "width", "height"];
+        const isValidArea =
+          area &&
+          typeof area === "object" &&
+          values.every((key) => Number.isFinite(Number(area[key]))) &&
+          Number(area.x) >= 0 &&
+          Number(area.y) >= 0 &&
+          Number(area.width) > 0 &&
+          Number(area.height) > 0 &&
+          Number(area.x) + Number(area.width) <= 100.01 &&
+          Number(area.y) + Number(area.height) <= 100.01;
+
+        if (!isValidArea) {
+          const error = new Error("Vùng cắt ảnh bìa không hợp lệ.");
+          error.statusCode = 400;
+          throw error;
+        }
+
+        updateData.coverCropArea = Object.fromEntries(
+          values.map((key) => [key, Number(area[key])])
+        );
       }
-      updateData.coverPositionY = position;
     }
 
     if (updateData.birthday !== undefined) {
@@ -336,10 +355,35 @@ export const  updateProfile = async (req, res, next) => {
         updateData.avatar = avatarUrl.secure_url;
       }
     }
+    if (updateData.coverOriginalImage !== undefined) {
+      if (updateData.coverOriginalImage === "" || updateData.coverOriginalImage === null) {
+        updateData.coverOriginalImage = "";
+      } else if (
+        typeof updateData.coverOriginalImage === "string" &&
+        updateData.coverOriginalImage.startsWith("data:image/")
+      ) {
+        const originalCoverResult = await cloudinary.uploader.upload(updateData.coverOriginalImage, {
+          folder: "covers",
+          public_id: `cover_original_${currentUserId}`,
+          overwrite: true,
+          transformation: [
+            { width: 2000, crop: "limit" },
+            { quality: "auto", fetch_format: "auto" },
+          ],
+        });
+
+        updateData.coverOriginalImage = originalCoverResult.secure_url;
+      } else {
+        const error = new Error("Ảnh bìa gốc không hợp lệ.");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
     if (updateData.coverImage !== undefined) {
       if (updateData.coverImage === "" || updateData.coverImage === null) {
         updateData.coverImage = "";
-        updateData.coverPositionY = 50;
+        updateData.coverOriginalImage = "";
+        updateData.coverCropArea = null;
       } else if (
         typeof updateData.coverImage === "string" &&
         updateData.coverImage.startsWith("data:image/")
@@ -734,7 +778,8 @@ const performAccountDeletion = async (userId) => {
   user.gender = "";
   user.coverColor = "";
   user.coverImage = "";
-  user.coverPositionY = 50;
+  user.coverOriginalImage = "";
+  user.coverCropArea = null;
   user.banStatus = "none";
   user.banExpiresAt = null;
   await user.save({ validateBeforeSave: false });
@@ -777,6 +822,11 @@ const performAccountDeletion = async (userId) => {
     await cloudinary.uploader.destroy(`covers/cover_${userIdStr}`);
   } catch (cloudinaryErr) {
     console.error("Cloudinary cover cleanup failed:", cloudinaryErr.message);
+  }
+  try {
+    await cloudinary.uploader.destroy(`covers/cover_original_${userIdStr}`);
+  } catch (cloudinaryErr) {
+    console.error("Cloudinary original cover cleanup failed:", cloudinaryErr.message);
   }
 
   const socketIds = getReceiverSocketIds(userIdStr);

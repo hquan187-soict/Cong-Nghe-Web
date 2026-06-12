@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import {
   LogOut, Mail, User, Camera, Pencil, Save, X, Lock, Eye, EyeOff,
   Cake, MapPin, Heart, Briefcase, GraduationCap, Phone, Globe, Users, ShieldCheck,
-  Upload, Image, Trash2, ChevronDown, Palette, MoveVertical
+  Upload, Image, Trash2, ChevronDown, Palette, Crop, ZoomIn
 } from 'lucide-react'
+import Cropper from 'react-easy-crop'
+import 'react-easy-crop/react-easy-crop.css'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useLang } from '../context/LangContext'
@@ -114,10 +116,20 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({})
   const [visibilityData, setVisibilityData] = useState({})
-  const [isDraggingCover, setIsDraggingCover] = useState(false)
+  const [showCoverCropModal, setShowCoverCropModal] = useState(false)
+  const [coverCropSource, setCoverCropSource] = useState('')
+  const [coverEditSource, setCoverEditSource] = useState('')
+  const [coverCrop, setCoverCrop] = useState({ x: 0, y: 0 })
+  const [coverZoom, setCoverZoom] = useState(1)
+  const [appliedCoverCrop, setAppliedCoverCrop] = useState({ x: 0, y: 0 })
+  const [appliedCoverZoom, setAppliedCoverZoom] = useState(1)
+  const [coverCropArea, setCoverCropArea] = useState(null)
+  const [appliedCoverCropArea, setAppliedCoverCropArea] = useState(null)
+  const [initialCoverCropArea, setInitialCoverCropArea] = useState(null)
+  const [coverCroppedAreaPixels, setCoverCroppedAreaPixels] = useState(null)
+  const [croppingCover, setCroppingCover] = useState(false)
   const fileInputRef = useRef(null)
   const coverInputRef = useRef(null)
-  const coverDragRef = useRef(null)
   const [formErrors, setFormErrors] = useState({})
 
   const [showPasswordSection, setShowPasswordSection] = useState(false)
@@ -148,12 +160,21 @@ function ProfilePage() {
   }, [showAvatarMenu, showCoverPicker])
 
   function startEditing() {
+    setCoverEditSource(user?.coverOriginalImage || user?.coverImage || '')
+    setCoverCrop({ x: 0, y: 0 })
+    setCoverZoom(1)
+    setAppliedCoverCrop({ x: 0, y: 0 })
+    setAppliedCoverZoom(1)
+    setCoverCropArea(user?.coverCropArea || null)
+    setAppliedCoverCropArea(user?.coverCropArea || null)
+    setInitialCoverCropArea(user?.coverCropArea || null)
     setFormData({
       fullName: user?.fullName || '',
       avatar: user?.avatar || '',
       coverColor: user?.coverColor || '',
       coverImage: user?.coverImage || '',
-      coverPositionY: user?.coverPositionY ?? 50,
+      coverOriginalImage: user?.coverOriginalImage || '',
+      coverCropArea: user?.coverCropArea || null,
       birthday: user?.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '',
       gender: user?.gender || '',
       phone: user?.phone || '',
@@ -180,6 +201,8 @@ function ProfilePage() {
   }
 
   function cancelEditing() {
+    setShowCoverCropModal(false)
+    setCoverEditSource('')
     setIsEditing(false)
     setFormErrors({})
     setShowDefaultAvatars(false)
@@ -252,47 +275,97 @@ function ProfilePage() {
 
     const reader = new FileReader()
     reader.onloadend = () => {
-      setFormData(prev => ({
-        ...prev,
-        coverImage: reader.result,
-        coverPositionY: 50,
-      }))
+      setCoverEditSource(reader.result)
+      setCoverCrop({ x: 0, y: 0 })
+      setCoverZoom(1)
+      setAppliedCoverCrop({ x: 0, y: 0 })
+      setAppliedCoverZoom(1)
+      setCoverCropArea(null)
+      setAppliedCoverCropArea(null)
+      setInitialCoverCropArea(null)
+      openCoverCropModal(reader.result, true)
       e.target.value = ''
     }
     reader.readAsDataURL(file)
   }
 
-  function handleCoverPointerDown(e) {
-    if (!isEditing || !formData.coverImage || e.button !== 0) return
-    if (e.target.closest('button, input')) return
-
-    coverDragRef.current = {
-      pointerId: e.pointerId,
-      startY: e.clientY,
-      startPosition: formData.coverPositionY ?? 50,
-    }
-    e.currentTarget.setPointerCapture(e.pointerId)
-    setIsDraggingCover(true)
+  function openCoverCropModal(imageSource, resetPosition = false) {
+    if (!imageSource) return
+    setCoverCropSource(imageSource)
+    setCoverCrop(resetPosition ? { x: 0, y: 0 } : appliedCoverCrop)
+    setCoverZoom(resetPosition ? 1 : appliedCoverZoom)
+    setInitialCoverCropArea(resetPosition ? null : appliedCoverCropArea)
+    setCoverCroppedAreaPixels(null)
+    setShowCoverCropModal(true)
   }
 
-  function handleCoverPointerMove(e) {
-    const drag = coverDragRef.current
-    if (!drag || drag.pointerId !== e.pointerId) return
-
-    const deltaY = e.clientY - drag.startY
-    const nextPosition = Math.min(100, Math.max(0, drag.startPosition - deltaY * 0.35))
-    setFormData(prev => ({ ...prev, coverPositionY: Math.round(nextPosition) }))
+  function closeCoverCropModal() {
+    if (croppingCover) return
+    setCoverCrop(appliedCoverCrop)
+    setCoverZoom(appliedCoverZoom)
+    setCoverCropArea(appliedCoverCropArea)
+    setShowCoverCropModal(false)
+    setCoverCropSource('')
   }
 
-  function handleCoverPointerEnd(e) {
-    const drag = coverDragRef.current
-    if (!drag || drag.pointerId !== e.pointerId) return
+  function cropCoverImage(imageSource, cropPixels) {
+    return new Promise((resolve, reject) => {
+      const image = new window.Image()
+      image.crossOrigin = 'anonymous'
+      image.onload = () => {
+        const maxWidth = 1600
+        const scale = Math.min(1, maxWidth / cropPixels.width)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(cropPixels.width * scale)
+        canvas.height = Math.round(cropPixels.height * scale)
 
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId)
+        const context = canvas.getContext('2d')
+        if (!context) {
+          reject(new Error('Canvas is not supported'))
+          return
+        }
+
+        context.drawImage(
+          image,
+          cropPixels.x,
+          cropPixels.y,
+          cropPixels.width,
+          cropPixels.height,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        )
+        resolve(canvas.toDataURL('image/jpeg', 0.9))
+      }
+      image.onerror = () => reject(new Error('Unable to load cover image'))
+      image.src = imageSource
+    })
+  }
+
+  async function applyCoverCrop() {
+    if (!coverCropSource || !coverCropArea || !coverCroppedAreaPixels) return
+    setCroppingCover(true)
+    try {
+      const croppedImage = await cropCoverImage(coverCropSource, coverCroppedAreaPixels)
+      setFormData(prev => ({
+        ...prev,
+        coverImage: croppedImage,
+        coverOriginalImage: coverEditSource.startsWith('data:image/')
+          ? coverEditSource
+          : prev.coverOriginalImage,
+        coverCropArea,
+      }))
+      setAppliedCoverCrop(coverCrop)
+      setAppliedCoverZoom(coverZoom)
+      setAppliedCoverCropArea(coverCropArea)
+      setShowCoverCropModal(false)
+      setCoverCropSource('')
+    } catch {
+      toast.error(lang === 'vi' ? 'Không thể cắt ảnh bìa. Vui lòng thử ảnh khác.' : 'Unable to crop cover image. Please try another image.')
+    } finally {
+      setCroppingCover(false)
     }
-    coverDragRef.current = null
-    setIsDraggingCover(false)
   }
 
   function handleSelectDefaultAvatar(url) {
@@ -345,14 +418,24 @@ function ProfilePage() {
       if (formData.avatar !== (user?.avatar || '')) payload.avatar = formData.avatar
       if (formData.coverColor !== (user?.coverColor || '')) payload.coverColor = formData.coverColor || ''
       if (formData.coverImage !== (user?.coverImage || '')) payload.coverImage = formData.coverImage || ''
-      if (formData.coverPositionY !== (user?.coverPositionY ?? 50)) payload.coverPositionY = formData.coverPositionY
+      if (formData.coverOriginalImage !== (user?.coverOriginalImage || '')) {
+        payload.coverOriginalImage = formData.coverOriginalImage || ''
+      }
+      if (JSON.stringify(formData.coverCropArea) !== JSON.stringify(user?.coverCropArea || null)) {
+        payload.coverCropArea = formData.coverCropArea
+      }
       const oldVis = user?.profileVisibility || {}
       const visDiff = {}
       for (const f of Object.keys(visibilityData)) {
         if (visibilityData[f] !== (oldVis[f] || 'friends')) visDiff[f] = visibilityData[f]
       }
       if (Object.keys(visDiff).length > 0) payload.profileVisibility = visDiff
-      if (Object.keys(payload).length === 0) { toast.info(t('profile.noChanges')); setIsEditing(false); setSaving(false); return }
+      if (Object.keys(payload).length === 0) {
+        toast.info(t('profile.noChanges'))
+        setIsEditing(false)
+        setSaving(false)
+        return
+      }
       const updatedUser = await userService.updateProfile(payload)
       updateUser(updatedUser)
       toast.success(t('profile.updateSuccess'))
@@ -426,9 +509,6 @@ function ProfilePage() {
   const activeCoverImage = isEditing
     ? formData.coverImage
     : user?.coverImage
-  const activeCoverPositionY = isEditing
-    ? (formData.coverPositionY ?? 50)
-    : (user?.coverPositionY ?? 50)
 
   const s = {
     page: { minHeight: '100vh', background: 'var(--color-bg)', overflowY: 'auto' },
@@ -438,13 +518,11 @@ function ProfilePage() {
         ? `url("${activeCoverImage}")`
         : activeCoverGradient,
       backgroundSize: 'cover',
-      backgroundPosition: `center ${activeCoverPositionY}%`,
+      backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat',
       position: 'relative',
       overflow: 'hidden',
-      cursor: isEditing && activeCoverImage ? (isDraggingCover ? 'grabbing' : 'grab') : 'default',
-      touchAction: isEditing && activeCoverImage ? 'none' : 'auto',
-      userSelect: 'none',
+      cursor: isEditing && activeCoverImage ? 'pointer' : 'default',
     },
     bannerPattern: {
       position: 'absolute', inset: 0, opacity: 0.08,
@@ -571,27 +649,16 @@ function ProfilePage() {
       {/* Banner */}
       <div
         style={s.banner}
-        onPointerDown={handleCoverPointerDown}
-        onPointerMove={handleCoverPointerMove}
-        onPointerUp={handleCoverPointerEnd}
-        onPointerCancel={handleCoverPointerEnd}
-        onLostPointerCapture={handleCoverPointerEnd}
+        onClick={(e) => {
+          if (isEditing && activeCoverImage && !e.target.closest('button, input')) {
+            openCoverCropModal(coverEditSource || formData.coverOriginalImage || activeCoverImage)
+          }
+        }}
         title={isEditing && activeCoverImage
-          ? (lang === 'vi' ? 'Kéo để điều chỉnh vị trí ảnh bìa' : 'Drag to reposition cover image')
+          ? (lang === 'vi' ? 'Bấm để cắt lại ảnh bìa' : 'Click to crop cover image')
           : undefined}
       >
         <div style={s.bannerPattern} />
-        {isEditing && activeCoverImage && (
-          <div style={{
-            position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
-            width: 30, height: 30, borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(0,0,0,0.45)', color: '#fff',
-            pointerEvents: 'none',
-          }}>
-            <MoveVertical size={16} />
-          </div>
-        )}
         {!isEditing && (
           <button style={s.editBtnBanner} onClick={startEditing}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
@@ -626,6 +693,23 @@ function ProfilePage() {
               onChange={handleCoverUpload}
               style={{ display: 'none' }}
             />
+            {activeCoverImage && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCoverPicker(false)
+                  openCoverCropModal(coverEditSource || formData.coverOriginalImage || activeCoverImage)
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 10,
+                  background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)',
+                  border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                }}
+              >
+                <Crop size={16} />
+                {lang === 'vi' ? 'Cắt lại ảnh' : 'Crop image'}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowCoverPicker(!showCoverPicker)}
@@ -948,6 +1032,97 @@ function ProfilePage() {
         onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(prev => ({ ...prev, open: false }))}
         confirmText={t('profile.yes')} cancelText={t('profile.no')} danger={confirmModal.danger}
       />
+
+      {showCoverCropModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={lang === 'vi' ? 'Cắt ảnh bìa' : 'Crop cover image'}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeCoverCropModal()
+          }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16, background: 'rgba(0,0,0,0.86)',
+          }}
+        >
+          <div style={{
+            position: 'relative',
+            width: 'min(1400px, 96vw)', height: 'min(880px, 92vh)',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            borderRadius: 8, background: '#0b0b0c',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+          }}>
+            <button
+              type="button"
+              onClick={closeCoverCropModal}
+              aria-label={lang === 'vi' ? 'Đóng' : 'Close'}
+              style={{
+                position: 'absolute', top: 14, right: 14, zIndex: 2,
+                width: 38, height: 38, display: 'grid', placeItems: 'center',
+                border: 'none', borderRadius: '50%',
+                background: 'rgba(0,0,0,0.55)', color: '#fff', cursor: 'pointer',
+              }}
+            >
+              <X size={21} />
+            </button>
+
+            <div style={{ position: 'relative', flex: 1, minHeight: 0, background: '#050505' }}>
+              <Cropper
+                image={coverCropSource}
+                crop={coverCrop}
+                zoom={coverZoom}
+                aspect={16 / 5}
+                minZoom={1}
+                maxZoom={3}
+                showGrid={false}
+                initialCroppedAreaPercentages={initialCoverCropArea || undefined}
+                onCropChange={setCoverCrop}
+                onZoomChange={setCoverZoom}
+                onCropComplete={(croppedAreaPercentages, croppedAreaPixels) => {
+                  setCoverCropArea(croppedAreaPercentages)
+                  setCoverCroppedAreaPixels(croppedAreaPixels)
+                }}
+                style={{
+                  cropAreaStyle: {
+                    border: 'none',
+                    boxShadow: '0 0 0 9999em rgba(0,0,0,0.52)',
+                  },
+                }}
+              />
+            </div>
+
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 20,
+              padding: '14px 18px', background: '#151517',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                <ZoomIn size={18} color="#b5b5ba" />
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.05}
+                  value={coverZoom}
+                  onChange={(e) => setCoverZoom(Number(e.target.value))}
+                  aria-label={lang === 'vi' ? 'Thu phóng ảnh' : 'Image zoom'}
+                  style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Button variant="secondary" onClick={closeCoverCropModal} disabled={croppingCover}>
+                  {t('profile.cancel')}
+                </Button>
+                <Button variant="primary" onClick={applyCoverCrop} isLoading={croppingCover}>
+                  <Crop size={16} />
+                  {lang === 'vi' ? 'Áp dụng' : 'Apply'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Responsive: collapse grid to 1 col on mobile */}
       <style>{`

@@ -1,5 +1,15 @@
 import mongoose from "mongoose";
 
+const coverCropAreaSchema = new mongoose.Schema(
+  {
+    x: { type: Number, min: 0, max: 100, required: true },
+    y: { type: Number, min: 0, max: 100, required: true },
+    width: { type: Number, min: 0, max: 100, required: true },
+    height: { type: Number, min: 0, max: 100, required: true },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     email: {
@@ -72,11 +82,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-    coverPositionY: {
-      type: Number,
-      min: 0,
-      max: 100,
-      default: 50,
+    coverOriginalImage: {
+      type: String,
+      default: "",
+    },
+    coverCropArea: {
+      type: coverCropAreaSchema,
+      default: null,
     },
     birthday: {
       type: Date,
