@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   LogOut, Mail, User, Camera, Pencil, Save, X, Lock, Eye, EyeOff,
   Cake, MapPin, Heart, Briefcase, GraduationCap, Phone, Globe, Users, ShieldCheck,
-  Upload, Image, Trash2, ChevronDown, Palette
+  Upload, Image, Trash2, ChevronDown, Palette, MoveVertical
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -114,8 +114,10 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({})
   const [visibilityData, setVisibilityData] = useState({})
+  const [isDraggingCover, setIsDraggingCover] = useState(false)
   const fileInputRef = useRef(null)
   const coverInputRef = useRef(null)
+  const coverDragRef = useRef(null)
   const [formErrors, setFormErrors] = useState({})
 
   const [showPasswordSection, setShowPasswordSection] = useState(false)
@@ -151,6 +153,7 @@ function ProfilePage() {
       avatar: user?.avatar || '',
       coverColor: user?.coverColor || '',
       coverImage: user?.coverImage || '',
+      coverPositionY: user?.coverPositionY ?? 50,
       birthday: user?.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '',
       gender: user?.gender || '',
       phone: user?.phone || '',
@@ -249,10 +252,47 @@ function ProfilePage() {
 
     const reader = new FileReader()
     reader.onloadend = () => {
-      setFormData(prev => ({ ...prev, coverImage: reader.result }))
+      setFormData(prev => ({
+        ...prev,
+        coverImage: reader.result,
+        coverPositionY: 50,
+      }))
       e.target.value = ''
     }
     reader.readAsDataURL(file)
+  }
+
+  function handleCoverPointerDown(e) {
+    if (!isEditing || !formData.coverImage || e.button !== 0) return
+    if (e.target.closest('button, input')) return
+
+    coverDragRef.current = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      startPosition: formData.coverPositionY ?? 50,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setIsDraggingCover(true)
+  }
+
+  function handleCoverPointerMove(e) {
+    const drag = coverDragRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+
+    const deltaY = e.clientY - drag.startY
+    const nextPosition = Math.min(100, Math.max(0, drag.startPosition - deltaY * 0.35))
+    setFormData(prev => ({ ...prev, coverPositionY: Math.round(nextPosition) }))
+  }
+
+  function handleCoverPointerEnd(e) {
+    const drag = coverDragRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+    coverDragRef.current = null
+    setIsDraggingCover(false)
   }
 
   function handleSelectDefaultAvatar(url) {
@@ -305,6 +345,7 @@ function ProfilePage() {
       if (formData.avatar !== (user?.avatar || '')) payload.avatar = formData.avatar
       if (formData.coverColor !== (user?.coverColor || '')) payload.coverColor = formData.coverColor || ''
       if (formData.coverImage !== (user?.coverImage || '')) payload.coverImage = formData.coverImage || ''
+      if (formData.coverPositionY !== (user?.coverPositionY ?? 50)) payload.coverPositionY = formData.coverPositionY
       const oldVis = user?.profileVisibility || {}
       const visDiff = {}
       for (const f of Object.keys(visibilityData)) {
@@ -385,6 +426,9 @@ function ProfilePage() {
   const activeCoverImage = isEditing
     ? formData.coverImage
     : user?.coverImage
+  const activeCoverPositionY = isEditing
+    ? (formData.coverPositionY ?? 50)
+    : (user?.coverPositionY ?? 50)
 
   const s = {
     page: { minHeight: '100vh', background: 'var(--color-bg)', overflowY: 'auto' },
@@ -394,10 +438,13 @@ function ProfilePage() {
         ? `url("${activeCoverImage}")`
         : activeCoverGradient,
       backgroundSize: 'cover',
-      backgroundPosition: 'center',
+      backgroundPosition: `center ${activeCoverPositionY}%`,
       backgroundRepeat: 'no-repeat',
       position: 'relative',
       overflow: 'hidden',
+      cursor: isEditing && activeCoverImage ? (isDraggingCover ? 'grabbing' : 'grab') : 'default',
+      touchAction: isEditing && activeCoverImage ? 'none' : 'auto',
+      userSelect: 'none',
     },
     bannerPattern: {
       position: 'absolute', inset: 0, opacity: 0.08,
@@ -522,8 +569,29 @@ function ProfilePage() {
   return (
     <div style={s.page}>
       {/* Banner */}
-      <div style={s.banner}>
+      <div
+        style={s.banner}
+        onPointerDown={handleCoverPointerDown}
+        onPointerMove={handleCoverPointerMove}
+        onPointerUp={handleCoverPointerEnd}
+        onPointerCancel={handleCoverPointerEnd}
+        onLostPointerCapture={handleCoverPointerEnd}
+        title={isEditing && activeCoverImage
+          ? (lang === 'vi' ? 'Kéo để điều chỉnh vị trí ảnh bìa' : 'Drag to reposition cover image')
+          : undefined}
+      >
         <div style={s.bannerPattern} />
+        {isEditing && activeCoverImage && (
+          <div style={{
+            position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
+            width: 30, height: 30, borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.45)', color: '#fff',
+            pointerEvents: 'none',
+          }}>
+            <MoveVertical size={16} />
+          </div>
+        )}
         {!isEditing && (
           <button style={s.editBtnBanner} onClick={startEditing}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
