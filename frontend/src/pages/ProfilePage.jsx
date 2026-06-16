@@ -366,10 +366,11 @@ function ProfilePage() {
     setCroppingCover(true)
     try {
       const originalCoverImage = coverEditSource || coverCropSource
+      const isUploadedCover = originalCoverImage.startsWith('data:image/')
       setFormData(prev => ({
         ...prev,
-        coverImage: originalCoverImage,
-        coverOriginalImage: originalCoverImage,
+        coverImage: isUploadedCover ? originalCoverImage : prev.coverImage,
+        coverOriginalImage: isUploadedCover ? originalCoverImage : prev.coverOriginalImage,
         coverCropArea,
       }))
       setCoverEditSource(originalCoverImage)
