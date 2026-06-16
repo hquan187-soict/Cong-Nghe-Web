@@ -130,6 +130,7 @@ function ProfilePage() {
   const [croppingCover, setCroppingCover] = useState(false)
   const fileInputRef = useRef(null)
   const coverInputRef = useRef(null)
+  const bannerRef = useRef(null)
   const [formErrors, setFormErrors] = useState({})
 
   const [showPasswordSection, setShowPasswordSection] = useState(false)
@@ -297,6 +298,12 @@ function ProfilePage() {
     setInitialCoverCropArea(resetPosition ? null : appliedCoverCropArea)
     setCoverCroppedAreaPixels(null)
     setShowCoverCropModal(true)
+  }
+
+  function getCoverCropAspect() {
+    const rect = bannerRef.current?.getBoundingClientRect()
+    if (rect?.width && rect?.height) return rect.width / rect.height
+    return 16 / 5
   }
 
   function closeCoverCropModal() {
@@ -648,6 +655,7 @@ function ProfilePage() {
     <div style={s.page}>
       {/* Banner */}
       <div
+        ref={bannerRef}
         style={s.banner}
         onClick={(e) => {
           if (isEditing && activeCoverImage && !e.target.closest('button, input')) {
@@ -1056,7 +1064,7 @@ function ProfilePage() {
                 image={coverCropSource}
                 crop={coverCrop}
                 zoom={coverZoom}
-                aspect={16 / 5}
+                aspect={getCoverCropAspect()}
                 minZoom={1}
                 maxZoom={3}
                 showGrid={false}
