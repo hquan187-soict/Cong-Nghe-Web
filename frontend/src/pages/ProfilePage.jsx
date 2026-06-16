@@ -532,7 +532,7 @@ function ProfilePage() {
       cursor: isEditing && activeCoverImage ? 'pointer' : 'default',
     },
     bannerPattern: {
-      position: 'absolute', inset: 0, opacity: 0.08,
+      position: 'absolute', inset: 0, opacity: 0.08, pointerEvents: 'none',
       backgroundImage: 'repeating-linear-gradient(45deg,transparent,transparent 30px,rgba(255,255,255,0.1) 30px,rgba(255,255,255,0.1) 60px)',
     },
     editBtnBanner: {
@@ -678,21 +678,30 @@ function ProfilePage() {
         {isEditing && (
           <div
             ref={coverPickerRef}
+            className="profile-cover-actions"
             style={{
-              position: 'absolute', bottom: 12, right: 24,
-              display: 'flex', alignItems: 'center', gap: 8,
+              position: 'absolute', bottom: 12, right: 24, zIndex: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+              flexWrap: 'wrap', gap: 8, maxWidth: 'calc(100% - 48px)',
             }}
           >
             <button
               type="button"
-              onClick={() => coverInputRef.current?.click()}
+              className="profile-cover-action-btn"
+              aria-label={lang === 'vi' ? 'Thay đổi ảnh bìa' : 'Change cover image'}
+              title={lang === 'vi' ? 'Thay đổi ảnh bìa' : 'Change cover image'}
+              onClick={(e) => {
+                e.stopPropagation()
+                coverInputRef.current?.click()
+              }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 10,
                 background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)',
                 border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}
             >
-              <Image size={16} /> {lang === 'vi' ? 'Thay đổi ảnh bìa' : 'Change cover image'}
+              <Image size={16} />
+              <span className="profile-cover-action-label">{lang === 'vi' ? 'Thay đổi ảnh bìa' : 'Change cover image'}</span>
             </button>
             <input
               ref={coverInputRef}
@@ -703,14 +712,21 @@ function ProfilePage() {
             />
             <button
               type="button"
-              onClick={() => setShowCoverPicker(!showCoverPicker)}
+              className="profile-cover-action-btn"
+              aria-label={t('profile.coverColor') || (lang === 'vi' ? 'Màu nền' : 'Cover color')}
+              title={t('profile.coverColor') || (lang === 'vi' ? 'Màu nền' : 'Cover color')}
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowCoverPicker(!showCoverPicker)
+              }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 10,
                 background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)',
                 border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}
             >
-              <Palette size={16} /> {t('profile.coverColor') || 'Màu nền'}
+              <Palette size={16} />
+              <span className="profile-cover-action-label">{t('profile.coverColor') || 'Màu nền'}</span>
             </button>
             {showCoverPicker && (
               <div style={{
@@ -720,7 +736,7 @@ function ProfilePage() {
                 display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, width: 220,
               }}>
                 {COVER_COLORS.map(c => (
-                  <button key={c.value} onClick={() => { setFormData(prev => ({ ...prev, coverColor: c.value })); setShowCoverPicker(false) }}
+                  <button key={c.value} onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, coverColor: c.value })); setShowCoverPicker(false) }}
                     style={{
                       width: 30, height: 30, borderRadius: 8, background: c.gradient, border: formData.coverColor === c.value ? '3px solid #fff' : '2px solid transparent',
                       cursor: 'pointer', boxShadow: formData.coverColor === c.value ? '0 0 0 2px var(--color-primary)' : 'none',
@@ -1120,6 +1136,22 @@ function ProfilePage() {
         @media (max-width: 640px) {
           [style*="grid-template-columns: repeat(2"] {
             grid-template-columns: 1fr !important;
+          }
+          .profile-cover-actions {
+            right: 12px !important;
+            bottom: 10px !important;
+            gap: 6px !important;
+            max-width: calc(100% - 24px) !important;
+          }
+          .profile-cover-action-btn {
+            width: 38px !important;
+            height: 38px !important;
+            padding: 0 !important;
+            justify-content: center !important;
+            border-radius: 10px !important;
+          }
+          .profile-cover-action-label {
+            display: none !important;
           }
         }
       `}</style>
