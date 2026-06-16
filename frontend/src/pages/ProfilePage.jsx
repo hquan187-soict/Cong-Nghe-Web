@@ -520,12 +520,12 @@ function ProfilePage() {
   const s = {
     page: { minHeight: '100vh', background: 'var(--color-bg)', overflowY: 'auto' },
     banner: {
-      height: 220,
+      height: 'clamp(160px, 18vw, 280px)',
       backgroundImage: activeCoverImage
         ? `url("${activeCoverImage}")`
         : activeCoverGradient,
       backgroundSize: 'cover',
-      backgroundPosition: 'center',
+      backgroundPosition: 'center 42%',
       backgroundRepeat: 'no-repeat',
       position: 'relative',
       overflow: 'hidden',
@@ -656,6 +656,7 @@ function ProfilePage() {
       {/* Banner */}
       <div
         ref={bannerRef}
+        className="profile-cover-banner"
         style={s.banner}
         onClick={(e) => {
           if (isEditing && activeCoverImage && !e.target.closest('button, input')) {
@@ -1042,6 +1043,7 @@ function ProfilePage() {
 
       {showCoverCropModal && (
         <div
+          className="profile-cover-crop-overlay"
           role="dialog"
           aria-modal="true"
           aria-label={lang === 'vi' ? 'Cắt ảnh bìa' : 'Crop cover image'}
@@ -1054,9 +1056,9 @@ function ProfilePage() {
             padding: 16, background: 'rgba(0,0,0,0.86)',
           }}
         >
-          <div style={{
+          <div className="profile-cover-crop-dialog" style={{
             position: 'relative',
-            width: 'min(1400px, 96vw)', height: 'min(880px, 92vh)',
+            width: 'min(1200px, 96vw)',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             borderRadius: 8, background: '#0b0b0c',
             boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
@@ -1075,7 +1077,15 @@ function ProfilePage() {
               <X size={21} />
             </button>
 
-            <div style={{ position: 'relative', flex: 1, minHeight: 0, background: '#050505' }}>
+            <div
+              className="profile-cover-crop-stage"
+              style={{
+                position: 'relative',
+                height: 'min(560px, calc(88vh - 76px))',
+                minHeight: 280,
+                background: '#050505',
+              }}
+            >
               <Cropper
                 image={coverCropSource}
                 crop={coverCrop}
@@ -1100,11 +1110,11 @@ function ProfilePage() {
               />
             </div>
 
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 20,
+            <div className="profile-cover-crop-toolbar" style={{
+              display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
               padding: '14px 18px', background: '#151517',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+              <div className="profile-cover-crop-zoom" style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 220 }}>
                 <ZoomIn size={18} color="#b5b5ba" />
                 <input
                   type="range"
@@ -1117,7 +1127,7 @@ function ProfilePage() {
                   style={{ width: '100%', accentColor: 'var(--color-primary)' }}
                 />
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div className="profile-cover-crop-actions" style={{ display: 'flex', gap: 10 }}>
                 <Button variant="secondary" onClick={closeCoverCropModal} disabled={croppingCover}>
                   {t('profile.cancel')}
                 </Button>
@@ -1133,7 +1143,16 @@ function ProfilePage() {
 
       {/* Responsive: collapse grid to 1 col on mobile */}
       <style>{`
+        @media (max-width: 900px) {
+          .profile-cover-banner {
+            height: 180px !important;
+            background-position: center center !important;
+          }
+        }
         @media (max-width: 640px) {
+          .profile-cover-banner {
+            height: 150px !important;
+          }
           [style*="grid-template-columns: repeat(2"] {
             grid-template-columns: 1fr !important;
           }
@@ -1152,6 +1171,41 @@ function ProfilePage() {
           }
           .profile-cover-action-label {
             display: none !important;
+          }
+          .profile-cover-crop-overlay {
+            padding: 10px !important;
+          }
+          .profile-cover-crop-dialog {
+            width: calc(100vw - 20px) !important;
+            max-height: calc(100dvh - 20px) !important;
+          }
+          .profile-cover-crop-stage {
+            height: clamp(220px, 58vw, 320px) !important;
+            min-height: 0 !important;
+          }
+          .profile-cover-crop-toolbar {
+            align-items: stretch !important;
+            gap: 12px !important;
+            padding: 12px !important;
+          }
+          .profile-cover-crop-zoom {
+            flex: 1 1 100% !important;
+            min-width: 0 !important;
+          }
+          .profile-cover-crop-actions {
+            width: 100% !important;
+          }
+          .profile-cover-crop-actions > button {
+            flex: 1 !important;
+            justify-content: center !important;
+          }
+        }
+        @media (max-width: 380px) {
+          .profile-cover-banner {
+            height: 140px !important;
+          }
+          .profile-cover-crop-stage {
+            height: 210px !important;
           }
         }
       `}</style>
