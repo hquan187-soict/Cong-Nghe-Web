@@ -684,7 +684,7 @@ function ProfilePage() {
                 border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}
             >
-              <Image size={16} /> {lang === 'vi' ? 'Ảnh bìa' : 'Cover image'}
+              <Image size={16} /> {lang === 'vi' ? 'Thay đổi ảnh bìa' : 'Change cover image'}
             </button>
             <input
               ref={coverInputRef}
@@ -693,23 +693,6 @@ function ProfilePage() {
               onChange={handleCoverUpload}
               style={{ display: 'none' }}
             />
-            {activeCoverImage && (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCoverPicker(false)
-                  openCoverCropModal(coverEditSource || formData.coverOriginalImage || activeCoverImage)
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)',
-                  border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                }}
-              >
-                <Crop size={16} />
-                {lang === 'vi' ? 'Cắt lại ảnh' : 'Crop image'}
-              </button>
-            )}
             <button
               type="button"
               onClick={() => setShowCoverPicker(!showCoverPicker)}
