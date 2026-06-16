@@ -38,6 +38,19 @@ function getCoverGradient(coverColor) {
   return found ? found.gradient : COVER_COLORS[0].gradient
 }
 
+function clampPercent(value, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function getImageSize(src) {
+  return new Promise((resolve, reject) => {
+    const img = document.createElement('img')
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    img.onerror = reject
+    img.src = src
+  })
+}
+
 const VISIBILITY_OPTIONS = [
   { value: 'private', icon: ShieldCheck, color: '#ef4444' },
   { value: 'friends', icon: Users, color: '#3b82f6' },
@@ -126,8 +139,9 @@ function ProfilePage() {
   const [coverCropArea, setCoverCropArea] = useState(null)
   const [appliedCoverCropArea, setAppliedCoverCropArea] = useState(null)
   const [initialCoverCropArea, setInitialCoverCropArea] = useState(null)
-  const [coverCroppedAreaPixels, setCoverCroppedAreaPixels] = useState(null)
   const [croppingCover, setCroppingCover] = useState(false)
+  const [coverImageAspect, setCoverImageAspect] = useState(null)
+  const [coverBannerAspect, setCoverBannerAspect] = useState(null)
   const fileInputRef = useRef(null)
   const coverInputRef = useRef(null)
   const bannerRef = useRef(null)
@@ -290,20 +304,52 @@ function ProfilePage() {
     reader.readAsDataURL(file)
   }
 
-  function openCoverCropModal(imageSource, resetPosition = false) {
+  async function openCoverCropModal(imageSource, resetPosition = false) {
     if (!imageSource) return
+    const initialArea = resetPosition
+      ? null
+      : await getInitialCoverCropArea(imageSource, appliedCoverCropArea)
+
     setCoverCropSource(imageSource)
     setCoverCrop(resetPosition ? { x: 0, y: 0 } : appliedCoverCrop)
     setCoverZoom(resetPosition ? 1 : appliedCoverZoom)
-    setInitialCoverCropArea(resetPosition ? null : appliedCoverCropArea)
-    setCoverCroppedAreaPixels(null)
+    setCoverCropArea(initialArea)
+    setInitialCoverCropArea(initialArea)
     setShowCoverCropModal(true)
   }
 
   function getCoverCropAspect() {
+    if (coverBannerAspect) return coverBannerAspect
     const rect = bannerRef.current?.getBoundingClientRect()
     if (rect?.width && rect?.height) return rect.width / rect.height
     return 16 / 5
+  }
+
+  async function getInitialCoverCropArea(imageSource, cropArea) {
+    if (!cropArea) return null
+
+    try {
+      const imageSize = await getImageSize(imageSource)
+      const imageAspect = imageSize.width / imageSize.height
+      const containerAspect = getCoverCropAspect()
+
+      if (!imageAspect || !containerAspect) return cropArea
+
+      const position = getCoverPositionPercentages(cropArea)
+      const { width, height } = getCoverVisibleArea(cropArea, imageAspect, containerAspect)
+
+      const maxX = Math.max(0, 100 - width)
+      const maxY = Math.max(0, 100 - height)
+
+      return {
+        x: clampPercent(maxX * (position.x / 100), 0, maxX),
+        y: clampPercent(maxY * (position.y / 100), 0, maxY),
+        width,
+        height,
+      }
+    } catch {
+      return cropArea
+    }
   }
 
   function closeCoverCropModal() {
@@ -315,54 +361,18 @@ function ProfilePage() {
     setCoverCropSource('')
   }
 
-  function cropCoverImage(imageSource, cropPixels) {
-    return new Promise((resolve, reject) => {
-      const image = new window.Image()
-      image.crossOrigin = 'anonymous'
-      image.onload = () => {
-        const maxWidth = 1600
-        const scale = Math.min(1, maxWidth / cropPixels.width)
-        const canvas = document.createElement('canvas')
-        canvas.width = Math.round(cropPixels.width * scale)
-        canvas.height = Math.round(cropPixels.height * scale)
-
-        const context = canvas.getContext('2d')
-        if (!context) {
-          reject(new Error('Canvas is not supported'))
-          return
-        }
-
-        context.drawImage(
-          image,
-          cropPixels.x,
-          cropPixels.y,
-          cropPixels.width,
-          cropPixels.height,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        )
-        resolve(canvas.toDataURL('image/jpeg', 0.9))
-      }
-      image.onerror = () => reject(new Error('Unable to load cover image'))
-      image.src = imageSource
-    })
-  }
-
-  async function applyCoverCrop() {
-    if (!coverCropSource || !coverCropArea || !coverCroppedAreaPixels) return
+  function applyCoverCrop() {
+    if (!coverCropSource || !coverCropArea) return
     setCroppingCover(true)
     try {
-      const croppedImage = await cropCoverImage(coverCropSource, coverCroppedAreaPixels)
+      const originalCoverImage = coverEditSource || coverCropSource
       setFormData(prev => ({
         ...prev,
-        coverImage: croppedImage,
-        coverOriginalImage: coverEditSource.startsWith('data:image/')
-          ? coverEditSource
-          : prev.coverOriginalImage,
+        coverImage: originalCoverImage,
+        coverOriginalImage: originalCoverImage,
         coverCropArea,
       }))
+      setCoverEditSource(originalCoverImage)
       setAppliedCoverCrop(coverCrop)
       setAppliedCoverZoom(coverZoom)
       setAppliedCoverCropArea(coverCropArea)
@@ -510,12 +520,135 @@ function ProfilePage() {
     return null
   }
 
+  function getCoverPositionPercentages(cropArea) {
+    if (!cropArea) return { x: 50, y: 42 }
+
+    const width = Math.max(1, Math.min(100, cropArea.width))
+    const height = Math.max(1, Math.min(100, cropArea.height))
+    const maxX = Math.max(0, 100 - width)
+    const maxY = Math.max(0, 100 - height)
+    const x = Math.max(0, Math.min(maxX, cropArea.x))
+    const y = Math.max(0, Math.min(maxY, cropArea.y))
+
+    return {
+      x: maxX === 0 ? 50 : (x / maxX) * 100,
+      y: maxY === 0 ? 50 : (y / maxY) * 100,
+    }
+  }
+
+  function getCoverBaseVisibleArea(imageAspect, containerAspect) {
+    if (!imageAspect || !containerAspect) return { width: 100, height: 100 }
+
+    if (containerAspect > imageAspect) {
+      return {
+        width: 100,
+        height: clampPercent((imageAspect / containerAspect) * 100, 1, 100),
+      }
+    }
+
+    return {
+      width: clampPercent((containerAspect / imageAspect) * 100, 1, 100),
+      height: 100,
+    }
+  }
+
+  function getCoverZoomFromCropArea(cropArea, imageAspect) {
+    if (!cropArea || !imageAspect) return 1
+
+    const width = Math.max(1, Math.min(100, cropArea.width))
+    const height = Math.max(1, Math.min(100, cropArea.height))
+    const cropAspect = (width / height) * imageAspect
+    const baseArea = getCoverBaseVisibleArea(imageAspect, cropAspect)
+    const zoomX = baseArea.width / width
+    const zoomY = baseArea.height / height
+
+    return Math.max(1, Math.min(3, (zoomX + zoomY) / 2))
+  }
+
+  function getCoverVisibleArea(cropArea, imageAspect, containerAspect) {
+    const baseArea = getCoverBaseVisibleArea(imageAspect, containerAspect)
+    const zoom = getCoverZoomFromCropArea(cropArea, imageAspect)
+
+    return {
+      width: clampPercent(baseArea.width / zoom, 1, 100),
+      height: clampPercent(baseArea.height / zoom, 1, 100),
+    }
+  }
+
+  function getCoverBackground(cropArea, imageAspect, containerAspect) {
+    if (!cropArea || !imageAspect || !containerAspect) {
+      return { position: 'center 42%', size: 'cover' }
+    }
+
+    const position = getCoverPositionPercentages(cropArea)
+    const visibleArea = getCoverVisibleArea(cropArea, imageAspect, containerAspect)
+
+    return {
+      position: `${position.x}% ${position.y}%`,
+      size: `${10000 / visibleArea.width}% auto`,
+    }
+  }
+
   const activeCoverGradient = isEditing
     ? getCoverGradient(formData.coverColor)
     : getCoverGradient(user?.coverColor)
   const activeCoverImage = isEditing
-    ? formData.coverImage
-    : user?.coverImage
+    ? (formData.coverOriginalImage || formData.coverImage)
+    : (user?.coverOriginalImage || user?.coverImage)
+  const activeCoverBackground = isEditing
+    ? getCoverBackground(formData.coverCropArea, coverImageAspect, getCoverCropAspect())
+    : getCoverBackground(user?.coverCropArea, coverImageAspect, getCoverCropAspect())
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!activeCoverImage) {
+      setCoverImageAspect(null)
+      return undefined
+    }
+
+    getImageSize(activeCoverImage)
+      .then(({ width, height }) => {
+        if (!cancelled) setCoverImageAspect(width && height ? width / height : null)
+      })
+      .catch(() => {
+        if (!cancelled) setCoverImageAspect(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeCoverImage])
+
+  useEffect(() => {
+    const node = bannerRef.current
+    if (!node) return undefined
+
+    const updateAspect = () => {
+      const rect = node.getBoundingClientRect()
+      if (!rect.width || !rect.height) return
+      const nextAspect = rect.width / rect.height
+      setCoverBannerAspect(prev => (
+        prev && Math.abs(prev - nextAspect) < 0.001 ? prev : nextAspect
+      ))
+    }
+
+    updateAspect()
+
+    if (!window.ResizeObserver) {
+      window.addEventListener('resize', updateAspect)
+      return () => window.removeEventListener('resize', updateAspect)
+    }
+
+    const observer = new window.ResizeObserver(updateAspect)
+    observer.observe(node)
+    window.addEventListener('resize', updateAspect)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateAspect)
+    }
+  }, [])
 
   const s = {
     page: { minHeight: '100vh', background: 'var(--color-bg)', overflowY: 'auto' },
@@ -524,8 +657,8 @@ function ProfilePage() {
       backgroundImage: activeCoverImage
         ? `url("${activeCoverImage}")`
         : activeCoverGradient,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center 42%',
+      backgroundSize: activeCoverBackground.size,
+      backgroundPosition: activeCoverBackground.position,
       backgroundRepeat: 'no-repeat',
       position: 'relative',
       overflow: 'hidden',
@@ -766,19 +899,19 @@ function ProfilePage() {
                   <Camera size={22} color="#fff" />
                 </button>
                 {showAvatarMenu && (
-                  <div style={s.avatarMenu}>
-                    <button style={s.avatarMenuItem(false)} onClick={() => { fileInputRef.current.click(); setShowAvatarMenu(false) }}
+                  <div className="profile-avatar-menu" style={s.avatarMenu}>
+                    <button className="profile-avatar-menu-item" style={s.avatarMenuItem(false)} onClick={() => { fileInputRef.current.click(); setShowAvatarMenu(false) }}
                       onMouseEnter={e => e.currentTarget.style.background = 'var(--color-hover-bg)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       <Upload size={16} style={{ color: 'var(--color-primary)' }} /> {t('profile.uploadAvatar')}
                     </button>
-                    <button style={s.avatarMenuItem(false)} onClick={() => { setShowDefaultAvatars(true); setShowAvatarMenu(false) }}
+                    <button className="profile-avatar-menu-item" style={s.avatarMenuItem(false)} onClick={() => { setShowDefaultAvatars(true); setShowAvatarMenu(false) }}
                       onMouseEnter={e => e.currentTarget.style.background = 'var(--color-hover-bg)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       <Image size={16} style={{ color: '#7c3aed' }} /> {t('profile.chooseDefaultAvatar')}
                     </button>
                     {(user?.avatar || formData.avatar) && (
-                      <button style={s.avatarMenuItem(true)} onClick={handleRemoveAvatar}
+                      <button className="profile-avatar-menu-item" style={s.avatarMenuItem(true)} onClick={handleRemoveAvatar}
                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.05)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                         <Trash2 size={16} /> {t('profile.removeAvatar')}
@@ -1097,9 +1230,8 @@ function ProfilePage() {
                 initialCroppedAreaPercentages={initialCoverCropArea || undefined}
                 onCropChange={setCoverCrop}
                 onZoomChange={setCoverZoom}
-                onCropComplete={(croppedAreaPercentages, croppedAreaPixels) => {
+                onCropComplete={(croppedAreaPercentages) => {
                   setCoverCropArea(croppedAreaPercentages)
-                  setCoverCroppedAreaPixels(croppedAreaPixels)
                 }}
                 style={{
                   cropAreaStyle: {
@@ -1146,7 +1278,6 @@ function ProfilePage() {
         @media (max-width: 900px) {
           .profile-cover-banner {
             height: 180px !important;
-            background-position: center center !important;
           }
         }
         @media (max-width: 640px) {
@@ -1171,6 +1302,20 @@ function ProfilePage() {
           }
           .profile-cover-action-label {
             display: none !important;
+          }
+          .profile-avatar-menu {
+            left: 0 !important;
+            transform: none !important;
+            min-width: min(220px, calc(100vw - 32px)) !important;
+            max-width: calc(100vw - 32px) !important;
+          }
+          .profile-avatar-menu-item {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
+          .profile-avatar-menu-item svg {
+            flex-shrink: 0 !important;
           }
           .profile-cover-crop-overlay {
             padding: 10px !important;
