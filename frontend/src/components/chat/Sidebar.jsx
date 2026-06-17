@@ -63,6 +63,19 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const [activeStatusPanelStyle, setActiveStatusPanelStyle] = useState({})
   const [notifPanelStyle, setNotifPanelStyle] = useState({})
 
+  function getMobileSettingsPanelStyle(anchorRect) {
+    const bottom = Math.max(12, window.innerHeight - anchorRect.bottom)
+    return {
+      left: 12,
+      right: 12,
+      bottom,
+      width: 'auto',
+      maxWidth: 'none',
+      maxHeight: `calc(100dvh - ${bottom + 12}px)`,
+      overflowY: 'auto',
+    }
+  }
+
   const [unreadMap, setUnreadMap] = useState({})
   const [pinMap, setPinMap] = useState({})
   const [muteMap, setMuteMap] = useState({})
@@ -582,31 +595,43 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   useLayoutEffect(() => {
     if (!showAccessibility || !dropdownRef.current) return
     const rect = dropdownRef.current.getBoundingClientRect()
+    if (collapseDisabled) {
+      setA11yPanelStyle(getMobileSettingsPanelStyle(rect))
+      return
+    }
     setA11yPanelStyle({
       left: rect.right + 8,
       bottom: window.innerHeight - rect.bottom,
     })
-  }, [showAccessibility])
+  }, [showAccessibility, collapseDisabled])
 
   useLayoutEffect(() => {
     if (!showActiveStatus || !dropdownRef.current) return
     const dropdownRect = dropdownRef.current.getBoundingClientRect()
     const btnRect = activeStatusBtnRef.current?.getBoundingClientRect()
+    if (collapseDisabled) {
+      setActiveStatusPanelStyle(getMobileSettingsPanelStyle(dropdownRect))
+      return
+    }
     setActiveStatusPanelStyle({
       left: dropdownRect.right + 8,
       top: btnRect ? btnRect.top : dropdownRect.top,
     })
-  }, [showActiveStatus])
+  }, [showActiveStatus, collapseDisabled])
 
   useLayoutEffect(() => {
     if (!showNotifications || !dropdownRef.current) return
     const dropdownRect = dropdownRef.current.getBoundingClientRect()
     const btnRect = notifBtnRef.current?.getBoundingClientRect()
+    if (collapseDisabled) {
+      setNotifPanelStyle(getMobileSettingsPanelStyle(dropdownRect))
+      return
+    }
     setNotifPanelStyle({
       left: dropdownRect.right + 8,
       top: btnRect ? btnRect.top : dropdownRect.top,
     })
-  }, [showNotifications])
+  }, [showNotifications, collapseDisabled])
 
   const handleSearchBarClick = () => {
     setShowSearchModal(true)

@@ -290,6 +290,7 @@ function ProfilePage() {
 
     const reader = new FileReader()
     reader.onloadend = () => {
+      // Keep a new upload temporary until the user applies the crop.
       setCoverCrop({ x: 0, y: 0 })
       setCoverZoom(1)
       setAppliedCoverCrop({ x: 0, y: 0 })
@@ -305,6 +306,7 @@ function ProfilePage() {
 
   async function openCoverCropModal(imageSource, resetPosition = false) {
     if (!imageSource) return
+    // Existing covers reuse the saved crop area; new uploads start centered.
     const initialArea = resetPosition
       ? null
       : await getInitialCoverCropArea(imageSource, appliedCoverCropArea)
@@ -353,6 +355,7 @@ function ProfilePage() {
 
   function closeCoverCropModal() {
     if (croppingCover) return
+    // Closing the modal should revert to the last applied cover crop.
     setCoverCrop(appliedCoverCrop)
     setCoverZoom(appliedCoverZoom)
     setCoverCropArea(appliedCoverCropArea)
@@ -362,6 +365,7 @@ function ProfilePage() {
 
   function removeCoverImageFromEdit() {
     if (croppingCover) return
+    // Clear cover fields locally; the backend removes stored cover data on save.
     setFormData(prev => ({
       ...prev,
       coverImage: '',
@@ -385,6 +389,7 @@ function ProfilePage() {
     if (!coverCropSource || !coverCropArea) return
     setCroppingCover(true)
     try {
+      // Only new data URLs are uploaded; saved URLs only update the crop area.
       const originalCoverImage = coverCropSource.startsWith('data:image/')
         ? coverCropSource
         : (coverEditSource || coverCropSource)
@@ -543,6 +548,7 @@ function ProfilePage() {
     return null
   }
 
+  // Translate crop-area percentages into CSS background positioning.
   function getCoverPositionPercentages(cropArea) {
     if (!cropArea) return { x: 50, y: 42 }
 
@@ -598,6 +604,7 @@ function ProfilePage() {
     }
   }
 
+  // Preview the cover crop with CSS instead of creating a cropped image file.
   function getCoverBackground(cropArea, imageAspect, containerAspect) {
     if (!cropArea || !imageAspect || !containerAspect) {
       return { position: 'center 42%', size: 'cover' }
