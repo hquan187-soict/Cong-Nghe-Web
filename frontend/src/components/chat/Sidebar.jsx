@@ -21,7 +21,7 @@ import CallHistoryPanel from '../call/CallHistoryPanel'
 import { setUnreadChatsCount } from '../../utils/documentTitle'
 import '../../styles/sidebar.css'
 
-const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, onToggleCollapse, onlineUsers = [], onNotificationClick }, ref) {
+const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConversation, collapsed, collapseDisabled = false, onToggleCollapse, onlineUsers = [], onNotificationClick }, ref) {
   const { t, lang, toggleLang } = useLang()
   const { theme, toggleTheme } = useTheme()
   const toast = useToast()
@@ -935,13 +935,15 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                 {!showSettings && <span className="tooltip tooltip--right">{t('settings.title')}</span>}
               </button>
             </div>
-            <button
-              className="sidebar__footer-btn tooltip-wrapper"
-              onClick={onToggleCollapse}
-            >
-              <ChevronsRight size={20} />
-              <span className="tooltip tooltip--right">{t('chat.expandSidebar')}</span>
-            </button>
+            {!collapseDisabled && (
+              <button
+                className="sidebar__footer-btn tooltip-wrapper"
+                onClick={onToggleCollapse}
+              >
+                <ChevronsRight size={20} />
+                <span className="tooltip tooltip--right">{t('chat.expandSidebar')}</span>
+              </button>
+            )}
           </>
         ) : (
           <div className="sidebar__footer-row" ref={settingsRef}>
@@ -955,13 +957,15 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                 {!showSettings && <span className="tooltip tooltip--top">{t('settings.title')}</span>}
               </button>
             </div>
-            <button
-              className="sidebar__footer-btn tooltip-wrapper"
-              onClick={onToggleCollapse}
-            >
-              <ChevronsLeft size={20} />
-              <span className="tooltip tooltip--top">{t('chat.collapseSidebar')}</span>
-            </button>
+            {!collapseDisabled && (
+              <button
+                className="sidebar__footer-btn tooltip-wrapper"
+                onClick={onToggleCollapse}
+              >
+                <ChevronsLeft size={20} />
+                <span className="tooltip tooltip--top">{t('chat.collapseSidebar')}</span>
+              </button>
+            )}
           </div>
         )}
       </div>

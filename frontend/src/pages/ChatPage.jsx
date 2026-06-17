@@ -692,10 +692,20 @@ function ChatPage() {
     const saved = localStorage.getItem('sidebar_width')
     return saved ? Number(saved) : SIDEBAR_DEFAULT
   })
-  const sidebarCollapsed = sidebarWidth <= SIDEBAR_MIN
+  const [isMobileSidebarLayout, setIsMobileSidebarLayout] = useState(() => (
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
+  ))
+  const sidebarCollapsed = !isMobileSidebarLayout && sidebarWidth <= SIDEBAR_MIN
 
   const isDraggingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileSidebarLayout(window.innerWidth <= 768)
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const handleResizeStart = useCallback((e) => {
     e.preventDefault()
@@ -735,16 +745,18 @@ function ChatPage() {
   }, [])
 
   const handleSidebarDoubleClick = useCallback(() => {
+    if (isMobileSidebarLayout) return
     const newWidth = sidebarCollapsed ? SIDEBAR_DEFAULT : SIDEBAR_MIN
     setSidebarWidth(newWidth)
     localStorage.setItem('sidebar_width', String(newWidth))
-  }, [sidebarCollapsed])
+  }, [isMobileSidebarLayout, sidebarCollapsed])
 
   const handleToggleCollapse = useCallback(() => {
+    if (isMobileSidebarLayout) return
     const newWidth = sidebarCollapsed ? SIDEBAR_DEFAULT : SIDEBAR_MIN
     setSidebarWidth(newWidth)
     localStorage.setItem('sidebar_width', String(newWidth))
-  }, [sidebarCollapsed])
+  }, [isMobileSidebarLayout, sidebarCollapsed])
 
   useEffect(() => {
     if (urlConversationId && (!selectedConversation || selectedConversation._id !== urlConversationId)) {
@@ -1168,6 +1180,7 @@ function ChatPage() {
           selectedConversation={selectedConversation}
           onSelectConversation={handleSelectConversation}
           collapsed={sidebarCollapsed}
+          collapseDisabled={isMobileSidebarLayout}
           onToggleCollapse={handleToggleCollapse}
           onlineUsers={onlineUsers}
           onNotificationClick={handleNotificationClick}
