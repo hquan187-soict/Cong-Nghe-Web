@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef, useLayoutEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus, Archive, Volume2, Play, Phone, Tag } from 'lucide-react'
+import { MessageCircle, User, Sun, Moon, Search, Settings, ChevronsLeft, ChevronsRight, Languages, Bell, Eye, Accessibility, ChevronRight, ChevronLeft, Type, ALargeSmall, MessageSquare, Users, UserPlus, Archive, Volume2, Play, Phone, Tag } from 'lucide-react'
 import logoImg from '../../assets/logo.png'
 import { conversationService } from '../../services/conversation.service'
 import { messageService } from '../../services/message.service'
@@ -608,28 +608,26 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   useLayoutEffect(() => {
     if (!showActiveStatus || !dropdownRef.current) return
     const dropdownRect = dropdownRef.current.getBoundingClientRect()
-    const btnRect = activeStatusBtnRef.current?.getBoundingClientRect()
     if (collapseDisabled) {
       setActiveStatusPanelStyle(getMobileSettingsPanelStyle(dropdownRect))
       return
     }
     setActiveStatusPanelStyle({
       left: dropdownRect.right + 8,
-      top: btnRect ? btnRect.top : dropdownRect.top,
+      bottom: window.innerHeight - dropdownRect.bottom,
     })
   }, [showActiveStatus, collapseDisabled])
 
   useLayoutEffect(() => {
     if (!showNotifications || !dropdownRef.current) return
     const dropdownRect = dropdownRef.current.getBoundingClientRect()
-    const btnRect = notifBtnRef.current?.getBoundingClientRect()
     if (collapseDisabled) {
       setNotifPanelStyle(getMobileSettingsPanelStyle(dropdownRect))
       return
     }
     setNotifPanelStyle({
       left: dropdownRect.right + 8,
-      top: btnRect ? btnRect.top : dropdownRect.top,
+      bottom: window.innerHeight - dropdownRect.bottom,
     })
   }, [showNotifications, collapseDisabled])
 
@@ -1041,23 +1039,6 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             <div className="sidebar__settings-item-text">
               <span>{t('settings.accessibility')}</span>
               <span className="sidebar__settings-desc">{t('settings.accessibilityDesc')}</span>
-            </div>
-            <ChevronRight size={14} className="sidebar__settings-arrow" />
-          </button>
-          <button className="sidebar__settings-item">
-            <HardDrive size={16} />
-            <div className="sidebar__settings-item-text">
-              <span>{t('settings.storage')}</span>
-              <span className="sidebar__settings-desc">{t('settings.storageDesc')}</span>
-            </div>
-            <ChevronRight size={14} className="sidebar__settings-arrow" />
-          </button>
-          <div className="sidebar__settings-divider" />
-          <button className="sidebar__settings-item">
-            <HelpCircle size={16} />
-            <div className="sidebar__settings-item-text">
-              <span>{t('settings.helpSupport')}</span>
-              <span className="sidebar__settings-desc">{t('settings.helpSupportDesc')}</span>
             </div>
             <ChevronRight size={14} className="sidebar__settings-arrow" />
           </button>

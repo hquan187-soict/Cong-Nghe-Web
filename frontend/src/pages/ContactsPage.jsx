@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, ArrowLeft, MessageSquare, Phone, ChevronsLeft, ChevronsRight, Settings, Sun, Moon, Languages, Bell, Eye, Accessibility, HardDrive, HelpCircle, ChevronRight, ChevronLeft, Type, ALargeSmall, Volume2, Play, UsersRound } from 'lucide-react';
+import { Search, Users, ArrowLeft, MessageSquare, Phone, ChevronsLeft, ChevronsRight, Settings, Sun, Moon, Languages, Bell, Eye, Accessibility, ChevronRight, ChevronLeft, Type, ALargeSmall, Volume2, Play, UsersRound } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSocket } from '../context/SocketContext';
@@ -183,15 +183,13 @@ export default function ContactsPage() {
   useLayoutEffect(() => {
     if (!showActiveStatus || !dropdownRef.current) return;
     const dropdownRect = dropdownRef.current.getBoundingClientRect();
-    const btnRect = activeStatusBtnRef.current?.getBoundingClientRect();
-    setActiveStatusPanelStyle({ left: dropdownRect.right + 8, top: btnRect ? btnRect.top : dropdownRect.top });
+    setActiveStatusPanelStyle({ left: dropdownRect.right + 8, bottom: window.innerHeight - dropdownRect.bottom });
   }, [showActiveStatus]);
 
   useLayoutEffect(() => {
     if (!showNotifications || !dropdownRef.current) return;
     const dropdownRect = dropdownRef.current.getBoundingClientRect();
-    const btnRect = notifBtnRef.current?.getBoundingClientRect();
-    setNotifPanelStyle({ left: dropdownRect.right + 8, top: btnRect ? btnRect.top : dropdownRect.top });
+    setNotifPanelStyle({ left: dropdownRect.right + 8, bottom: window.innerHeight - dropdownRect.bottom });
   }, [showNotifications]);
 
   // Fetch friends list on mount
@@ -653,23 +651,6 @@ export default function ContactsPage() {
                 <div className="sidebar__settings-item-text">
                   <span>{t('settings.accessibility')}</span>
                   <span className="sidebar__settings-desc">{t('settings.accessibilityDesc')}</span>
-                </div>
-                <ChevronRight size={14} className="sidebar__settings-arrow" />
-              </button>
-              <button className="sidebar__settings-item">
-                <HardDrive size={16} />
-                <div className="sidebar__settings-item-text">
-                  <span>{t('settings.storage')}</span>
-                  <span className="sidebar__settings-desc">{t('settings.storageDesc')}</span>
-                </div>
-                <ChevronRight size={14} className="sidebar__settings-arrow" />
-              </button>
-              <div className="sidebar__settings-divider" />
-              <button className="sidebar__settings-item">
-                <HelpCircle size={16} />
-                <div className="sidebar__settings-item-text">
-                  <span>{t('settings.helpSupport')}</span>
-                  <span className="sidebar__settings-desc">{t('settings.helpSupportDesc')}</span>
                 </div>
                 <ChevronRight size={14} className="sidebar__settings-arrow" />
               </button>
