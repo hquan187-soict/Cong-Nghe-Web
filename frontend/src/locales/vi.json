@@ -404,5 +404,14 @@
     "waitingAccept": "Đang chờ đối phương chấp nhận...",
     "rejectedVideo": "Đối phương đã từ chối bật video",
     "groupVideoDisabled": "Chỉ áp dụng gọi 1-1. Gọi nhóm vui lòng gọi video mới."
+  },
+  "branding": {
+    "appName": "HUST Messenger",
+    "headline": "Đưa mọi người lại ",
+    "headlineAccent": "gần",
+    "headlineAfterAccent": " nhau hơn.",
+    "description": "Gửi tin nhắn, chia sẻ cảm xúc và kết nối theo thời gian thực.",
+    "feature1": "End-to-End",
+    "feature2": "Real-time"
   }
 }

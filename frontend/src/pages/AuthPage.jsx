@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { Lock, Eye, EyeOff, Mail, ShieldCheck, ArrowLeft } from 'lucide-react'
+import { Lock, Eye, EyeOff, Mail, ShieldCheck, ArrowLeft, Shield, Gauge } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -601,6 +601,7 @@ function ForgotPasswordForm({ onNavigate }) {
 // ─── Main AuthPage with Flip Animation ─────────────────
 function AuthPage() {
   const { user } = useAuth()
+  const { t } = useLang()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -648,12 +649,51 @@ function AuthPage() {
       <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
       <div className="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '4s' }}></div>
 
-      <div className="auth-flip-perspective relative z-10 w-full max-w-md">
-        <div className={`auth-card ${flipClass}`}>
-          <div className="bg-white/80 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-900/5">
-            {displayView === 'login' && <LoginForm onNavigate={handleNavigate} />}
-            {displayView === 'register' && <RegisterForm onNavigate={handleNavigate} />}
-            {displayView === 'forgot-password' && <ForgotPasswordForm onNavigate={handleNavigate} />}
+      <div className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-center lg:justify-between gap-8 lg:gap-16 lg:px-8">
+        <div className="hidden lg:flex flex-col justify-center flex-1 max-w-lg">
+          <div className="flex items-center gap-3 mb-8">
+            <img src="/logo.png" alt="HUST Messenger" className="w-12 h-12 rounded-xl shadow-lg shadow-indigo-500/30" />
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-purple-700">
+              {t('branding.appName')}
+            </span>
+          </div>
+          <h1 className="text-4xl xl:text-5xl font-extrabold text-slate-800 leading-tight tracking-tight mb-6">
+            {t('branding.headline')}
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-purple-700">
+              {t('branding.headlineAccent')}
+            </span>
+            {t('branding.headlineAfterAccent')}
+          </h1>
+          <p className="text-slate-500 text-lg leading-relaxed mb-10">
+            {t('branding.description')}
+          </p>
+          <div className="flex gap-4">
+            <div className="flex-1 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-6 h-32 flex flex-col items-start justify-end gap-2 transition-all duration-300 hover:shadow-md hover:border-indigo-200">
+              <div className="text-indigo-600">
+                <Shield size={18} />
+              </div>
+              <span className="text-xs font-semibold text-slate-600 tracking-wider uppercase">
+                {t('branding.feature1')}
+              </span>
+            </div>
+            <div className="flex-1 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-6 h-32 flex flex-col items-start justify-end gap-2 transition-all duration-300 hover:shadow-md hover:border-indigo-200">
+              <div className="text-indigo-600">
+                <Gauge size={18} />
+              </div>
+              <span className="text-xs font-semibold text-slate-600 tracking-wider uppercase">
+                {t('branding.feature2')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="auth-flip-perspective w-full max-w-md shrink-0">
+          <div className={`auth-card ${flipClass}`}>
+            <div className="bg-white/80 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-900/5">
+              {displayView === 'login' && <LoginForm onNavigate={handleNavigate} />}
+              {displayView === 'register' && <RegisterForm onNavigate={handleNavigate} />}
+              {displayView === 'forgot-password' && <ForgotPasswordForm onNavigate={handleNavigate} />}
+            </div>
           </div>
         </div>
       </div>
