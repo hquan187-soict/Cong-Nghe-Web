@@ -5,6 +5,7 @@
 .contacts-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--color-bg);
 }
@@ -12,6 +13,7 @@
 .contacts-sidebar {
   width: 100%;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--color-surface);

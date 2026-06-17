@@ -59,6 +59,7 @@ function LoginForm({ onNavigate }) {
       return
     }
 
+    document.activeElement?.blur?.()
     setLoading(true)
     try {
       const data = await authService.login({ ...formData, captchaToken })

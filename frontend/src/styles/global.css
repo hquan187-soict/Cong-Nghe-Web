@@ -123,6 +123,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+body.chat-viewport-locked {
+  overflow: hidden;
+}
+
+body.chat-viewport-locked #root {
+  height: 100dvh;
+  overflow: hidden;
+}
+
 a {
   color: var(--color-secondary);
   font-weight: 500;
@@ -229,6 +238,8 @@ a:hover {
 .chat-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--color-bg);
 }
 
