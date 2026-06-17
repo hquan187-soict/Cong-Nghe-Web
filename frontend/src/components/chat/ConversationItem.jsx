@@ -44,7 +44,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   const displayTitle = isGroup
     ? (conversation.name || conversation.groupName)
     : isOtherDeleted
-      ? 'Người dùng đã xóa tài khoản'
+      ? t('chat2.deletedUser')
       : (getNickname(otherMember?._id) || otherMember?.fullName || t('chat.unknownUser'));
 
   const lastMessagePreview = (() => {
@@ -54,36 +54,36 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     const senderName = (() => {
       if (!msg.senderId) return ''
       if (typeof msg.senderId === 'object') {
-        if (msg.senderId._id === user?._id) return 'Bạn'
+        if (msg.senderId._id === user?._id) return t('chat2.you')
         return getNickname(msg.senderId._id) || msg.senderId.fullName || ''
       }
-      if (msg.senderId === user?._id) return 'Bạn'
+      if (msg.senderId === user?._id) return t('chat2.you')
       return getNickname(msg.senderId) || ''
     })()
 
-    const prefixStr = senderName === 'Bạn' || isGroup ? senderName + ': ' : ''
+    const prefixStr = senderName === t('chat2.you') || isGroup ? senderName + ': ' : ''
 
     if (msg.messageType === 'system') {
       return msg.text
     }
 
     if (msg.messageType === 'like') {
-      return prefixStr + 'Đã gửi một biểu tượng cảm xúc'
+      return prefixStr + t('chat2.sentEmoji')
     }
 
     if (msg.messageType === 'call' && msg.callInfo) {
       const ci = msg.callInfo
       const isVideo = ci.callType === 'video'
       if (ci.status === 'missed' || ci.status === 'no_answer') {
-        return prefixStr + (isVideo ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi nhỡ')
+        return prefixStr + (isVideo ? t('chat2.missedVideoCall') : t('chat2.missedCall'))
       }
       if (ci.status === 'rejected') {
-        return prefixStr + 'Cuộc gọi bị từ chối'
+        return prefixStr + t('chat2.rejectedCall')
       }
       const mins = Math.floor((ci.duration || 0) / 60)
       const secs = (ci.duration || 0) % 60
       const dur = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-      return prefixStr + (isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại') + ` - ${dur}`
+      return prefixStr + (isVideo ? t('chat2.videoCallLabel') : t('chat2.voiceCallLabel')) + ` - ${dur}`
     }
 
     if (msg.text) {
@@ -92,8 +92,8 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
       return prefixStr + truncated
     }
 
-    if (msg.file?.url) return prefixStr + 'Đã gửi một tệp đính kèm'
-    if (msg.image) return prefixStr + 'Đã gửi một ảnh'
+    if (msg.file?.url) return prefixStr + t('chat2.sentAttachment')
+    if (msg.image) return prefixStr + t('chat2.sentPhoto')
 
     return t('chat.noMessage')
   })()
@@ -243,7 +243,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
             e.stopPropagation()
             setShowMenu((v) => !v)
           }}
-          title="Tùy chọn"
+          title={t('chat2.options')}
         >
           <MoreHorizontal size={16} />
         </button>
@@ -259,7 +259,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
             </button>
             <button className="conversation-item__dropdown-item" onClick={handleMenuAction(hasUnread ? 'MarkRead' : 'MarkUnread')}>
               <MailOpen size={14} />
-              <span>{hasUnread ? 'Đánh dấu là đã đọc' : 'Đánh dấu là chưa đọc'}</span>
+              <span>{hasUnread ? t('chat2.markRead') : t('chat2.markUnread')}</span>
             </button>
             
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -270,22 +270,22 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Tag size={14} />
-                  <span>Phân loại</span>
+                  <span>{t('chat2.labelTitle')}</span>
                 </div>
                 {showLabelSubmenu ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </button>
               
               {showLabelSubmenu && (
                 <div style={{ background: 'var(--color-surface-hover)', borderRadius: '4px', margin: '4px 8px', overflow: 'hidden' }}>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khách hàng')}><Tag size={12} color="#ef4444" style={{marginRight: 8}}/> Khách hàng</button>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Gia đình')}><Tag size={12} color="#22c55e" style={{marginRight: 8}}/> Gia đình</button>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Công việc')}><Tag size={12} color="#f97316" style={{marginRight: 8}}/> Công việc</button>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Bạn bè')}><Tag size={12} color="#a855f7" style={{marginRight: 8}}/> Bạn bè</button>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khác')}><Tag size={12} color="#eab308" style={{marginRight: 8}}/> Khác</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khách hàng')}><Tag size={12} color="#ef4444" style={{marginRight: 8}}/> {t('chat2.labelCustomer')}</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Gia đình')}><Tag size={12} color="#22c55e" style={{marginRight: 8}}/> {t('chat2.labelFamily')}</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Công việc')}><Tag size={12} color="#f97316" style={{marginRight: 8}}/> {t('chat2.labelWork')}</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Bạn bè')}><Tag size={12} color="#a855f7" style={{marginRight: 8}}/> {t('chat2.labelFriends')}</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khác')}><Tag size={12} color="#eab308" style={{marginRight: 8}}/> {t('chat2.labelOther')}</button>
                    {currentLabel && (
                      <>
                         <div className="conversation-item__dropdown-divider" style={{ margin: '4px 0', height: 1, backgroundColor: 'var(--color-border-subtle)' }} />
-                        <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Label', null)} style={{ color: '#ef4444', paddingLeft: '32px', fontSize: '13px' }}>Xóa phân loại</button>
+                        <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Label', null)} style={{ color: '#ef4444', paddingLeft: '32px', fontSize: '13px' }}>{t('chat2.removeLabel')}</button>
                      </>
                    )}
                 </div>
@@ -297,17 +297,17 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
               <>
                 <button className="conversation-item__dropdown-item" onClick={handleMenuAction('VoiceCall')}>
                   <Phone size={14} />
-                  <span>Gọi thoại</span>
+                  <span>{t('chat2.voiceCallMenu')}</span>
                 </button>
                 <button className="conversation-item__dropdown-item" onClick={handleMenuAction('VideoCall')}>
                   <Video size={14} />
-                  <span>Gọi Video</span>
+                  <span>{t('chat2.videoCallMenu')}</span>
                 </button>
               </>
             )}
             <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Archive')}>
               <Archive size={14} />
-              <span>{isArchivedByMe ? 'Bỏ lưu trữ đoạn chat' : 'Lưu trữ đoạn chat'}</span>
+              <span>{isArchivedByMe ? t('chat2.unarchive') : t('chat2.archive')}</span>
             </button>
             {isGroup && (
               <button className="conversation-item__dropdown-item conversation-item__dropdown-item--danger" onClick={handleMenuAction('LeaveGroup')}>
@@ -329,7 +329,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
             )}
             <button className="conversation-item__dropdown-item conversation-item__dropdown-item--danger" onClick={handleMenuAction('Delete')}>
               <Trash2 size={14} />
-              <span>Xóa đoạn chat</span>
+              <span>{t('chat2.deleteChat')}</span>
             </button>
           </div>
         )}

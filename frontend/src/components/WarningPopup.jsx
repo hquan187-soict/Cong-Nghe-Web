@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLang } from '../context/LangContext'
 
 const STORAGE_KEY = 'show_warning_popup'
 
@@ -7,6 +8,7 @@ export function triggerWarningPopup() {
 }
 
 function WarningPopup() {
+  const { t } = useLang()
   const [show, setShow] = useState(false)
 
   useEffect(() => {
@@ -41,10 +43,10 @@ function WarningPopup() {
           </svg>
         </div>
         <h3 style={{ margin: '0 0 12px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>
-          Cảnh cáo vi phạm
+          {t('warning.title')}
         </h3>
         <p style={{ margin: '0 0 24px', fontSize: 15, lineHeight: 1.6, color: '#475569' }}>
-          Tài khoản của bạn đã bị cảnh cáo do vi phạm tiêu chuẩn cộng đồng. Việc tái phạm sẽ dẫn đến khóa tài khoản.
+          {t('warning.message')}
         </p>
         <button
           onClick={() => setShow(false)}
@@ -54,7 +56,7 @@ function WarningPopup() {
             cursor: 'pointer', width: '100%',
           }}
         >
-          Tôi đã hiểu
+          {t('warning.understood')}
         </button>
       </div>
     </div>

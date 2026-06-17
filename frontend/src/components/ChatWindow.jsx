@@ -686,11 +686,11 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
       // Thả vào vùng chat → gửi ngay
       const isImage = file.type.startsWith('image/')
       if (isImage && file.size > MAX_IMAGE_SIZE) {
-        toast.error('Ảnh quá lớn (tối đa 5 MB)')
+        toast.error(t('chat2.imageTooBig'))
         return
       }
       if (!isImage && file.size > MAX_FILE_SIZE) {
-        toast.error('File quá lớn (tối đa 10 MB)')
+        toast.error(t('chat2.fileTooBig'))
         return
       }
 
@@ -763,7 +763,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
             onDrop={(e) => handleDrop('messages', e)}
           >
             <Upload size={36} />
-            <span>Thả để gửi ngay</span>
+            <span>{t('chat2.dropToSend')}</span>
           </div>
           <div
             className={`chat-window__drop-zone chat-window__drop-zone--input ${dropZone === 'input' ? 'chat-window__drop-zone--active' : ''}`}
@@ -771,7 +771,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
             onDrop={(e) => handleDrop('input', e)}
           >
             <Upload size={36} />
-            <span>Thả để soạn tin nhắn</span>
+            <span>{t('chat2.dropToCompose')}</span>
           </div>
         </div>
       )}
@@ -857,7 +857,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
               senderName = getNickname(currentUserId) || user?.fullName
             } else if (isSenderDeleted && !isOwn) {
               senderAvatar = ''
-              senderName = 'Người dùng đã xóa tài khoản'
+              senderName = t('chat2.deletedUser')
             } else if (isGroup) {
               const member = membersMap[msgSenderId] || senderObj
               senderAvatar = member?.avatar
@@ -943,7 +943,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
             <line x1="9" y1="12" x2="15" y2="12"/>
           </svg>
-          Bạn không thể trả lời cuộc trò chuyện này
+          {t('chat2.blockedReply')}
         </div>
       ) : isDeletedUser ? (
         <div style={{
@@ -963,7 +963,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
             <line x1="15" y1="9" x2="9" y2="15"/>
             <line x1="9" y1="9" x2="15" y2="15"/>
           </svg>
-          Bạn không thể phản hồi cuộc trò chuyện này vì người dùng đã xóa tài khoản.
+          {t('chat2.deletedUserReply')}
         </div>
       ) : (
         <>
@@ -981,15 +981,15 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
                 <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-primary)' }}>
                   {(() => {
                     const sid = typeof replyingTo.senderId === 'object' ? replyingTo.senderId?._id : replyingTo.senderId
-                    return sid?.toString() === currentUserId ? 'Bạn' : (typeof replyingTo.senderId === 'object' ? replyingTo.senderId?.fullName : null) || 'Người dùng'
+                    return sid?.toString() === currentUserId ? t('chat2.you') : (typeof replyingTo.senderId === 'object' ? replyingTo.senderId?.fullName : null) || t('msg.unknownUser')
                   })()}
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {replyingTo.messageType === 'like'
-                    ? 'Đã gửi biểu tượng cảm xúc'
+                    ? t('msg.sentEmoji')
                     : replyingTo.messageType === 'poll'
-                      ? '📊 Bình chọn'
-                      : (replyingTo.text || (replyingTo.image ? 'Đã gửi một ảnh' : replyingTo.file ? 'Đã gửi một tệp' : ''))}
+                      ? t('msg.pollLabel')
+                      : (replyingTo.text || (replyingTo.image ? t('msg.sentPhoto') : replyingTo.file ? t('msg.sentFile') : ''))}
                 </div>
               </div>
               <button

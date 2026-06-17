@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useLang } from '../../context/LangContext'
 import { X, Loader2, Lock, AlertCircle, Plus } from 'lucide-react'
 import { messageService } from '../../services/message.service'
 import { useToast } from '../../context/ToastContext'
@@ -16,6 +17,7 @@ function formatDeadline(deadline) {
 
 export default function PollDetailModal({ message, currentUserId, conversation, onClose }) {
   const toast = useToast()
+  const { t } = useLang()
   const [poll, setPoll] = useState(message.poll)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -87,7 +89,7 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
       const res = await messageService.votePoll(message._id, Array.from(selectedIds))
       const updated = res?.poll || res?.data?.poll
       if (updated) setPoll(updated)
-      toast.success('Đã bình chọn thành công!')
+      toast.success(t('poll.voteSuccess'))
       onClose()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra.')
@@ -104,7 +106,7 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
       const updated = res?.poll || res?.data?.poll
       if (updated) setPoll(updated)
       setNewOptionText('')
-      toast.success('Đã thêm lựa chọn mới!')
+      toast.success(t('poll.addOptionSuccess'))
     } catch (err) {
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra.')
     } finally {
@@ -121,7 +123,7 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
     <div className="poll-detail-overlay" onClick={onClose}>
       <div className="poll-detail-modal" onClick={e => e.stopPropagation()}>
         <div className="poll-detail-modal__header">
-          <span className="poll-detail-modal__title">Bình chọn</span>
+          <span className="poll-detail-modal__title">{t('poll.title')}</span>
           <button className="poll-detail-modal__close" onClick={onClose}>
             <X size={18} />
           </button>
@@ -133,22 +135,22 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
           {poll.deadline && (
             <div className="poll-detail-modal__deadline">
               {isClosed
-                ? 'Cuộc bình chọn đã kết thúc'
-                : `Cuộc bình chọn kéo dài đến ${formatDeadline(poll.deadline)}`}
+                ? t('poll.pollEnded')
+                : `${t('poll.pollExtendsUntil')} ${formatDeadline(poll.deadline)}`}
             </div>
           )}
 
           {isLocked && (
             <div className="poll-detail-modal__locked-notice">
               <Lock size={12} />
-              <span>Bạn đã bình chọn. Không thể thay đổi.</span>
+              <span>{t('poll.lockedNotice')}</span>
             </div>
           )}
 
           {isClosed && !isLocked && (
             <div className="poll-detail-modal__locked-notice">
               <AlertCircle size={12} />
-              <span>Cuộc bình chọn đã kết thúc.</span>
+              <span>{t('poll.closedNotice')}</span>
             </div>
           )}
 
@@ -199,7 +201,7 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
                         {voters.slice(0, 8).map((voter, vi) => {
                           const v = typeof voter === 'object' ? voter : { _id: voter }
                           const nickname = getNickname(v._id)
-                          const displayName = nickname || v.fullName || 'Người dùng'
+                          const displayName = nickname || v.fullName || t('msg.unknownUser')
                           return (
                             <div
                               key={v._id || vi}
@@ -227,7 +229,7 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
               <input
                 type="text"
                 className="poll-detail-modal__add-option-input"
-                placeholder="Thêm lựa chọn mới..."
+                placeholder={t('poll.addNewPlaceholder')}
                 value={newOptionText}
                 onChange={e => setNewOptionText(e.target.value)}
                 maxLength={200}
@@ -244,9 +246,9 @@ export default function PollDetailModal({ message, currentUserId, conversation, 
           )}
 
           <div className="poll-detail-modal__info-tags">
-            <span>{poll.allowMultiple ? 'Chọn nhiều đáp án' : 'Chọn 1 đáp án'}</span>
+            <span>{poll.allowMultiple ? t('poll.multiTag') : t('poll.singleTag')}</span>
             <span>·</span>
-            <span>{poll.allowChange ? 'Có thể thay đổi' : 'Khóa lựa chọn'}</span>
+            <span>{poll.allowChange ? t('poll.changeable') : t('poll.lockedTag')}</span>
           </div>
         </div>
 

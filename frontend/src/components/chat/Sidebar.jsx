@@ -334,10 +334,10 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       const uid = user?._id?.toString()
       const nowPinned = updatedConv.pinnedBy?.some(id => (id._id || id).toString() === uid)
       setPinMap(prev => ({ ...prev, [convId]: !!nowPinned }))
-      toast.success(nowPinned ? 'Đã ghim đoạn chat' : 'Đã bỏ ghim đoạn chat')
+      toast.success(nowPinned ? t('chat2.pinnedToast') : t('chat2.unpinnedToast'))
     } catch {
       setPinMap(prev => ({ ...prev, [convId]: prevPinned }))
-      toast.error('Có lỗi xảy ra')
+      toast.error(t('common.error'))
     }
   }, [pinMap, user?._id])
 
@@ -352,11 +352,11 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       const uid = user?._id?.toString()
       const nowMuted = updatedConv.mutedBy?.some(id => (id._id || id).toString() === uid)
       setMuteMap(prev => ({ ...prev, [convId]: !!nowMuted }))
-      toast.success(nowMuted ? 'Đã tắt thông báo' : 'Đã bật thông báo')
+      toast.success(nowMuted ? t('chat2.mutedToast') : t('chat2.unmutedToast'))
       return updatedConv
     } catch {
       setMuteMap(prev => ({ ...prev, [convId]: prevMuted }))
-      toast.error('Có lỗi xảy ra')
+      toast.error(t('common.error'))
       return null
     }
   }, [muteMap, user?._id])
@@ -378,7 +378,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       if (isNowArchived) {
         setPinMap(prev => ({ ...prev, [convId]: false }))
       }
-      toast.success(isNowArchived ? 'Đã lưu trữ cuộc trò chuyện' : 'Đã bỏ lưu trữ cuộc trò chuyện')
+      toast.success(isNowArchived ? t('chat2.archivedToast') : t('chat2.unarchivedToast'))
       if (isNowArchived && selectedConversation?._id === convId) {
         onSelectConversation(null)
       }
@@ -399,7 +399,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       toast.success(t('chat.leftGroup') || 'Đã rời nhóm thành công!')
     } catch (err) {
       console.error('Leave group error:', err)
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi rời nhóm.')
+      toast.error(err.response?.data?.message || t('common.error'))
     }
   }, [selectedConversation, onSelectConversation, t, toast])
 
@@ -424,10 +424,10 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
         if (selectedConversation?._id === convId) {
           onSelectConversation(null)
         }
-        toast.success('Đã xóa đoạn chat')
+        toast.success(t('chat2.deletedToast'))
       } catch (err) {
         console.error('Delete chat error:', err)
-        toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi xóa đoạn chat.')
+        toast.error(err?.response?.data?.message || t('chat2.deleteError'))
       }
       return;
     }
@@ -538,7 +538,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       await conversationService.updateLabel(convId, label)
     } catch (err) {
       console.error('Update label error:', err)
-      toast.error('Có lỗi xảy ra khi cập nhật phân loại')
+      toast.error(t('chat2.labelError'))
     }
   }, [user?._id, toast])
 
@@ -757,7 +757,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
               e.dataTransfer.setData('text/plain', '')
               e.dataTransfer.effectAllowed = 'copy'
             }}
-            title="Kéo thả vào khung chat để gửi logo"
+            title={t('chat2.dragLogoHint')}
           />
           {!collapsed && (
             <h2 className="sidebar__title">HUST Messenger</h2>
@@ -843,16 +843,16 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                       display: 'flex', alignItems: 'center', gap: '4px'
                     }}
                   >
-                    Phân loại <ChevronRight size={14} style={{ transform: showFilterDropdown ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                    {t('chat2.labelTitle')} <ChevronRight size={14} style={{ transform: showFilterDropdown ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
                   </button>
                   {showFilterDropdown && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '4px', minWidth: '150px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '4px 0', zIndex: 100 }}>
                       {[
-                        { label: 'Khách hàng', color: '#ef4444' },
-                        { label: 'Gia đình', color: '#22c55e' },
-                        { label: 'Công việc', color: '#f97316' },
-                        { label: 'Bạn bè', color: '#a855f7' },
-                        { label: 'Khác', color: '#eab308' }
+                        { label: t('chat2.labelCustomer'), color: '#ef4444', key: 'Khách hàng' },
+                        { label: t('chat2.labelFamily'), color: '#22c55e', key: 'Gia đình' },
+                        { label: t('chat2.labelWork'), color: '#f97316', key: 'Công việc' },
+                        { label: t('chat2.labelFriends'), color: '#a855f7', key: 'Bạn bè' },
+                        { label: t('chat2.labelOther'), color: '#eab308', key: 'Khác' }
                       ].map(opt => (
                         <button
                           key={opt.label}
@@ -880,7 +880,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                     }}
                   >
                     <Archive size={12} />
-                    Lưu trữ ({archivedCount})
+                    {t('chat2.archivedFilter')} ({archivedCount})
                   </button>
                 )}
               </div>
@@ -1204,12 +1204,12 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
       <ConfirmModal 
         isOpen={confirmModalData.isOpen}
         title={
-          confirmModalData.type === 'deleteChat' ? 'Xóa đoạn chat' :
+          confirmModalData.type === 'deleteChat' ? t('chat2.deleteChat') :
           confirmModalData.type === 'block' ? (t('chat.blockUser') || 'Chặn người dùng') : 
           (t('chat.unblockUser') || 'Bỏ chặn người dùng')
         }
         message={
-          confirmModalData.type === 'deleteChat' ? 'Bạn có chắc chắn muốn xóa đoạn chat này? Lịch sử tin nhắn sẽ bị ẩn đi.' :
+          confirmModalData.type === 'deleteChat' ? t('chat2.deleteChatConfirm') :
           confirmModalData.type === 'block' ? (t('chat.blockUserConfirm') || 'Bạn có chắc chắn muốn chặn người dùng này?') : 
           (t('chat.unblockUserConfirm') || 'Bạn có chắc chắn muốn bỏ chặn người dùng này?')
         }

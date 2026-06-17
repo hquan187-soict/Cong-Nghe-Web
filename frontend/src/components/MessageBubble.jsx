@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useLang } from '../context/LangContext'
 import {
   Check, CheckCheck, Clock, AlertCircle, FileText, Download,
   MoreHorizontal, Reply, Smile, Trash2, Edit3, Flag, X,
@@ -27,7 +28,7 @@ const isSafeUrl = (url) => {
   return true;
 };
 
-function formatTime(dateInput) {
+function formatTime(dateInput, t) {
   const date = new Date(dateInput)
   const now = new Date()
   const hh = String(date.getHours()).padStart(2, '0')
@@ -37,7 +38,7 @@ function formatTime(dateInput) {
     && date.getMonth() === now.getMonth()
     && date.getFullYear() === now.getFullYear()
 
-  if (isToday) return `Hôm nay ${hh}:${mm}`
+  if (isToday) return `${t('msg.today')} ${hh}:${mm}`
 
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
@@ -45,7 +46,7 @@ function formatTime(dateInput) {
     && date.getMonth() === yesterday.getMonth()
     && date.getFullYear() === yesterday.getFullYear()
 
-  if (isYesterday) return `Hôm qua ${hh}:${mm}`
+  if (isYesterday) return `${t('msg.yesterday')} ${hh}:${mm}`
 
   const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
   return `${days[date.getDay()]} ${date.getDate()}/${date.getMonth() + 1} ${hh}:${mm}`
@@ -58,12 +59,12 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-function renderTextWithMentions(text, mentions, mentionAll, isOwn = false) {
+function renderTextWithMentions(text, mentions, mentionAll, isOwn = false, t) {
   if (!text) return text;
   
   const names = mentions ? mentions.map(m => typeof m === 'object' ? m.fullName : null).filter(Boolean) : [];
   if (mentionAll) {
-    names.push('Mọi người');
+    names.push(t ? t('msg.everyone') : 'Mọi người');
   }
   
   if (names.length === 0) return text;
@@ -94,16 +95,18 @@ function renderTextWithMentions(text, mentions, mentionAll, isOwn = false) {
   });
 }
 
-const STATUS_LABELS = {
-  sending: 'Đang gửi',
-  sent: 'Đã gửi',
-  read: 'Đã xem',
-  error: 'Lỗi gửi',
+function getStatusLabels(t) {
+  return {
+    sending: t('msg.statusSending'),
+    sent: t('msg.statusSent'),
+    read: t('msg.statusRead'),
+    error: t('msg.statusError'),
+  }
 }
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡']
 
-function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked }) {
+function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked, t }) {
   const [activeTab, setActiveTab] = useState('all')
 
   const grouped = {}
@@ -118,7 +121,7 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
     <div className="recall-modal__overlay" onClick={onClose}>
       <div className="recall-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px' }}>
         <div className="recall-modal__header">
-          <h3>Cảm xúc về tin nhắn</h3>
+          <h3>{t('msg.reactionsTitle')}</h3>
           <button className="recall-modal__close" onClick={onClose}>
             <X size={20} />
           </button>
@@ -133,7 +136,7 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
               fontWeight: 600, fontSize: '13px'
             }}
           >
-            Tất cả {reactions.length}
+            {t('msg.reactionsAll')} {reactions.length}
           </button>
           {Object.entries(grouped).map(([emoji, users]) => (
             <button
@@ -171,14 +174,14 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text)' }}>
-                    {userName || 'Người dùng'}
+                    {userName || t('msg.unknownUser')}
                   </div>
                   {!isKicked && (
                     <div
                       style={{ fontSize: '12px', color: 'var(--color-primary)', cursor: 'pointer' }}
                       onClick={() => onRemoveReaction(r.emoji)}
                     >
-                      Nhấp để gỡ
+                      {t('msg.tapToRemove')}
                     </div>
                   )}
                 </div>
@@ -193,6 +196,8 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked })
 }
 
 function MessageBubble({ message, isOwn, showAvatar = true, showName = false, senderAvatar, senderName, isKicked = false, isMentioned = false, deleteMessage, onReply, scrollContainerRef, onAvatarClick, conversation, currentUserId }) {
+  const { t } = useLang()
+  const STATUS_LABELS = getStatusLabels(t)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState(null)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -210,7 +215,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   const moreMenuRef = useRef(null)
   const emojiPickerRef = useRef(null)
 
-  const time = formatTime(message.createdAt)
+  const time = formatTime(message.createdAt, t)
   const status = message.status || 'sent'
   const file = message.file
   const isRecalled = message.isRecalled;
@@ -329,7 +334,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
   const actionButtons = !isRecalled && !isKicked && (
     <div className={`message-actions ${isOwn ? 'message-actions--own' : 'message-actions--other'}`}>
       <div className="message-actions__emoji-wrapper" ref={emojiPickerRef}>
-        <button className="message-actions__btn" onClick={() => setShowEmojiPicker((v) => !v)} title="Bày tỏ cảm xúc">
+        <button className="message-actions__btn" onClick={() => setShowEmojiPicker((v) => !v)} title={t('msg.reactTitle')}>
           <Smile size={16} />
         </button>
         {showEmojiPicker && (
@@ -346,7 +351,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           </div>
         )}
       </div>
-      <button className="message-actions__btn" onClick={handleReply} title="Trả lời">
+      <button className="message-actions__btn" onClick={handleReply} title={t('msg.replyTitle')}>
         <Reply size={16} />
       </button>
       <div className="message-actions__more-wrapper" ref={moreMenuRef}>
@@ -362,7 +367,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               return !v
             })
           }}
-          title="Xem thêm"
+          title={t('msg.moreTitle')}
         >
           <MoreHorizontal size={16} />
         </button>
@@ -370,22 +375,22 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           <div className={`message-actions__dropdown ${isOwn ? 'message-actions__dropdown--own' : ''} ${dropdownUp ? 'message-actions__dropdown--up' : ''}`}>
             <button className="message-actions__dropdown-item" onClick={handleTogglePin}>
               <Pin size={14} />
-              <span>{message.isPinned ? 'Bỏ ghim' : 'Ghim tin nhắn'}</span>
+              <span>{message.isPinned ? t('msg.unpin') : t('msg.pinMsg')}</span>
             </button>
             <button className="message-actions__dropdown-item" onClick={handleRecall}>
               <Trash2 size={14} />
-              <span>{isOwn ? 'Thu hồi tin nhắn' : 'Xóa tin nhắn'}</span>
+              <span>{isOwn ? t('msg.recallMsg') : t('msg.deleteMsg')}</span>
             </button>
             {isOwn && !isLikeMessage && !isRecalled && (((new Date() - new Date(message.createdAt))) < 15 * 60 * 1000) && (
               <button className="message-actions__dropdown-item" onClick={handleEdit}>
                 <Edit3 size={14} />
-                <span>Sửa tin nhắn</span>
+                <span>{t('msg.editMsg')}</span>
               </button>
             )}
             {!isOwn && !isRecalled && (
               <button className="message-actions__dropdown-item" onClick={() => { setShowReportModal(true); setShowMoreMenu(false) }}>
                 <Flag size={14} />
-                <span>Báo cáo</span>
+                <span>{t('msg.report')}</span>
               </button>
             )}
           </div>
@@ -398,7 +403,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     if (isRecalled) {
       return (
         <p className="message-bubble__text message-bubble--recalled">
-          Tin nhắn đã bị thu hồi
+          {t('msg.recalled')}
         </p>
       )
     }
@@ -430,13 +435,13 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       const iconColor = isMissed || isRejected ? '#ef4444' : 'var(--color-primary)'
 
       let label = ''
-      if (isMissed) label = ci.callType === 'video' ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi nhỡ'
-      else if (isRejected) label = 'Cuộc gọi bị từ chối'
+      if (isMissed) label = ci.callType === 'video' ? t('msg.missedVideoCall') : t('msg.missedCall')
+      else if (isRejected) label = t('msg.rejectedCall')
       else {
         const mins = Math.floor((ci.duration || 0) / 60)
         const secs = (ci.duration || 0) % 60
         const dur = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-        label = `${ci.callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại'} - ${dur}`
+        label = `${ci.callType === 'video' ? t('msg.videoCall') : t('msg.voiceCall')} - ${dur}`
       }
 
       return (
@@ -461,10 +466,10 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button className="message-bubble__edit-btn" onClick={handleEditSave} disabled={editLoading || !editText.trim() || editText === message.text} style={{ background: '#3c8ccd', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 16px', fontWeight: 600 }}>
-              Lưu
+              {t('msg.save')}
             </button>
             <button className="message-bubble__edit-btn" onClick={handleEditCancel} disabled={editLoading} style={{ background: '#eee', color: '#333', border: 'none', borderRadius: 4, padding: '4px 16px', fontWeight: 600 }}>
-              Hủy
+              {t('msg.cancel')}
             </button>
           </div>
         </div>
@@ -478,13 +483,13 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
     const replyPreviewText = () => {
       if (!message.replyTo) return ''
       const rt = message.replyTo
-      if (rt.messageType === 'like') return 'Đã gửi biểu tượng cảm xúc'
-      if (rt.messageType === 'poll') return '📊 Bình chọn'
-      if (rt.messageType === 'audio') return '🎤 Tin nhắn thoại'
-      if (rt.file && rt.file.type && rt.file.type.startsWith('video/')) return '🎬 Đã gửi một video'
+      if (rt.messageType === 'like') return t('msg.sentEmoji')
+      if (rt.messageType === 'poll') return t('msg.pollLabel')
+      if (rt.messageType === 'audio') return t('msg.voiceMsg')
+      if (rt.file && rt.file.type && rt.file.type.startsWith('video/')) return t('msg.sentVideo')
       if (rt.text) return rt.text
-      if (rt.image) return 'Đã gửi một ảnh'
-      if (rt.file) return 'Đã gửi một tệp'
+      if (rt.image) return t('msg.sentPhoto')
+      if (rt.file) return t('msg.sentFile')
       return ''
     }
 
@@ -508,7 +513,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
             <div style={{ fontWeight: 600, marginBottom: '2px' }}>
               {typeof message.replyTo?.senderId === 'object'
                 ? message.replyTo.senderId.fullName
-                : 'Người dùng'}
+                : t('msg.unknownUser')}
             </div>
             <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
               {replyPreviewText()}
@@ -551,7 +556,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
               <div className="audio-player__play-btn" style={{ opacity: 0.5 }}>
                 <Clock size={16} />
               </div>
-              <span className="message-bubble__audio-loading">Đang gửi...</span>
+              <span className="message-bubble__audio-loading">{t('msg.audioSending')}</span>
             </div>
           )
         )}
@@ -588,7 +593,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         )}
 
         {/* 5. Text */}
-        {message.text && <p className="message-bubble__text" style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithMentions(message.text, message.mentions, message.mentionAll, isOwn)}</p>}
+        {message.text && <p className="message-bubble__text" style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithMentions(message.text, message.mentions, message.mentionAll, isOwn, t)}</p>}
       </>
     )
   }
@@ -602,12 +607,12 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
       )}
       {message.isPinned && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--color-text-muted)', padding: '2px 0', fontStyle: 'italic', justifyContent: isOwn ? 'flex-end' : 'flex-start', paddingLeft: isOwn ? '0' : '52px', paddingRight: isOwn ? '8px' : '0' }}>
-          <Pin size={10} /> Tin nhắn đã ghim
+          <Pin size={10} /> {t('msg.pinnedMsg')}
         </div>
       )}
       {message.isForwarded && !isRecalled && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--color-text-muted)', padding: '2px 0', fontStyle: 'italic', justifyContent: isOwn ? 'flex-end' : 'flex-start', paddingLeft: isOwn ? '0' : '52px', paddingRight: isOwn ? '8px' : '0' }}>
-          <Forward size={10} /> Đã chuyển tiếp
+          <Forward size={10} /> {t('msg.forwarded')}
         </div>
       )}
       <div id={`msg-${message._id}`} className={`message-bubble-row ${isOwn ? 'message-bubble-row--own' : ''} ${isMentioned ? 'message-bubble-row--mentioned' : ''}`}>
@@ -638,7 +643,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
 
           <div className="message-bubble__footer" style={(isLikeMessage || isStickerMessage) ? { color: 'var(--color-text-muted)' } : undefined}>
             <span className="message-bubble__time" style={(isLikeMessage || isStickerMessage) ? { color: 'var(--color-text-muted)' } : undefined}>
-              {isEdited && !isRecalled && <span className="message-bubble__edited" style={{ fontStyle: 'italic', marginRight: '4px' }}>(đã chỉnh sửa)</span>}
+              {isEdited && !isRecalled && <span className="message-bubble__edited" style={{ fontStyle: 'italic', marginRight: '4px' }}>{t('msg.editedTag')}</span>}
               {time}
             </span>
             {isOwn && (
@@ -685,7 +690,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         <div className="recall-modal__overlay" onClick={() => setShowRecallModal(false)}>
           <div className="recall-modal" onClick={(e) => e.stopPropagation()}>
             <div className="recall-modal__header">
-              <h3>Bạn muốn thu hồi tin nhắn này ở phía ai?</h3>
+              <h3>{t('msg.recallTitle')}</h3>
               <button className="recall-modal__close" onClick={() => setShowRecallModal(false)}>
                 <X size={20} />
               </button>
@@ -700,9 +705,9 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
                   onChange={() => setRecallOption('all')}
                 />
                 <div className="recall-modal__option-content">
-                  <span className="recall-modal__option-title">Thu hồi với mọi người</span>
+                  <span className="recall-modal__option-title">{t('msg.recallAll')}</span>
                   <span className="recall-modal__option-desc">
-                    Tin nhắn này sẽ bị thu hồi với mọi người trong đoạn chat. Những người khác có thể đã xem hoặc chuyển tiếp tin nhắn đó. Tin nhắn đã thu hồi vẫn có thể bị báo cáo.
+                    {t('msg.recallAllDesc')}
                   </span>
                 </div>
               </label>
@@ -715,19 +720,19 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
                   onChange={() => setRecallOption('me')}
                 />
                 <div className="recall-modal__option-content">
-                  <span className="recall-modal__option-title">Thu hồi với bạn</span>
+                  <span className="recall-modal__option-title">{t('msg.recallMe')}</span>
                   <span className="recall-modal__option-desc">
-                    Tin nhắn này sẽ bị gỡ khỏi thiết bị của bạn, nhưng vẫn hiển thị với các thành viên khác trong đoạn chat.
+                    {t('msg.recallMeDesc')}
                   </span>
                 </div>
               </label>
             </div>
             <div className="recall-modal__footer">
               <button className="recall-modal__btn recall-modal__btn--cancel" onClick={() => setShowRecallModal(false)}>
-                Hủy
+                {t('msg.cancel')}
               </button>
               <button className="recall-modal__btn recall-modal__btn--confirm" onClick={handleConfirmRecall}>
-                Gỡ
+                {t('msg.remove')}
               </button>
             </div>
           </div>
@@ -739,22 +744,22 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
         <div className="recall-modal__overlay" onClick={() => setShowDeleteConfirm(false)}>
           <div className="recall-modal" onClick={(e) => e.stopPropagation()}>
             <div className="recall-modal__header">
-              <h3>Xóa tin nhắn này?</h3>
+              <h3>{t('msg.deleteTitle')}</h3>
               <button className="recall-modal__close" onClick={() => setShowDeleteConfirm(false)}>
                 <X size={20} />
               </button>
             </div>
             <div className="recall-modal__body">
               <p className="recall-modal__confirm-text">
-                Tin nhắn này sẽ bị xóa khỏi phía bạn. Các thành viên khác trong đoạn chat vẫn có thể xem được.
+                {t('msg.deleteDesc')}
               </p>
             </div>
             <div className="recall-modal__footer">
               <button className="recall-modal__btn recall-modal__btn--cancel" onClick={() => setShowDeleteConfirm(false)}>
-                Hủy
+                {t('msg.cancel')}
               </button>
               <button className="recall-modal__btn recall-modal__btn--confirm" onClick={handleConfirmDelete}>
-                Xóa
+                {t('msg.delete')}
               </button>
             </div>
           </div>
@@ -768,6 +773,7 @@ function MessageBubble({ message, isOwn, showAvatar = true, showName = false, se
           onClose={() => setShowReactionDetail(false)}
           onRemoveReaction={(emoji) => handleSelectEmoji(emoji)}
           isKicked={isKicked}
+          t={t}
         />
       )}
 

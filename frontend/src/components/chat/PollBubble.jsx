@@ -15,6 +15,7 @@ function formatDeadline(deadline) {
 }
 
 export default function PollBubble({ message, currentUserId, conversation, isGroup }) {
+  const { t } = useLang()
   const [showDetail, setShowDetail] = useState(false)
   const [pinLoading, setPinLoading] = useState(false)
   const poll = message.poll
@@ -73,7 +74,7 @@ export default function PollBubble({ message, currentUserId, conversation, isGro
 
         {poll.deadline && (
           <div className="poll-bubble-centered__deadline">
-            {isClosed ? 'Đã kết thúc' : `Kéo dài đến ${formatDeadline(poll.deadline)}`}
+            {isClosed ? t('poll.ended') : `${t('poll.extendsUntil')} ${formatDeadline(poll.deadline)}`}
           </div>
         )}
 
@@ -92,7 +93,7 @@ export default function PollBubble({ message, currentUserId, conversation, isGro
                     <div className="poll-bubble-centered__voters-inline">
                       {voters.slice(0, 2).map((voter, vi) => {
                         const v = typeof voter === 'object' ? voter : { _id: voter }
-                        const displayName = getNickname(v._id) || v.fullName || 'Người dùng'
+                        const displayName = getNickname(v._id) || v.fullName || t('msg.unknownUser')
                         return (
                           <div
                             key={v._id || vi}

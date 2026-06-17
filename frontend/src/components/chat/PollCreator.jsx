@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useLang } from '../../context/LangContext'
 import { X, Trash2, Plus, Loader2 } from 'lucide-react'
 import { messageService } from '../../services/message.service'
 import { useToast } from '../../context/ToastContext'
 
 export default function PollCreator({ conversationId, onClose, onCreated }) {
   const toast = useToast()
+  const { t } = useLang()
   const [question, setQuestion] = useState('')
   const [options, setOptions] = useState(['', ''])
   const [allowChange, setAllowChange] = useState(true)
@@ -38,11 +40,11 @@ export default function PollCreator({ conversationId, onClose, onCreated }) {
       const timeStr = deadlineTime || '23:59'
       const dt = new Date(`${deadlineDate}T${timeStr}:00`)
       if (isNaN(dt.getTime())) {
-        toast.error('Hạn cuối không hợp lệ.')
+        toast.error(t('poll.invalidDeadline'))
         return
       }
       if (dt <= new Date()) {
-        toast.error('Hạn cuối phải ở tương lai.')
+        toast.error(t('poll.deadlineFuture'))
         return
       }
       deadline = dt.toISOString()
@@ -72,7 +74,7 @@ export default function PollCreator({ conversationId, onClose, onCreated }) {
   return (
     <div className="poll-creator">
       <div className="poll-creator__header">
-        <span className="poll-creator__title">Tạo bình chọn</span>
+        <span className="poll-creator__title">{t('poll.createTitle')}</span>
         <button className="poll-creator__close" onClick={onClose}>
           <X size={18} />
         </button>
@@ -82,7 +84,7 @@ export default function PollCreator({ conversationId, onClose, onCreated }) {
         <input
           type="text"
           className="poll-creator__question"
-          placeholder="Tiêu đề bình chọn..."
+          placeholder={t('poll.questionPlaceholder')}
           value={question}
           onChange={e => setQuestion(e.target.value)}
           maxLength={500}
@@ -97,7 +99,7 @@ export default function PollCreator({ conversationId, onClose, onCreated }) {
               <input
                 type="text"
                 className="poll-creator__option-input"
-                placeholder={`Lựa chọn ${i + 1}`}
+                placeholder={`${t('poll.optionPlaceholder')} ${i + 1}`}
                 value={opt}
                 onChange={e => handleOptionChange(i, e.target.value)}
                 maxLength={200}
@@ -106,7 +108,7 @@ export default function PollCreator({ conversationId, onClose, onCreated }) {
                 <button
                   className="poll-creator__option-remove"
                   onClick={() => handleRemoveOption(i)}
-                  title="Xóa lựa chọn"
+                  title={t('poll.removeOption')}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -115,7 +117,7 @@ export default function PollCreator({ conversationId, onClose, onCreated }) {
           ))}
           <button className="poll-creator__add-option" onClick={handleAddOption}>
             <Plus size={14} />
-            <span>Thêm lựa chọn</span>
+            <span>{t('poll.addOption')}</span>
           </button>
         </div>
 
@@ -123,7 +125,7 @@ export default function PollCreator({ conversationId, onClose, onCreated }) {
 
         <div className="poll-creator__settings">
           <div className="poll-creator__setting-row">
-            <span className="poll-creator__setting-label">Không thể thay đổi lựa chọn</span>
+            <span className="poll-creator__setting-label">{t('poll.noChangeLabel')}</span>
             <label className="poll-creator__toggle">
               <input
                 type="checkbox"
@@ -134,7 +136,7 @@ export default function PollCreator({ conversationId, onClose, onCreated }) {
             </label>
           </div>
           <div className="poll-creator__setting-row">
-            <span className="poll-creator__setting-label">Chọn nhiều lựa chọn</span>
+            <span className="poll-creator__setting-label">{t('poll.multipleLabel')}</span>
             <label className="poll-creator__toggle">
               <input
                 type="checkbox"
@@ -150,7 +152,7 @@ export default function PollCreator({ conversationId, onClose, onCreated }) {
 
         <div className="poll-creator__deadline-section">
           <div className="poll-creator__setting-row">
-            <span className="poll-creator__setting-label">Hạn cuối bình chọn</span>
+            <span className="poll-creator__setting-label">{t('poll.deadlineLabel')}</span>
             <label className="poll-creator__toggle">
               <input
                 type="checkbox"

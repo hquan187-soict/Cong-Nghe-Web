@@ -1,19 +1,20 @@
 import { useState } from 'react'
+import { useLang } from '../context/LangContext'
 import { X, AlertTriangle, Loader2 } from 'lucide-react'
 import { reportService } from '../services/report.service'
 import { useToast } from '../context/ToastContext'
 
-const REPORT_REASONS = [
-  'Nội dung spam',
-  'Quấy rối / bắt nạt',
-  'Nội dung không phù hợp',
-  'Thông tin sai lệch',
-  'Mạo danh',
-  'Khác',
-]
-
 function ReportModal({ isOpen, onClose, reportedUserId, messageId }) {
   const toast = useToast()
+  const { t } = useLang()
+  const REPORT_REASONS = [
+    t('report.spam'),
+    t('report.harassment'),
+    t('report.inappropriate'),
+    t('report.misinformation'),
+    t('report.impersonation'),
+    t('report.other'),
+  ]
   const [reason, setReason] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
@@ -23,7 +24,7 @@ function ReportModal({ isOpen, onClose, reportedUserId, messageId }) {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!reason) {
-      toast.error('Vui lòng chọn lý do báo cáo.')
+      toast.error(t('report.selectReason'))
       return
     }
 
@@ -35,12 +36,12 @@ function ReportModal({ isOpen, onClose, reportedUserId, messageId }) {
         reason,
         description,
       })
-      toast.success('Báo cáo đã được gửi thành công.')
+      toast.success(t('report.success'))
       setReason('')
       setDescription('')
       onClose()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Gửi báo cáo thất bại.')
+      toast.error(error.response?.data?.message || t('report.failure'))
     } finally {
       setLoading(false)
     }
@@ -75,13 +76,13 @@ function ReportModal({ isOpen, onClose, reportedUserId, messageId }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
           <AlertTriangle size={22} style={{ color: '#ef4444' }} />
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--color-text, #1e293b)' }}>
-            Báo cáo vi phạm
+            {t('report.title')}
           </h3>
         </div>
 
         <form onSubmit={handleSubmit}>
           <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 8, color: 'var(--color-text, #334155)' }}>
-            Lý do báo cáo *
+            {t('report.reasonLabel')}
           </label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
             {REPORT_REASONS.map(r => (
@@ -106,14 +107,14 @@ function ReportModal({ isOpen, onClose, reportedUserId, messageId }) {
           </div>
 
           <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: 'var(--color-text, #334155)' }}>
-            Mô tả thêm
+            {t('report.descLabel')}
           </label>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
             maxLength={1000}
             rows={3}
-            placeholder="Mô tả chi tiết hành vi vi phạm (tùy chọn)..."
+            placeholder={t('report.descPlaceholder')}
             style={{
               width: '100%', padding: '10px 12px', borderRadius: 8,
               border: '1px solid var(--color-border, #e2e8f0)',
@@ -147,7 +148,7 @@ function ReportModal({ isOpen, onClose, reportedUserId, messageId }) {
               }}
             >
               {loading && <Loader2 size={16} className="animate-spin" />}
-              Gửi báo cáo
+              {t('report.submit')}
             </button>
           </div>
         </form>

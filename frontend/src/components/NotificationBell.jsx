@@ -1,20 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useLang } from '../context/LangContext'
 import { Bell, Check, CheckCheck, AtSign, Users, Loader2 } from 'lucide-react'
 import { useMentionNotification } from '../context/MentionNotificationContext'
 import Avatar from './ui/Avatar'
 
-function formatTimeAgo(dateStr) {
+function formatTimeAgo(dateStr, t) {
   const now = Date.now()
   const d = new Date(dateStr).getTime()
   const diff = Math.floor((now - d) / 1000)
-  if (diff < 60) return 'Vừa xong'
-  if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`
-  if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`
-  if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`
+  if (diff < 60) return t('notif.justNow')
+  if (diff < 3600) return t('notif.minutesAgo').replace('{n}', Math.floor(diff / 60))
+  if (diff < 86400) return t('notif.hoursAgo').replace('{n}', Math.floor(diff / 3600))
+  if (diff < 604800) return t('notif.daysAgo').replace('{n}', Math.floor(diff / 86400))
   return new Date(dateStr).toLocaleDateString('vi-VN')
 }
 
 export default function NotificationBell({ onNotificationClick }) {
+  const { t } = useLang()
   const {
     notifications,
     unreadCount,
@@ -94,7 +96,7 @@ export default function NotificationBell({ onNotificationClick }) {
         className="sidebar__icon-btn"
         onClick={() => setOpen(v => !v)}
         style={{ position: 'relative' }}
-        title={unreadCount > 0 ? `${unreadCount} thông báo mới` : 'Thông báo'}
+        title={unreadCount > 0 ? t('notif.newCount').replace('{n}', unreadCount) : t('notif.bellTitle')}
       >
         <Bell size={18} />
         {unreadCount > 0 && (
@@ -156,7 +158,7 @@ export default function NotificationBell({ onNotificationClick }) {
                 color: 'var(--color-text-muted)', fontSize: '13px',
               }}>
                 <AtSign size={32} style={{ opacity: 0.4, marginBottom: '8px' }} />
-                <p>Chưa có thông báo nhắc tên nào</p>
+                <p>{t('notif.empty')}</p>
               </div>
             ) : (
               notifications.map(notif => {
@@ -182,11 +184,11 @@ export default function NotificationBell({ onNotificationClick }) {
                     <Avatar src={sender?.avatar} alt={sender?.fullName || '?'} size="sm" />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '13px', color: 'var(--color-text)', lineHeight: 1.4 }}>
-                        <strong>{sender?.fullName || 'Ai đó'}</strong>
-                        {' đã nhắc đến bạn '}
+                        <strong>{sender?.fullName || t('notif.someone')}</strong>
+                        {t('notif.mentionedYou')}
                         {conv?.isGroup && (
                           <span>
-                            trong <strong>{conv.name || 'nhóm'}</strong>
+                            {t('notif.inGroup')} <strong>{conv.name || t('notif.group')}</strong>
                           </span>
                         )}
                       </div>
@@ -196,15 +198,15 @@ export default function NotificationBell({ onNotificationClick }) {
                         textOverflow: 'ellipsis',
                       }}>
                         {isRecalled
-                          ? 'Tin nhắn đã bị thu hồi'
-                          : (msg?.text || 'Đã gửi một tin nhắn')}
+                          ? t('msg.recalled')
+                          : (msg?.text || t('notif.sentMessage'))}
                       </div>
                       <div style={{
                         fontSize: '11px', color: 'var(--color-text-muted)',
                         marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px',
                       }}>
                         {notif.type === 'mention_all' ? <Users size={10} /> : <AtSign size={10} />}
-                        {formatTimeAgo(notif.createdAt)}
+                        {formatTimeAgo(notif.createdAt, t)}
                       </div>
                     </div>
                     {!notif.isRead && (

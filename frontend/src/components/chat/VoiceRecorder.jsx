@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Mic, Square, Pause, Play, Send, X, Trash2 } from 'lucide-react'
+import { useLang } from '../../context/LangContext'
 
 const MAX_DURATION = 300
 
@@ -10,6 +11,7 @@ function formatDuration(seconds) {
 }
 
 export default function VoiceRecorder({ onSend, onClose }) {
+  const { t } = useLang()
   const [state, setState] = useState('idle')
   const [duration, setDuration] = useState(0)
   const [audioBlob, setAudioBlob] = useState(null)
@@ -135,7 +137,7 @@ export default function VoiceRecorder({ onSend, onClose }) {
 
       drawWaveform()
     } catch {
-      setError('Không thể truy cập microphone. Vui lòng cấp quyền.')
+      setError(t('voice.micError'))
     }
   }, [drawWaveform])
 
@@ -225,10 +227,10 @@ export default function VoiceRecorder({ onSend, onClose }) {
     <div className="voice-recorder">
       <div className="voice-recorder__header">
         <span className="voice-recorder__title">
-          {state === 'idle' && 'Ghi âm tin nhắn thoại'}
-          {state === 'recording' && 'Đang ghi âm...'}
-          {state === 'paused' && 'Tạm dừng'}
-          {state === 'preview' && 'Xem trước bản ghi'}
+          {state === 'idle' && t('voice.title')}
+          {state === 'recording' && t('voice.recording')}
+          {state === 'paused' && t('voice.paused')}
+          {state === 'preview' && t('voice.preview')}
         </span>
         <button className="voice-recorder__close" onClick={handleClose}>
           <X size={18} />
@@ -262,7 +264,7 @@ export default function VoiceRecorder({ onSend, onClose }) {
 
         {state === 'idle' && (
           <div className="voice-recorder__idle-hint">
-            Nhấn nút bên dưới để bắt đầu ghi âm
+            {t('voice.idleHint')}
           </div>
         )}
       </div>
