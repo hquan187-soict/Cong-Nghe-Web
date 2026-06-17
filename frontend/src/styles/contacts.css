@@ -179,14 +179,19 @@
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
   margin-bottom: 2px;
 }
 
 .contact-item:hover,
 .contact-item:focus-visible {
   background: var(--color-hover-bg);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
   outline: none;
+}
+
+.contact-item:active {
+  transform: scale(0.98);
 }
 
 .contact-item--active {
@@ -254,12 +259,16 @@
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
 }
 
 .contact-item__btn:hover {
   background: var(--color-border);
   color: var(--color-text);
+}
+
+.contact-item__btn:active {
+  transform: scale(0.92);
 }
 
 /* Friend Request Item */
@@ -271,6 +280,12 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
   margin-bottom: 8px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.friend-request-item:hover {
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .friend-request-item__header {
@@ -323,7 +338,11 @@
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.friend-request-item__btn:active {
+  transform: scale(0.98);
 }
 
 .friend-request-item__btn--accept {
@@ -475,7 +494,11 @@
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.mini-profile__btn:active {
+  transform: scale(0.98);
 }
 
 .mini-profile__btn--primary {

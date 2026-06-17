@@ -156,6 +156,12 @@ a:hover {
   border-radius: var(--radius-lg);
   padding: 36px 32px;
   box-shadow: var(--shadow-lg);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--color-border-subtle);
+  box-shadow: 0 10px 36px rgba(15, 23, 42, 0.12);
 }
 
 .card h1 {
@@ -2513,7 +2519,8 @@ a:hover {
     background var(--transition-fast),
     color var(--transition-fast),
     border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
   box-shadow: var(--shadow-sm);
 }
 
@@ -2522,6 +2529,10 @@ a:hover {
   color: var(--conv-theme, var(--color-text));
   border-color: var(--conv-theme-border, var(--color-border));
   box-shadow: 0 3px 10px var(--conv-theme-glow, rgba(0, 0, 0, 0.1));
+}
+
+.message-actions__btn:active {
+  transform: scale(0.92);
 }
 
 .message-actions__more-wrapper {
@@ -3035,12 +3046,16 @@ a:hover {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast);
   text-align: left;
 }
 
 .info-panel__section-toggle:hover {
   background: var(--color-hover-bg);
+}
+
+.info-panel__section-toggle:active {
+  transform: scale(0.98);
 }
 
 .info-panel__section-toggle svg {
@@ -3097,12 +3112,16 @@ a:hover {
   color: var(--color-text);
   font-size: 13px;
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
 }
 
 .info-panel__action-row:hover {
   color: var(--color-primary);
   background: var(--color-hover-bg);
+}
+
+.info-panel__action-row:active {
+  transform: scale(0.98);
 }
 
 .info-panel__action-row--danger {
@@ -3137,6 +3156,10 @@ a:hover {
   background: transparent;
   cursor: pointer;
   transition: all var(--transition-fast);
+}
+
+.info-panel__media-tab:active {
+  transform: scale(0.98);
 }
 
 .info-panel__media-tab--active {
@@ -3694,6 +3717,10 @@ a:hover {
   transform: translateY(-1px);
 }
 
+.profile-modal__info-item:active {
+  transform: scale(0.99);
+}
+
 .profile-modal__info-icon {
   width: 38px;
   height: 38px;
@@ -3766,12 +3793,16 @@ a:hover {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
 
 .profile-modal__password-toggle:hover {
   background: var(--color-bg);
   border-color: var(--color-primary);
+}
+
+.profile-modal__password-toggle:active {
+  transform: scale(0.98);
 }
 
 .profile-modal__password-form {
@@ -3939,6 +3970,18 @@ a:hover {
 .info-panel__media-grid-item:hover video {
   transform: scale(1.05);
 }
+
+.info-panel__media-grid-item,
+.info-panel__file-list-item {
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.info-panel__media-grid-item:active,
+.info-panel__file-list-item:active {
+  transform: scale(0.98);
+}
+
 .info-panel__file-list-item:hover {
   background: var(--color-border-subtle);
 }
@@ -4056,12 +4099,21 @@ a:hover {
   color: #e74c3c;
 }
 
+.user-profile-modal__action-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
 .message-bubble-row__avatar-slot--clickable {
   cursor: pointer;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .message-bubble-row__avatar-slot--clickable:hover {
   opacity: 0.85;
+}
+
+.message-bubble-row__avatar-slot--clickable:active {
+  transform: scale(0.96);
 }
 
 @keyframes pulse {
