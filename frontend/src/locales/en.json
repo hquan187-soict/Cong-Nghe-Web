@@ -404,5 +404,14 @@
     "waitingAccept": "Waiting for user to accept...",
     "rejectedVideo": "User declined video request",
     "groupVideoDisabled": "Feature only supported in 1-1 calls. For groups, please start a new video call."
+  },
+  "branding": {
+    "appName": "HUST Messenger",
+    "headline": "Bringing everyone ",
+    "headlineAccent": "closer",
+    "headlineAfterAccent": " together.",
+    "description": "Send messages, share emotions and connect in real-time.",
+    "feature1": "End-to-End Encryption",
+    "feature2": "Real-time"
   }
 }
