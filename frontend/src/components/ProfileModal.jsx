@@ -199,7 +199,7 @@ function ProfileModal({ isOpen, onClose }) {
 
   async function handleLogout() {
     setLoggingOut(true)
-    try { await authService.logout() } catch {}
+    try { await authService.logout() } catch (error) { console.warn('Logout request failed', error) }
     logout()
     toast.success(t('profile.logoutSuccess'))
     navigate('/login', { replace: true })
@@ -244,7 +244,7 @@ function ProfileModal({ isOpen, onClose }) {
       <div className="profile-modal">
         <button className="profile-modal__close-btn" onClick={onClose}><X size={20} /></button>
 
-        <div className="profile-modal__banner">
+        <div className="profile-modal__banner profile-modal__banner--generated">
           <div className="profile-modal__banner-pattern"></div>
           {!isEditing && (
             <button onClick={startEditing} className="profile-modal__edit-btn" title={t('profile.edit')}>
@@ -255,6 +255,7 @@ function ProfileModal({ isOpen, onClose }) {
 
         <div className="profile-modal__avatar-wrapper">
           <div className="profile-modal__avatar-group" ref={avatarMenuRef}>
+            <div className="profile-modal__avatar-backdrop" aria-hidden="true" />
             <Avatar
               src={isEditing ? formData.avatar : user?.avatar}
               alt={user?.fullName || 'User'}

@@ -3550,9 +3550,14 @@ a:hover {
   overflow: hidden;
 }
 
+.profile-modal__banner--generated {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+}
+
 .profile-modal__banner-pattern {
   position: absolute;
   inset: 0;
+  display: none;
   opacity: 0.08;
   background-image: repeating-linear-gradient(
     45deg,
@@ -3561,6 +3566,19 @@ a:hover {
     rgba(255,255,255,0.1) 30px,
     rgba(255,255,255,0.1) 60px
   );
+}
+
+.profile-modal__banner--generated .profile-modal__banner-pattern {
+  display: block;
+}
+
+.profile-modal__banner--generated::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 56px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.16) 100%);
+  pointer-events: none;
 }
 
 .profile-modal__edit-btn {
@@ -3591,6 +3609,22 @@ a:hover {
 
 .profile-modal__avatar-group {
   position: relative;
+  isolation: isolate;
+}
+
+.profile-modal__avatar-backdrop {
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.22));
+  filter: blur(8px);
+  opacity: 0.45;
+}
+
+.profile-modal__avatar-group > .relative {
+  position: relative;
+  z-index: 1;
 }
 
 .profile-modal__camera-btn {
@@ -3647,14 +3681,17 @@ a:hover {
   gap: 14px;
   padding: 14px 16px;
   border-radius: var(--radius-md);
-  background: var(--color-bg);
+  background: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
 .profile-modal__info-item:hover {
-  border-color: var(--color-primary);
+  border-color: rgba(99, 102, 241, 0.32);
   background: var(--color-accent-surface);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
 }
 
 .profile-modal__info-icon {
@@ -3950,7 +3987,7 @@ a:hover {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast), opacity var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
 }
 
 .user-profile-modal__action-btn:disabled {
@@ -3961,10 +3998,13 @@ a:hover {
 .user-profile-modal__action-btn--primary {
   background: var(--color-primary);
   color: #fff;
+  box-shadow: 0 6px 16px rgba(0, 103, 192, 0.18);
 }
 
 .user-profile-modal__action-btn--primary:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--color-primary-hover);
+  box-shadow: 0 10px 22px rgba(0, 103, 192, 0.24);
+  transform: scale(1.03);
 }
 
 .user-profile-modal__action-btn--secondary {
@@ -3992,6 +4032,18 @@ a:hover {
 
 .user-profile-modal__action-btn--danger:hover:not(:disabled) {
   background: rgba(231, 76, 60, 0.2);
+}
+
+.user-profile-modal__action-btn--outline-danger {
+  background: var(--color-surface);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+}
+
+.user-profile-modal__action-btn--outline-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: #dc2626;
+  color: #dc2626;
 }
 
 .user-profile-modal__action-btn--ghost {

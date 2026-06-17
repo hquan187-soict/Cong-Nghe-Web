@@ -512,7 +512,7 @@ function ProfilePage() {
 
   async function handleLogout() {
     setLoggingOut(true)
-    try { await authService.logout() } catch {}
+    try { await authService.logout() } catch (error) { console.warn('Logout request failed', error) }
     logout()
     toast.success(t('profile.logoutSuccess'))
     navigate('/login', { replace: true })
@@ -706,7 +706,7 @@ function ProfilePage() {
     },
     container: { maxWidth: 960, margin: '0 auto', padding: '0 24px' },
     headerSection: {
-      display: 'flex', gap: 24, marginTop: -56, position: 'relative', zIndex: 5, flexWrap: 'wrap', alignItems: 'flex-end',
+      display: 'flex', gap: 24, marginTop: -56, position: 'relative', zIndex: 5, flexWrap: 'wrap', alignItems: 'flex-start',
     },
     avatarWrap: { position: 'relative', flexShrink: 0 },
     nameSection: { flex: 1, minWidth: 0, paddingTop: 60 },

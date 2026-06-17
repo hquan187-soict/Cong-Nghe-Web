@@ -57,7 +57,7 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
         setError(err.response?.data?.message || t('userProfile.error'))
       })
       .finally(() => { if (fetchId === fetchIdRef.current) setLoading(false) })
-  }, [isOpen, userId])
+  }, [isOpen, userId, currentUser?._id, t])
 
   useEffect(() => {
     if (currentUser && userId) {
@@ -147,11 +147,21 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
   }
 
   const coverGradient = COVER_COLORS[profileUser?.coverColor] || COVER_COLORS['']
+  const activeCoverImage = profileUser?.coverImage || profileUser?.coverOriginalImage || ''
+  const bannerClassName = `profile-modal__banner ${activeCoverImage ? '' : 'profile-modal__banner--generated'}`
+  const bannerStyle = activeCoverImage
+    ? {
+        backgroundImage: `url("${activeCoverImage}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center 42%',
+        backgroundRepeat: 'no-repeat',
+      }
+    : { background: coverGradient }
 
   const renderSkeleton = () => (
     <div className="user-profile-modal">
       <button className="profile-modal__close-btn" onClick={onClose}><X size={20} /></button>
-      <div className="profile-modal__banner"><div className="profile-modal__banner-pattern" /></div>
+      <div className="profile-modal__banner profile-modal__banner--generated"><div className="profile-modal__banner-pattern" /></div>
       <div className="profile-modal__avatar-wrapper">
         <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--color-hover-bg)', animation: 'pulse 1.5s ease-in-out infinite' }} />
       </div>
@@ -165,7 +175,7 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
   const renderError = () => (
     <div className="user-profile-modal">
       <button className="profile-modal__close-btn" onClick={onClose}><X size={20} /></button>
-      <div className="profile-modal__banner"><div className="profile-modal__banner-pattern" /></div>
+      <div className="profile-modal__banner profile-modal__banner--generated"><div className="profile-modal__banner-pattern" /></div>
       <div className="profile-modal__body" style={{ textAlign: 'center', padding: '40px 28px' }}>
         <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>{error}</p>
       </div>
@@ -177,7 +187,7 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
     const btnCls = 'user-profile-modal__action-btn'
     switch (relationshipStatus) {
       case 'friends': return (
-        <button className={`${btnCls} ${btnCls}--danger`} onClick={handleUnfriend} disabled={actionLoading}>
+        <button className={`${btnCls} ${btnCls}--outline-danger`} onClick={handleUnfriend} disabled={actionLoading}>
           {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <UserMinus size={16} />} {t('userProfile.unfriend')}
         </button>)
       case 'request_sent': return (
@@ -222,7 +232,7 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
       {loading ? renderSkeleton() : error ? renderError() : profileUser?.isDeleted ? (
         <div className="user-profile-modal" style={{ display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}>
           <button className="profile-modal__close-btn" onClick={onClose}><X size={20} /></button>
-          <div className="profile-modal__banner"><div className="profile-modal__banner-pattern" /></div>
+          <div className="profile-modal__banner profile-modal__banner--generated"><div className="profile-modal__banner-pattern" /></div>
           <div className="profile-modal__avatar-wrapper">
             <Avatar src="" alt="?" size="lg" />
           </div>
@@ -241,13 +251,16 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
 
           {/* Scrollable content */}
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-            {/* Banner with cover color */}
-            <div className="profile-modal__banner" style={{ background: coverGradient }}>
+            {/* Banner with cover image or generated color */}
+            <div className={bannerClassName} style={bannerStyle}>
               <div className="profile-modal__banner-pattern" />
             </div>
 
             <div className="profile-modal__avatar-wrapper">
-              <Avatar src={profileUser.avatar} alt={profileUser.fullName || '?'} size="lg" isOnline={isOnline} />
+              <div className="profile-modal__avatar-group">
+                <div className="profile-modal__avatar-backdrop" aria-hidden="true" />
+                <Avatar src={profileUser.avatar} alt={profileUser.fullName || '?'} size="lg" isOnline={isOnline} />
+              </div>
             </div>
 
             <div className="profile-modal__body" style={{ paddingBottom: 8 }}>
