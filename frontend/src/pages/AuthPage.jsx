@@ -53,6 +53,7 @@ function LoginForm({ onNavigate }) {
     else if (formData.password.length < 6) errs.password = t('validation.passwordMinLength')
     if (Object.values(errs).some(Boolean)) { setErrors(errs); return }
 
+    document.activeElement?.blur?.()
     setLoading(true)
     try {
       const data = await authService.login(formData)

@@ -29,7 +29,7 @@ const Input = ({
           onChange={onChange}
           onBlur={onBlur}
           placeholder={placeholder}
-          className={`w-full px-4 py-2.5 rounded-xl border-2 outline-none transition-all duration-300 text-slate-700 font-medium
+          className={`w-full px-4 py-2.5 rounded-xl border-2 outline-none transition-all duration-300 text-base text-slate-700 font-medium
           bg-white placeholder-slate-400
           ${icon ? "pl-11" : ""}
           ${rightIcon ? "pr-11" : ""}
