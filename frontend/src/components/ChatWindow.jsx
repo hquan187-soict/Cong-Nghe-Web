@@ -11,6 +11,7 @@ import PollBubble from './chat/PollBubble'
 import MessageInput from './chat/MessageInput'
 import TypingIndicator from './chat/TypingIndicator'
 import Spinner from './ui/Spinner'
+import { translateSystemMessage } from '../utils/systemMessageTranslator'
 import logoImg from '../assets/logo.png'
 
 const LIMIT = 20
@@ -813,7 +814,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
                   textAlign: 'center', padding: '8px 16px', margin: '4px 0',
                   fontSize: '12px', color: 'var(--color-text-muted)', fontStyle: 'italic'
                 }}>
-                  {msg.text}
+                  {translateSystemMessage(msg.text, t)}
                 </div>
               )
             }

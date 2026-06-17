@@ -8,6 +8,7 @@ import { formatRelativeTime } from '../../utils/timeUtils'
 import { useAuth } from '../../context/AuthContext'
 import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
+import { translateSystemMessage } from '../../utils/systemMessageTranslator'
 
 function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup, onArchive, onBlock, onUnblock, onMarkRead, onMarkUnread, onDeleteChat, onUpdateLabel }) {
   const { user } = useAuth()
@@ -64,7 +65,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     const prefixStr = senderName === 'Bạn' || isGroup ? senderName + ': ' : ''
 
     if (msg.messageType === 'system') {
-      return msg.text
+      return translateSystemMessage(msg.text, t)
     }
 
     if (msg.messageType === 'like') {
