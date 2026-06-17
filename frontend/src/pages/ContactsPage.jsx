@@ -344,7 +344,7 @@ export default function ContactsPage() {
           
           {/* Navigation Tabs - matches Chat page Sidebar */}
           {sidebarCollapsed ? (
-            <div className="sidebar-nav-vertical" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)', width: '100%', alignItems: 'center' }}>
+            <div className="sidebar-nav-vertical" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: 'calc(12px + var(--safe-area-top)) 0 12px', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)', width: '100%', alignItems: 'center' }}>
               <button
                 className="sidebar-nav__tab-vertical"
                 style={{ width: '40px', height: '40px', background: 'transparent', border: 'none', borderRadius: '50%', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -370,7 +370,7 @@ export default function ContactsPage() {
               </button>
             </div>
           ) : (
-            <div className="sidebar-nav" style={{ display: 'flex', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)' }}>
+            <div className="sidebar-nav" style={{ display: 'flex', paddingTop: 'var(--safe-area-top)', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-surface)' }}>
               <button
                 className="sidebar-nav__tab"
                 style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}

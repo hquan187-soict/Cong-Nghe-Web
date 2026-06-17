@@ -1269,7 +1269,7 @@
 
 
   .sidebar__header {
-    padding: 12px 12px 10px;
+    padding: 12px calc(12px + var(--safe-area-right)) 10px calc(12px + var(--safe-area-left));
   }
 
   .sidebar__title {
@@ -1305,23 +1305,23 @@
   }
 
   .sidebar__footer {
-    padding: 6px;
+    padding: 6px calc(6px + var(--safe-area-right)) calc(6px + var(--safe-area-bottom)) calc(6px + var(--safe-area-left));
   }
 
   .sidebar__settings-dropdown {
     min-width: unset;
-    width: calc(100vw - 24px);
+    width: calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right));
     max-width: 300px;
   }
 
   .sidebar__a11y-panel {
     min-width: unset;
-    width: calc(100vw - 24px);
+    width: calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right));
     max-width: 300px;
   }
 
   .sidebar__active-status-panel {
-    width: calc(100vw - 24px);
+    width: calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right));
     max-width: 300px;
   }
 
