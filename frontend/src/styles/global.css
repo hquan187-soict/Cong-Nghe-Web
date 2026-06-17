@@ -763,7 +763,7 @@ a:hover {
 
 .message-bubble {
   max-width: 65%;
-  padding: 8px 12px 6px;
+  padding: 10px 14px 8px;
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
@@ -783,13 +783,13 @@ a:hover {
 }
 
 .message-bubble--own {
-  background: var(--conv-theme, var(--color-primary));
+  background: var(--conv-theme, #6366f1);
   color: var(--conv-theme-text, #ffffff);
   border-bottom-right-radius: 4px;
 }
 
 [data-theme="dark"] .message-bubble--own {
-  background: var(--conv-theme-dark, var(--color-primary));
+  background: var(--conv-theme-dark, #4f46e5);
   color: #ffffff;
 }
 
@@ -1110,7 +1110,7 @@ a:hover {
   padding: 10px 16px;
   display: flex;
   align-items: flex-end;
-  gap: 6px;
+  gap: 10px;
 }
 
 .message-input__file-input {
@@ -1118,23 +1118,23 @@ a:hover {
 }
 
 .message-input__action-btn {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 .message-input__action-btn:hover:not(:disabled) {
-  color: var(--color-text);
-  background: var(--color-hover-bg);
+  color: var(--conv-theme, var(--color-primary));
+  background: var(--conv-theme-tint-light, var(--color-primary-light));
 }
 
 .message-input__action-btn:disabled {
@@ -1182,10 +1182,10 @@ a:hover {
 
 .message-input__textarea {
   flex: 1;
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-input-border);
-  background: var(--color-input-bg);
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: none;
+  background: #f1f5f9;
   color: var(--color-text);
   font-family: inherit;
   font-size: 14px;
@@ -1195,7 +1195,7 @@ a:hover {
   overflow-y: auto;
   min-height: 38px;
   max-height: 120px;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .message-input__textarea::placeholder {
@@ -1203,8 +1203,16 @@ a:hover {
 }
 
 .message-input__textarea:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px var(--color-primary);
+  background: #eef2f7;
+  box-shadow: 0 0 0 2px var(--conv-theme-soft, var(--color-primary-light));
+}
+
+[data-theme="dark"] .message-input__textarea {
+  background: #383838;
+}
+
+[data-theme="dark"] .message-input__textarea:focus {
+  background: #3f3f3f;
 }
 
 .message-input__send-btn {
@@ -1214,7 +1222,7 @@ a:hover {
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   background: var(--conv-theme, var(--color-primary));
   color: var(--conv-theme-text, #ffffff);
   cursor: pointer;
@@ -1251,7 +1259,7 @@ a:hover {
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   background: transparent;
   color: var(--conv-theme, var(--color-primary));
   cursor: pointer;
@@ -2938,7 +2946,7 @@ a:hover {
 .info-panel__quick-actions {
   display: flex;
   justify-content: center;
-  gap: 24px;
+  gap: 34px;
   padding: 16px 20px;
   border-bottom: 1px solid var(--color-border);
 }
@@ -2947,34 +2955,45 @@ a:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border: none;
   background: transparent;
   cursor: pointer;
-  color: var(--color-text);
-  font-size: 11px;
-  transition: color 0.15s;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .info-panel__quick-btn:hover {
   color: var(--color-primary);
+  transform: translateY(-1px);
 }
 
 .info-panel__quick-icon {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
-  transition: background var(--transition-fast), color var(--transition-fast);
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .info-panel__quick-btn:hover .info-panel__quick-icon {
-  background: var(--color-primary-light);
+  background: rgba(99, 102, 241, 0.12);
   color: var(--color-primary);
+  box-shadow: 0 6px 14px rgba(99, 102, 241, 0.16);
+}
+
+[data-theme="dark"] .info-panel__quick-btn {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .info-panel__quick-icon {
+  background: var(--color-primary-light);
 }
 
 .info-panel__edit-btn {
@@ -3344,6 +3363,18 @@ a:hover {
   .chat-input-area {
     padding: 8px calc(10px + var(--safe-area-right)) calc(8px + var(--safe-area-bottom)) calc(10px + var(--safe-area-left));
     gap: 6px;
+  }
+
+  .message-input__row {
+    gap: 7px;
+    padding: 9px 12px;
+  }
+
+  .message-input__action-btn,
+  .message-input__send-btn,
+  .message-input__like-btn {
+    width: 34px;
+    height: 34px;
   }
 
   /* Messages area — giảm padding */
@@ -4065,6 +4096,22 @@ a:hover {
 
   .chat-input-area {
     padding: 6px 8px;
+  }
+
+  .message-input__row {
+    gap: 5px;
+    padding: 8px;
+  }
+
+  .message-input__action-btn,
+  .message-input__send-btn,
+  .message-input__like-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .message-input__textarea {
+    padding: 8px 14px;
   }
 
   .info-panel__header {
