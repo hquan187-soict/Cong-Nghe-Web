@@ -290,7 +290,6 @@ function ProfilePage() {
 
     const reader = new FileReader()
     reader.onloadend = () => {
-      setCoverEditSource(reader.result)
       setCoverCrop({ x: 0, y: 0 })
       setCoverZoom(1)
       setAppliedCoverCrop({ x: 0, y: 0 })
@@ -361,11 +360,34 @@ function ProfilePage() {
     setCoverCropSource('')
   }
 
+  function removeCoverImageFromEdit() {
+    if (croppingCover) return
+    setFormData(prev => ({
+      ...prev,
+      coverImage: '',
+      coverOriginalImage: '',
+      coverCropArea: null,
+    }))
+    setCoverEditSource('')
+    setCoverCropSource('')
+    setCoverCrop({ x: 0, y: 0 })
+    setCoverZoom(1)
+    setAppliedCoverCrop({ x: 0, y: 0 })
+    setAppliedCoverZoom(1)
+    setCoverCropArea(null)
+    setAppliedCoverCropArea(null)
+    setInitialCoverCropArea(null)
+    setCoverImageAspect(null)
+    setShowCoverCropModal(false)
+  }
+
   function applyCoverCrop() {
     if (!coverCropSource || !coverCropArea) return
     setCroppingCover(true)
     try {
-      const originalCoverImage = coverEditSource || coverCropSource
+      const originalCoverImage = coverCropSource.startsWith('data:image/')
+        ? coverCropSource
+        : (coverEditSource || coverCropSource)
       const isUploadedCover = originalCoverImage.startsWith('data:image/')
       setFormData(prev => ({
         ...prev,
@@ -1261,8 +1283,9 @@ function ProfilePage() {
                 />
               </div>
               <div className="profile-cover-crop-actions" style={{ display: 'flex', gap: 10 }}>
-                <Button variant="secondary" onClick={closeCoverCropModal} disabled={croppingCover}>
-                  {t('profile.cancel')}
+                <Button variant="danger" onClick={removeCoverImageFromEdit} disabled={croppingCover}>
+                  <Trash2 size={16} />
+                  {lang === 'vi' ? 'Xóa ảnh bìa' : 'Remove cover'}
                 </Button>
                 <Button variant="primary" onClick={applyCoverCrop} isLoading={croppingCover}>
                   <Crop size={16} />
