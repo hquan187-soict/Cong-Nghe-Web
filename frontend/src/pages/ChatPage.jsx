@@ -71,6 +71,18 @@ function ChatPage() {
   const { setNavigateToMessage } = useMentionNotification()
   const currentUserId = user?._id?.toString()
   const avatarInputRef = useRef(null)
+
+  useEffect(() => {
+    document.body.classList.add('chat-viewport-locked')
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+
+    return () => {
+      document.body.classList.remove('chat-viewport-locked')
+    }
+  }, [])
+
   const [isEditingName, setIsEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState('')
   const [isUpdatingName, setIsUpdatingName] = useState(false)

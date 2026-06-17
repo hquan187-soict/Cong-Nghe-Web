@@ -27,6 +27,17 @@ export default function ContactsPage() {
   const { user, updateUser } = useAuth();
   const { soundEnabled, setSoundEnabled, selectedSound, setSelectedSound, previewSound, SOUND_OPTIONS } = useNotification();
 
+  useEffect(() => {
+    document.body.classList.add('chat-viewport-locked');
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    return () => {
+      document.body.classList.remove('chat-viewport-locked');
+    };
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
