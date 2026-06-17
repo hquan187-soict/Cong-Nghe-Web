@@ -412,7 +412,9 @@
     "headlineAfterAccent": " together.",
     "description": "Send messages, share emotions and connect in real-time.",
     "feature1": "End-to-End Encryption",
-    "feature2": "Real-time"
+    "feature1Description": "Private by default",
+    "feature2": "Real-time",
+    "feature2Description": "Instant message delivery"
   },
   "msg": {
     "today": "Today",

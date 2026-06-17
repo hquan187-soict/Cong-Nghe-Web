@@ -35,7 +35,6 @@ function LoginForm({ onNavigate }) {
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
   const [requiresCaptcha, setRequiresCaptcha] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const recaptchaRef = useRef(null)
@@ -75,7 +74,6 @@ function LoginForm({ onNavigate }) {
       if (error.response?.data?.requiresCaptcha) {
         setRequiresCaptcha(true)
       }
-      const status = error.response?.status
       const message = error.response?.data?.message || t('login.error')
       if (message.includes('truonghoangquan18072005@gmail.com')) {
         setServerError(message)
@@ -142,7 +140,6 @@ function LoginForm({ onNavigate }) {
         <div className="flex justify-center w-full [&_iframe]:!rounded-xl [&>div]:!rounded-xl overflow-hidden">
           <GoogleLogin
             onSuccess={async (credentialResponse) => {
-              setGoogleLoading(true);
               try {
                 const data = await loginWithGoogle(credentialResponse.credential);
                 if (data?.hasWarning) {
@@ -153,15 +150,12 @@ function LoginForm({ onNavigate }) {
                 const role = data?.role || 'user';
                 navigate(role === 'admin' ? '/admin' : '/chat', { replace: true });
               } catch (error) {
-                const status = error.response?.status;
                 const message = error.response?.data?.message || 'Đăng nhập Google thất bại';
                 if (message.includes('truonghoangquan18072005@gmail.com')) {
                   setServerError(message);
                 } else {
                   toast.error(message);
                 }
-              } finally {
-                setGoogleLoading(false);
               }
             }}
             onError={() => {
@@ -235,7 +229,6 @@ function RegisterForm({ onNavigate }) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
   const [sendingOtp, setSendingOtp] = useState(false)
   const [otpCooldown, setOtpCooldown] = useState(0)
   const { loginWithGoogle } = useAuth()
@@ -397,7 +390,6 @@ function RegisterForm({ onNavigate }) {
         <div className="flex justify-center w-full [&_iframe]:!rounded-xl [&>div]:!rounded-xl overflow-hidden">
           <GoogleLogin
             onSuccess={async (credentialResponse) => {
-              setGoogleLoading(true);
               try {
                 const data = await loginWithGoogle(credentialResponse.credential);
                 if (data?.hasWarning) {
@@ -408,15 +400,12 @@ function RegisterForm({ onNavigate }) {
                 const role = data?.role || 'user';
                 navigate(role === 'admin' ? '/admin' : '/chat', { replace: true });
               } catch (error) {
-                const status = error.response?.status;
                 const message = error.response?.data?.message || 'Đăng nhập Google thất bại';
                 if (message.includes('truonghoangquan18072005@gmail.com')) {
                   setServerError(message);
                 } else {
                   toast.error(message);
                 }
-              } finally {
-                setGoogleLoading(false);
               }
             }}
             onError={() => {
@@ -682,7 +671,7 @@ function AuthPage() {
               {t('branding.appName')}
             </span>
           </div>
-          <h1 className="text-4xl xl:text-5xl font-extrabold text-slate-800 leading-tight tracking-tight mb-6">
+          <h1 className="text-4xl xl:text-5xl font-extrabold text-slate-800 leading-[1.05] tracking-tight mb-6">
             {t('branding.headline')}
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-purple-700">
               {t('branding.headlineAccent')}
@@ -693,21 +682,27 @@ function AuthPage() {
             {t('branding.description')}
           </p>
           <div className="flex gap-4">
-            <div className="flex-1 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-6 h-32 flex flex-col items-start justify-end gap-2 transition-all duration-300 hover:shadow-md hover:border-indigo-200">
+            <div className="flex-1 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-6 h-36 flex flex-col items-start justify-end gap-2 transition-all duration-300 hover:shadow-md hover:border-indigo-200">
               <div className="text-indigo-600">
                 <Shield size={18} />
               </div>
               <span className="text-xs font-semibold text-slate-600 tracking-wider uppercase">
                 {t('branding.feature1')}
               </span>
+              <p className="text-sm text-slate-500 leading-snug">
+                {t('branding.feature1Description')}
+              </p>
             </div>
-            <div className="flex-1 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-6 h-32 flex flex-col items-start justify-end gap-2 transition-all duration-300 hover:shadow-md hover:border-indigo-200">
+            <div className="flex-1 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-6 h-36 flex flex-col items-start justify-end gap-2 transition-all duration-300 hover:shadow-md hover:border-indigo-200">
               <div className="text-indigo-600">
                 <Gauge size={18} />
               </div>
               <span className="text-xs font-semibold text-slate-600 tracking-wider uppercase">
                 {t('branding.feature2')}
               </span>
+              <p className="text-sm text-slate-500 leading-snug">
+                {t('branding.feature2Description')}
+              </p>
             </div>
           </div>
         </div>

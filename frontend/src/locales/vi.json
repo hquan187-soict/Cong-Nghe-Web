@@ -412,7 +412,9 @@
     "headlineAfterAccent": " nhau hơn.",
     "description": "Gửi tin nhắn, chia sẻ cảm xúc và kết nối theo thời gian thực.",
     "feature1": "End-to-End",
-    "feature2": "Real-time"
+    "feature1Description": "Bảo mật tuyệt đối",
+    "feature2": "Real-time",
+    "feature2Description": "Tin nhắn tức thời"
   },
   "msg": {
     "today": "Hôm nay",
