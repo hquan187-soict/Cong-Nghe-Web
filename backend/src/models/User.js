@@ -151,6 +151,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
     profileVisibility: {
       birthday: { type: String, enum: ["private", "friends", "public"], default: "friends" },
       gender: { type: String, enum: ["private", "friends", "public"], default: "friends" },

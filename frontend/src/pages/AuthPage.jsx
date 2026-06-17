@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Navigate, useNavigate, useLocation } from 'react-router-dom'
+import ReCAPTCHA from 'react-google-recaptcha'
 import { Lock, Eye, EyeOff, Mail, ShieldCheck, ArrowLeft, Shield, Gauge } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
@@ -35,8 +36,9 @@ function LoginForm({ onNavigate }) {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-
-
+  const [requiresCaptcha, setRequiresCaptcha] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const recaptchaRef = useRef(null)
 
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -52,11 +54,15 @@ function LoginForm({ onNavigate }) {
     if (!formData.password) errs.password = t('validation.required')
     else if (formData.password.length < 6) errs.password = t('validation.passwordMinLength')
     if (Object.values(errs).some(Boolean)) { setErrors(errs); return }
+    if (requiresCaptcha && !captchaToken) {
+      toast.error("Vui lòng xác minh bạn không phải là robot")
+      return
+    }
 
     document.activeElement?.blur?.()
     setLoading(true)
     try {
-      const data = await authService.login(formData)
+      const data = await authService.login({ ...formData, captchaToken })
       const { token: receivedToken, hasWarning, ...userInfo } = data
       login(userInfo, receivedToken)
       if (hasWarning) {
@@ -66,13 +72,18 @@ function LoginForm({ onNavigate }) {
       }
       navigate(userInfo.role === 'admin' ? '/admin' : '/chat', { replace: true })
     } catch (error) {
+      if (error.response?.data?.requiresCaptcha) {
+        setRequiresCaptcha(true)
+      }
       const status = error.response?.status
       const message = error.response?.data?.message || t('login.error')
-      if (status === 403) {
+      if (message.includes('truonghoangquan18072005@gmail.com')) {
         setServerError(message)
       } else {
         toast.error(message)
       }
+      if (recaptchaRef.current) recaptchaRef.current.reset()
+      setCaptchaToken('')
     } finally {
       setLoading(false)
     }
@@ -144,7 +155,7 @@ function LoginForm({ onNavigate }) {
               } catch (error) {
                 const status = error.response?.status;
                 const message = error.response?.data?.message || 'Đăng nhập Google thất bại';
-                if (status === 403) {
+                if (message.includes('truonghoangquan18072005@gmail.com')) {
                   setServerError(message);
                 } else {
                   toast.error(message);
@@ -165,6 +176,19 @@ function LoginForm({ onNavigate }) {
             logo_alignment="left"
           />
         </div>
+
+        {requiresCaptcha && (
+          <div className="flex justify-center mt-2">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey="6LdBSSQtAAAAAE34vUaSzt54bgJ5lPbBm2c13yT-"
+              onChange={(token) => {
+                setCaptchaToken(token)
+                setServerError('')
+              }}
+            />
+          </div>
+        )}
 
         {serverError && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-3 mt-2">
@@ -386,7 +410,7 @@ function RegisterForm({ onNavigate }) {
               } catch (error) {
                 const status = error.response?.status;
                 const message = error.response?.data?.message || 'Đăng nhập Google thất bại';
-                if (status === 403) {
+                if (message.includes('truonghoangquan18072005@gmail.com')) {
                   setServerError(message);
                 } else {
                   toast.error(message);

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import ReCAPTCHA from 'react-google-recaptcha'
 import { Lock, Eye, EyeOff } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
@@ -49,6 +50,9 @@ function LoginPage() {
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [requiresCaptcha, setRequiresCaptcha] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const recaptchaRef = useRef(null)
 
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -63,11 +67,15 @@ function LoginPage() {
       setErrors(fieldErrors)
       return
     }
+    if (requiresCaptcha && !captchaToken) {
+      setServerError("Vui lòng xác minh bạn không phải là robot")
+      return
+    }
 
     document.activeElement?.blur?.()
     setLoading(true)
     try {
-      const data = await authService.login(formData)
+      const data = await authService.login({ ...formData, captchaToken })
       // axios interceptor đã unwrap response.data
       // BE trả về: { _id, fullName, email, avatar, token }
       // Tách token ra khỏi user info rồi lưu vào AuthContext
@@ -76,7 +84,12 @@ function LoginPage() {
       toast.success(t('login.success'))
       navigate('/chat', { replace: true })
     } catch (error) {
+      if (error.response?.data?.requiresCaptcha) {
+        setRequiresCaptcha(true)
+      }
       toast.error(error.response?.data?.message || t('login.error'))
+      if (recaptchaRef.current) recaptchaRef.current.reset()
+      setCaptchaToken('')
     } finally {
       setLoading(false)
     }
@@ -115,6 +128,19 @@ function LoginPage() {
             </Link>
           </div>
         </div>
+
+        {requiresCaptcha && (
+          <div className="flex justify-center mt-2">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "dummy_key"}
+              onChange={(token) => {
+                setCaptchaToken(token)
+                setServerError('')
+              }}
+            />
+          </div>
+        )}
 
         <Button type="submit" variant="primary" className="w-full mt-1" isLoading={loading}>
           {t('login.submit')}
