@@ -115,7 +115,7 @@ export const signup = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
-    let { email, password } = req.body;
+    let { email, password, captchaToken } = req.body;
 
     if (typeof email !== "string" || typeof password !== "string") {
       const error = new Error("Email và password phải là chuỗi!");
@@ -137,6 +137,28 @@ export const login = async (req, res, next) => {
       throw error;
     }
 
+    if (user.failedLoginAttempts >= 3) {
+      if (!captchaToken) {
+        return res.status(403).json({ success: false, message: "Vui lòng xác minh bạn không phải là robot", requiresCaptcha: true });
+      }
+      
+      const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+      const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captchaToken}`;
+      
+      const captchaResponse = await fetch(verifyUrl, { method: 'POST' });
+      const captchaData = await captchaResponse.json();
+      
+      console.log("CAPTCHA VERIFY RESULT:", captchaData);
+      
+      if (!captchaData.success) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Xác minh CAPTCHA thất bại: " + (captchaData['error-codes'] ? captchaData['error-codes'].join(', ') : 'Unknown'), 
+          requiresCaptcha: true 
+        });
+      }
+    }
+
     if (!user.password) {
       const error = new Error("Tài khoản này được đăng ký bằng Google. Vui lòng đăng nhập bằng Google!");
       error.statusCode = 400;
@@ -150,10 +172,19 @@ export const login = async (req, res, next) => {
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
-      const error = new Error("Email hoặc mật khẩu không đúng!");
-      error.statusCode = 400;
-      throw error;
+      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+      await user.save();
+      
+      const requiresCaptcha = user.failedLoginAttempts >= 3;
+      return res.status(400).json({
+        success: false,
+        message: "Email hoặc mật khẩu không đúng!",
+        requiresCaptcha
+      });
     }
+
+    user.failedLoginAttempts = 0;
+    await user.save();
 
     const { hasWarning } = await checkBanStatus(user);
 
