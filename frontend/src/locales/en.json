@@ -592,5 +592,23 @@
   },
   "common": {
     "error": "An error occurred"
+  },
+  "systemMessages": {
+    "joinedGroup": "{{user}} joined the group chat",
+    "leftGroup": "{{user}} left the group chat",
+    "wantsToAdd": "{{requestingUser}} wants to add {{userToAdd}} to the group chat",
+    "requestDenied": "Request denied by admin",
+    "clearedNickname": "{{changingUser}} cleared the nickname for {{changedUser}}",
+    "changedNickname": "{{changingUser}} changed the nickname for {{changedUser}} to {{nickname}}",
+    "changedEmoji": "{{user}} changed the chat emoji",
+    "changedThemeColor": "{{user}} changed the chat theme color",
+    "removedThemeColor": "{{user}} removed the chat theme color",
+    "createdPoll": "{{user}} created a poll",
+    "addedPollOption": "{{user}} added a new option to the poll",
+    "changedVoteFromTo": "{{user}} changed vote from {{removed}} to {{added}} in the poll",
+    "votedFor": "{{user}} voted for {{options}} in the poll",
+    "removedVoteFor": "{{user}} removed vote for {{options}} in the poll",
+    "votedAdditionallyFor": "{{user}} voted additionally for {{options}} in the poll",
+    "changedVote": "{{user}} changed vote in the poll"
   }
 }

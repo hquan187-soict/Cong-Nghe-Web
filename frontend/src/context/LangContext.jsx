@@ -21,11 +21,19 @@ export function LangProvider({ children }) {
 
   // Hàm t(key) nhận key dạng "login.title"
   // Tách theo dấu "." rồi đi sâu vào object dịch
-  function t(key) {
+  // Hàm t(key, vars) nhận key dạng "login.title" và biến nội suy
+  // Tách theo dấu "." rồi đi sâu vào object dịch
+  function t(key, vars = {}) {
     const keys = key.split('.')
     let value = translations[lang]
     for (const k of keys) {
       value = value?.[k]
+    }
+    // Nội suy biến nếu value là string và có truyền vars
+    if (typeof value === 'string' && vars) {
+      value = value.replace(/\{\{(\w+)\}\}/g, (match, p1) => {
+        return vars[p1] !== undefined ? vars[p1] : match
+      })
     }
     // Nếu không tìm thấy key → trả về key gốc để dễ debug
     return value ?? key

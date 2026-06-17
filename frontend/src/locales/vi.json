@@ -592,5 +592,23 @@
   },
   "common": {
     "error": "Có lỗi xảy ra"
+  },
+  "systemMessages": {
+    "joinedGroup": "{{user}} đã tham gia đoạn chat nhóm",
+    "leftGroup": "{{user}} đã rời khỏi đoạn chat nhóm",
+    "wantsToAdd": "{{requestingUser}} muốn thêm {{userToAdd}} vào trong đoạn chat nhóm",
+    "requestDenied": "Yêu cầu bị từ chối bởi quản trị viên",
+    "clearedNickname": "{{changingUser}} đã xóa biệt danh của {{changedUser}}",
+    "changedNickname": "{{changingUser}} đã đổi biệt danh của {{changedUser}} thành {{nickname}}",
+    "changedEmoji": "{{user}} đã đổi biểu tượng cảm xúc của đoạn chat",
+    "changedThemeColor": "{{user}} đã đổi màu chủ đề đoạn chat",
+    "removedThemeColor": "{{user}} đã xóa màu chủ đề đoạn chat",
+    "createdPoll": "{{user}} đã tạo một cuộc thăm dò ý kiến",
+    "addedPollOption": "{{user}} đã thêm lựa chọn mới vào cuộc thăm dò ý kiến",
+    "changedVoteFromTo": "{{user}} đã thay đổi bình chọn từ {{removed}} sang {{added}} trong cuộc thăm dò ý kiến",
+    "votedFor": "{{user}} đã bình chọn cho {{options}} trong cuộc thăm dò ý kiến",
+    "removedVoteFor": "{{user}} đã gỡ bình chọn cho {{options}} trong cuộc thăm dò ý kiến",
+    "votedAdditionallyFor": "{{user}} đã bình chọn thêm cho {{options}} trong cuộc thăm dò ý kiến",
+    "changedVote": "{{user}} đã thay đổi bình chọn trong cuộc thăm dò ý kiến"
   }
 }
