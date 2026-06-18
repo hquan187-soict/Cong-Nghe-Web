@@ -13,6 +13,24 @@ import { triggerWarningPopup } from '../components/WarningPopup'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+function translateAuthError(message, t) {
+  if (!message) return t('common.error');
+  const msgMap = {
+    "Email hoặc mật khẩu không đúng!": t('login.invalidCredentials') || "Invalid email or password!",
+    "Tài khoản này được đăng ký bằng Google. Vui lòng đăng nhập bằng Google!": t('login.googleAccountRequired') || "This account was registered with Google. Please use Google Login!",
+    "Tài khoản này đã bị xóa và không thể đăng nhập.": t('login.accountDeleted') || "This account has been deleted.",
+    "Vui lòng xác minh bạn không phải là robot": t('login.captchaRequired') || "Please verify you are not a robot",
+    "OTP không hợp lệ hoặc đã hết hạn!": t('register.invalidOtp') || "Invalid or expired OTP!",
+    "Email đã được sử dụng!": t('register.emailExists') || "Email already in use!",
+    "Email không tồn tại!": t('forgotPassword.emailNotFound') || "Email not found!",
+    "Không tìm thấy Google Token!": t('login.googleError') || "Google login failed"
+  };
+  for (const key in msgMap) {
+    if (message.includes(key)) return msgMap[key];
+  }
+  return message;
+}
+
 function CardHeader({ title, subtitle }) {
   return (
     <div className="mb-8 text-center">
@@ -25,7 +43,7 @@ function CardHeader({ title, subtitle }) {
 
 // ─── Login Form ────────────────────────────────────────
 function LoginForm({ onNavigate }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const { login, loginWithGoogle } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
@@ -54,7 +72,7 @@ function LoginForm({ onNavigate }) {
     else if (formData.password.length < 6) errs.password = t('validation.passwordMinLength')
     if (Object.values(errs).some(Boolean)) { setErrors(errs); return }
     if (requiresCaptcha && !captchaToken) {
-      toast.error("Vui lòng xác minh bạn không phải là robot")
+      toast.error(t('login.captchaRequired') || "Vui lòng xác minh bạn không phải là robot")
       return
     }
 
@@ -74,8 +92,9 @@ function LoginForm({ onNavigate }) {
       if (error.response?.data?.requiresCaptcha) {
         setRequiresCaptcha(true)
       }
-      const message = error.response?.data?.message || t('login.error')
-      if (message.includes('truonghoangquan18072005@gmail.com')) {
+      const rawMessage = error.response?.data?.message
+      const message = translateAuthError(rawMessage, t) || t('login.error')
+      if (rawMessage && rawMessage.includes('truonghoangquan18072005@gmail.com')) {
         setServerError(message)
       } else {
         toast.error(message)
@@ -132,7 +151,7 @@ function LoginForm({ onNavigate }) {
             <div className="w-full border-t border-slate-200"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-slate-500">Hoặc</span>
+            <span className="px-2 bg-white text-slate-500">{t('login.or') || 'Hoặc'}</span>
           </div>
         </div>
 
@@ -150,8 +169,9 @@ function LoginForm({ onNavigate }) {
                 const role = data?.role || 'user';
                 navigate(role === 'admin' ? '/admin' : '/chat', { replace: true });
               } catch (error) {
-                const message = error.response?.data?.message || 'Đăng nhập Google thất bại';
-                if (message.includes('truonghoangquan18072005@gmail.com')) {
+                const rawMessage = error.response?.data?.message
+                const message = translateAuthError(rawMessage, t) || t('login.googleError') || 'Đăng nhập Google thất bại';
+                if (rawMessage && rawMessage.includes('truonghoangquan18072005@gmail.com')) {
                   setServerError(message);
                 } else {
                   toast.error(message);
@@ -160,7 +180,7 @@ function LoginForm({ onNavigate }) {
             }}
             onError={() => {
               console.log('Login Failed');
-              toast.error('Đăng nhập Google thất bại!');
+              toast.error(t('login.googleError') || 'Đăng nhập Google thất bại!');
             }}
             shape="pill"
             size="large"
@@ -168,6 +188,7 @@ function LoginForm({ onNavigate }) {
             theme="outline"
             text="signin_with"
             logo_alignment="left"
+            locale={lang}
           />
         </div>
 
@@ -176,6 +197,7 @@ function LoginForm({ onNavigate }) {
             <ReCAPTCHA
               ref={recaptchaRef}
               sitekey="6LdBSSQtAAAAAE34vUaSzt54bgJ5lPbBm2c13yT-"
+              hl={lang}
               onChange={(token) => {
                 setCaptchaToken(token)
                 setServerError('')
@@ -216,7 +238,7 @@ function LoginForm({ onNavigate }) {
 
 // ─── Register Form ─────────────────────────────────────
 function RegisterForm({ onNavigate }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const toast = useToast()
 
   const [formData, setFormData] = useState({
@@ -263,7 +285,8 @@ function RegisterForm({ onNavigate }) {
         })
       }, 1000)
     } catch (error) {
-      toast.error(error.response?.data?.message || t('register.otpError'))
+      const rawMessage = error.response?.data?.message
+      toast.error(translateAuthError(rawMessage, t) || t('register.otpError'))
     } finally {
       setSendingOtp(false)
     }
@@ -290,7 +313,8 @@ function RegisterForm({ onNavigate }) {
       onNavigate('login')
     } catch (error) {
       const status = error.response?.status
-      const message = error.response?.data?.message || t('register.error')
+      const rawMessage = error.response?.data?.message
+      const message = translateAuthError(rawMessage, t) || t('register.error')
       if (status === 409) {
         setErrors(prev => ({ ...prev, email: message }))
       } else {
@@ -382,7 +406,7 @@ function RegisterForm({ onNavigate }) {
             <div className="w-full border-t border-slate-200"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-slate-500">Hoặc</span>
+            <span className="px-2 bg-white text-slate-500">{t('login.or') || 'Hoặc'}</span>
           </div>
         </div>
 
@@ -400,8 +424,9 @@ function RegisterForm({ onNavigate }) {
                 const role = data?.role || 'user';
                 navigate(role === 'admin' ? '/admin' : '/chat', { replace: true });
               } catch (error) {
-                const message = error.response?.data?.message || 'Đăng nhập Google thất bại';
-                if (message.includes('truonghoangquan18072005@gmail.com')) {
+                const rawMessage = error.response?.data?.message
+                const message = translateAuthError(rawMessage, t) || t('login.googleError') || 'Đăng nhập Google thất bại';
+                if (rawMessage && rawMessage.includes('truonghoangquan18072005@gmail.com')) {
                   setServerError(message);
                 } else {
                   toast.error(message);
@@ -410,7 +435,7 @@ function RegisterForm({ onNavigate }) {
             }}
             onError={() => {
               console.log('Login Failed');
-              toast.error('Đăng nhập Google thất bại!');
+              toast.error(t('login.googleError') || 'Đăng nhập Google thất bại!');
             }}
             shape="pill"
             size="large"
@@ -418,6 +443,7 @@ function RegisterForm({ onNavigate }) {
             theme="outline"
             text="signup_with"
             logo_alignment="left"
+            locale={lang}
           />
         </div>
 
@@ -494,7 +520,8 @@ function ForgotPasswordForm({ onNavigate }) {
         })
       }, 1000)
     } catch (error) {
-      toast.error(error.response?.data?.message || t('forgotPassword.otpError'))
+      const rawMessage = error.response?.data?.message
+      toast.error(translateAuthError(rawMessage, t) || t('forgotPassword.otpError'))
     } finally {
       setSendingOtp(false)
     }
@@ -522,7 +549,8 @@ function ForgotPasswordForm({ onNavigate }) {
       toast.success(t('forgotPassword.success'))
       onNavigate('login')
     } catch (error) {
-      toast.error(error.response?.data?.message || t('forgotPassword.error'))
+      const rawMessage = error.response?.data?.message
+      toast.error(translateAuthError(rawMessage, t) || t('forgotPassword.error'))
     } finally {
       setLoading(false)
     }

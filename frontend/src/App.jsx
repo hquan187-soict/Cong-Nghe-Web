@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { ThemeProvider } from './context/ThemeContext'
-import { LangProvider } from './context/LangContext'
+import { LangProvider, useLang } from './context/LangContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import { ToastProvider } from './context/ToastContext'
 import { SocketProvider } from './context/SocketContext'
 import { AccessibilityProvider } from './context/AccessibilityContext'
@@ -24,6 +25,16 @@ function ConnectAxiosLogout() {
   return null // Không render gì
 }
 
+// Wrapper để lấy ngôn ngữ từ LangContext và truyền vào GoogleOAuthProvider
+function GoogleAuthWrapper({ children }) {
+  const { lang } = useLang()
+  return (
+    <GoogleOAuthProvider key={lang} clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID} locale={lang}>
+      {children}
+    </GoogleOAuthProvider>
+  )
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -34,16 +45,18 @@ function App() {
           <ToastProvider>
             <ThemeProvider>
               <LangProvider>
-                <AccessibilityProvider>
-                  <NotificationProvider>
-                    <MentionNotificationProvider>
-                      <AppRouter />
-                      <Toast />
-                      <MentionToast />
-                      <CallOverlay />
-                    </MentionNotificationProvider>
-                  </NotificationProvider>
-                </AccessibilityProvider>
+                <GoogleAuthWrapper>
+                  <AccessibilityProvider>
+                    <NotificationProvider>
+                      <MentionNotificationProvider>
+                        <AppRouter />
+                        <Toast />
+                        <MentionToast />
+                        <CallOverlay />
+                      </MentionNotificationProvider>
+                    </NotificationProvider>
+                  </AccessibilityProvider>
+                </GoogleAuthWrapper>
               </LangProvider>
             </ThemeProvider>
           </ToastProvider>

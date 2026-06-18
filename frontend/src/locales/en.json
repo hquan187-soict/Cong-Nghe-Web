@@ -11,7 +11,13 @@
     "registerLink": "Register",
     "forgotPassword": "Forgot password?",
     "success": "Login successful!",
-    "error": "Login failed"
+    "error": "Login failed",
+    "or": "Or",
+    "captchaRequired": "Please verify you are not a robot",
+    "googleError": "Google login failed",
+    "invalidCredentials": "Email or password incorrect!",
+    "googleAccountRequired": "This account was registered with Google. Please use Google Login!",
+    "accountDeleted": "This account has been deleted."
   },
   "register": {
     "title": "Register",
@@ -33,7 +39,9 @@
     "hasAccount": "Already have an account?",
     "loginLink": "Login",
     "success": "Registration successful!",
-    "error": "Registration failed"
+    "error": "Registration failed",
+    "invalidOtp": "Invalid or expired OTP!",
+    "emailExists": "Email already in use!"
   },
   "forgotPassword": {
     "title": "Forgot Password",
@@ -52,7 +60,8 @@
     "submit": "Reset Password",
     "backToLogin": "Back to Login",
     "success": "Password reset successful! Please login again.",
-    "error": "Failed to reset password"
+    "error": "Failed to reset password",
+    "emailNotFound": "Email not found!"
   },
   "validation": {
     "required": "This field is required",

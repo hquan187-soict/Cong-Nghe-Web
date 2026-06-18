@@ -11,7 +11,13 @@
     "registerLink": "Đăng ký",
     "forgotPassword": "Quên mật khẩu?",
     "success": "Đăng nhập thành công!",
-    "error": "Đăng nhập thất bại"
+    "error": "Đăng nhập thất bại",
+    "or": "Hoặc",
+    "captchaRequired": "Vui lòng xác minh bạn không phải là robot",
+    "googleError": "Đăng nhập Google thất bại",
+    "invalidCredentials": "Email hoặc mật khẩu không đúng!",
+    "googleAccountRequired": "Tài khoản này được đăng ký bằng Google. Vui lòng đăng nhập bằng Google!",
+    "accountDeleted": "Tài khoản này đã bị xóa và không thể đăng nhập."
   },
   "register": {
     "title": "Đăng ký",
@@ -33,7 +39,9 @@
     "hasAccount": "Đã có tài khoản?",
     "loginLink": "Đăng nhập",
     "success": "Đăng ký thành công!",
-    "error": "Đăng ký thất bại"
+    "error": "Đăng ký thất bại",
+    "invalidOtp": "OTP không hợp lệ hoặc đã hết hạn!",
+    "emailExists": "Email đã được sử dụng!"
   },
   "forgotPassword": {
     "title": "Quên mật khẩu",
@@ -52,7 +60,8 @@
     "submit": "Đặt lại mật khẩu",
     "backToLogin": "Quay lại Đăng nhập",
     "success": "Đặt lại mật khẩu thành công! Hãy đăng nhập lại.",
-    "error": "Đặt lại mật khẩu thất bại"
+    "error": "Đặt lại mật khẩu thất bại",
+    "emailNotFound": "Email không tồn tại!"
   },
   "validation": {
     "required": "Trường này không được để trống",
