@@ -227,6 +227,17 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
     }
   };
 
+  const getTranslatedLabel = (label) => {
+    switch(label) {
+      case 'Khách hàng': return t('chat2.labelCustomer') || 'Khách hàng';
+      case 'Gia đình': return t('chat2.labelFamily') || 'Gia đình';
+      case 'Công việc': return t('chat2.labelWork') || 'Công việc';
+      case 'Bạn bè': return t('chat2.labelFriends') || 'Bạn bè';
+      case 'Khác': return t('chat2.labelOther') || 'Khác';
+      default: return label;
+    }
+  };
+
   return (
     <div className="profile-modal__overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       {loading ? renderSkeleton() : error ? renderError() : profileUser?.isDeleted ? (
@@ -238,10 +249,10 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
           </div>
           <div className="profile-modal__body" style={{ textAlign: 'center', padding: '20px 28px 40px' }}>
             <h2 className="profile-modal__name" style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-              Người dùng đã xóa tài khoản
+              {t('chat.deletedUser') || 'Người dùng đã xóa tài khoản'}
             </h2>
             <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 8 }}>
-              Tài khoản này đã bị xóa. Thông tin cá nhân không còn khả dụng.
+              {t('userProfile.deletedUserDesc') || 'Tài khoản này đã bị xóa. Thông tin cá nhân không còn khả dụng.'}
             </p>
           </div>
         </div>
@@ -268,7 +279,7 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
                 {profileUser.fullName || t('profile.defaultName')}
                 {profileUser.chatLabel && (
                   <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '12px', backgroundColor: getLabelColor(profileUser.chatLabel), color: '#fff', fontWeight: '500' }}>
-                    {profileUser.chatLabel}
+                    {getTranslatedLabel(profileUser.chatLabel)}
                   </span>
                 )}
               </h2>
@@ -338,7 +349,7 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
             </button>
             {renderFriendButton()}
             <button className="user-profile-modal__action-btn user-profile-modal__action-btn--ghost" onClick={() => setShowReportModal(true)} style={{ color: '#ef4444' }}>
-              <Flag size={16} /> Báo cáo tài khoản
+              <Flag size={16} /> {t('userProfile.reportAccount') || 'Báo cáo tài khoản'}
             </button>
             {isBlocked ? (
               <button className="user-profile-modal__action-btn user-profile-modal__action-btn--danger" onClick={handleUnblock} disabled={actionLoading}>

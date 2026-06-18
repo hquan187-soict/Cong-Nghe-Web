@@ -1,9 +1,11 @@
 import { AtSign, X } from 'lucide-react'
 import { useMentionNotification } from '../context/MentionNotificationContext'
+import { useLang } from '../context/LangContext'
 import Avatar from './ui/Avatar'
 
 export default function MentionToast() {
   const { toastNotification, dismissToast, navigateToMessage, markAsRead } = useMentionNotification()
+  const { t } = useLang()
 
   if (!toastNotification) return null
 
@@ -38,7 +40,7 @@ export default function MentionToast() {
         fontSize: '12px', fontWeight: 600,
       }}>
         <AtSign size={14} />
-        <span>Bạn được nhắc đến</span>
+        <span>{t('mention.title') || 'Bạn được nhắc đến'}</span>
         <button
           onClick={(e) => { e.stopPropagation(); dismissToast() }}
           style={{
@@ -54,10 +56,10 @@ export default function MentionToast() {
         <Avatar src={sender?.avatar} alt={sender?.fullName || '?'} size="sm" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
-            {sender?.fullName || 'Ai đó'}
+            {sender?.fullName || t('mention.someone') || 'Ai đó'}
             {conv?.isGroup && (
               <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>
-                {' '}trong {conv.name || 'nhóm'}
+                {' '}trong {conv.name || t('mention.group') || 'nhóm'}
               </span>
             )}
           </div>
@@ -65,7 +67,7 @@ export default function MentionToast() {
             fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '2px',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
-            {msg?.text || 'Đã gửi một tin nhắn'}
+            {msg?.text || t('mention.sentMessage') || 'Đã gửi một tin nhắn'}
           </div>
         </div>
       </div>

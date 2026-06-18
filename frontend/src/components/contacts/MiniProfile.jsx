@@ -134,6 +134,17 @@ export default function MiniProfile({ contact, isOnline, onSendMessage, onUnfrie
     }
   };
 
+  const getTranslatedLabel = (label) => {
+    switch(label) {
+      case 'Khách hàng': return t('chat2.labelCustomer') || 'Khách hàng';
+      case 'Gia đình': return t('chat2.labelFamily') || 'Gia đình';
+      case 'Công việc': return t('chat2.labelWork') || 'Công việc';
+      case 'Bạn bè': return t('chat2.labelFriends') || 'Bạn bè';
+      case 'Khác': return t('chat2.labelOther') || 'Khác';
+      default: return label;
+    }
+  };
+
   const gl = genderLabel(profile.gender);
   const hasExtended = profile.birthday || gl || profile.phone || profile.address || profile.hometown || profile.occupation || profile.education || profile.hobbies;
 
@@ -156,7 +167,7 @@ export default function MiniProfile({ contact, isOnline, onSendMessage, onUnfrie
               {contact.fullName}
               {fullProfile?.chatLabel && (
                 <span style={{ fontSize: '14px', padding: '2px 10px', borderRadius: '12px', backgroundColor: getLabelColor(fullProfile.chatLabel), color: '#fff', fontWeight: '500' }}>
-                  {fullProfile.chatLabel}
+                  {getTranslatedLabel(fullProfile.chatLabel)}
                 </span>
               )}
             </h1>

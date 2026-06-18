@@ -277,13 +277,13 @@ function ProfilePage() {
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      toast.error(lang === 'vi' ? 'Vui lòng chọn một tệp ảnh.' : 'Please select an image file.')
+      toast.error(t('profile.selectImageError') || 'Vui lòng chọn một tệp ảnh.')
       e.target.value = ''
       return
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error(lang === 'vi' ? 'Ảnh bìa không được vượt quá 5 MB.' : 'Cover image must not exceed 5 MB.')
+      toast.error(t('profile.coverSizeError') || 'Ảnh bìa không được vượt quá 5 MB.')
       e.target.value = ''
       return
     }
@@ -407,7 +407,7 @@ function ProfilePage() {
       setShowCoverCropModal(false)
       setCoverCropSource('')
     } catch {
-      toast.error(lang === 'vi' ? 'Không thể cắt ảnh bìa. Vui lòng thử ảnh khác.' : 'Unable to crop cover image. Please try another image.')
+      toast.error(t('profile.coverCropError') || 'Không thể cắt ảnh bìa. Vui lòng thử ảnh khác.')
     } finally {
       setCroppingCover(false)
     }
@@ -524,10 +524,10 @@ function ProfilePage() {
     try {
       await userService.deleteMyAccount()
       logout()
-      toast.success(lang === 'vi' ? 'Tài khoản đã được xóa thành công.' : 'Account deleted successfully.')
+      toast.success(t('profile.deleteAccountSuccess') || 'Tài khoản đã được xóa thành công.')
       navigate('/login', { replace: true })
     } catch (err) {
-      toast.error(err?.message || (lang === 'vi' ? 'Xóa tài khoản thất bại.' : 'Failed to delete account.'))
+      toast.error(err?.message || t('profile.deleteAccountFailed') || 'Xóa tài khoản thất bại.')
     } finally {
       setDeletingAccount(false)
       setShowDeleteAccountModal(false)
@@ -827,7 +827,7 @@ function ProfilePage() {
           }
         }}
         title={isEditing && activeCoverImage
-          ? (lang === 'vi' ? 'Bấm để cắt lại ảnh bìa' : 'Click to crop cover image')
+          ? t('profile.clickToCrop') || 'Bấm để cắt lại ảnh bìa'
           : undefined}
       >
         <div style={s.bannerPattern} />
@@ -852,8 +852,8 @@ function ProfilePage() {
             <button
               type="button"
               className="profile-cover-action-btn"
-              aria-label={lang === 'vi' ? 'Thay đổi ảnh bìa' : 'Change cover image'}
-              title={lang === 'vi' ? 'Thay đổi ảnh bìa' : 'Change cover image'}
+              aria-label={t('profile.changeCover') || 'Thay đổi ảnh bìa'}
+              title={t('profile.changeCover') || 'Thay đổi ảnh bìa'}
               onClick={(e) => {
                 e.stopPropagation()
                 coverInputRef.current?.click()
@@ -865,7 +865,7 @@ function ProfilePage() {
               }}
             >
               <Image size={16} />
-              <span className="profile-cover-action-label">{lang === 'vi' ? 'Thay đổi ảnh bìa' : 'Change cover image'}</span>
+              <span className="profile-cover-action-label">{t('profile.changeCover') || 'Thay đổi ảnh bìa'}</span>
             </button>
             <input
               ref={coverInputRef}
@@ -877,8 +877,8 @@ function ProfilePage() {
             <button
               type="button"
               className="profile-cover-action-btn"
-              aria-label={t('profile.coverColor') || (lang === 'vi' ? 'Màu nền' : 'Cover color')}
-              title={t('profile.coverColor') || (lang === 'vi' ? 'Màu nền' : 'Cover color')}
+              aria-label={t('profile.coverColor') || 'Màu nền'}
+              title={t('profile.coverColor') || 'Màu nền'}
               onClick={(e) => {
                 e.stopPropagation()
                 setShowCoverPicker(!showCoverPicker)
@@ -1067,12 +1067,10 @@ function ProfilePage() {
               border: '1.5px solid #ef4444', background: 'rgba(239, 68, 68, 0.05)',
             }}>
               <h3 style={{ fontSize: 15, fontWeight: 700, color: '#ef4444', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Trash2 size={16} /> {lang === 'vi' ? 'Vùng nguy hiểm' : 'Danger Zone'}
+                <Trash2 size={16} /> {t('profile.dangerZone') || 'Vùng nguy hiểm'}
               </h3>
               <p style={{ fontSize: 13, color: 'var(--color-text-muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
-                {lang === 'vi'
-                  ? 'Xóa tài khoản sẽ ẩn danh toàn bộ thông tin cá nhân, xóa bạn khỏi danh sách bạn bè và nhóm chat. Hành động này không thể hoàn tác.'
-                  : 'Deleting your account will anonymize all personal data, remove you from friends lists and group chats. This action cannot be undone.'}
+                {t('profile.dangerZoneDesc') || 'Xóa tài khoản sẽ ẩn danh toàn bộ thông tin cá nhân, xóa bạn khỏi danh sách bạn bè và nhóm chat. Hành động này không thể hoàn tác.'}
               </p>
               <button
                 onClick={() => setShowDeleteAccountModal(true)}
@@ -1089,8 +1087,8 @@ function ProfilePage() {
               >
                 <Trash2 size={14} />
                 {deletingAccount
-                  ? (lang === 'vi' ? 'Đang xóa...' : 'Deleting...')
-                  : (lang === 'vi' ? 'Xóa tài khoản' : 'Delete Account')}
+                  ? (t('profile.deleting') || 'Đang xóa...')
+                  : (t('profile.deleteAccount') || 'Xóa tài khoản')}
               </button>
             </div>
 
@@ -1098,11 +1096,9 @@ function ProfilePage() {
               isOpen={showDeleteAccountModal}
               onCancel={() => setShowDeleteAccountModal(false)}
               onConfirm={handleDeleteAccount}
-              title={lang === 'vi' ? 'Xác nhận xóa tài khoản' : 'Confirm Account Deletion'}
-              message={lang === 'vi'
-                ? 'Bạn có chắc chắn muốn xóa tài khoản? Toàn bộ thông tin cá nhân sẽ bị ẩn danh, bạn sẽ bị xóa khỏi danh sách bạn bè và các nhóm chat. Hành động này KHÔNG THỂ hoàn tác.'
-                : 'Are you sure you want to delete your account? All personal information will be anonymized, you will be removed from friends lists and group chats. This action CANNOT be undone.'}
-              confirmText={lang === 'vi' ? 'Xóa tài khoản' : 'Delete Account'}
+              title={t('profile.confirmDeleteTitle') || 'Xác nhận xóa tài khoản'}
+              message={t('profile.confirmDeleteDesc') || 'Bạn có chắc chắn muốn xóa tài khoản? Toàn bộ thông tin cá nhân sẽ bị ẩn danh, bạn sẽ bị xóa khỏi danh sách bạn bè và các nhóm chat. Hành động này KHÔNG THỂ hoàn tác.'}
+              confirmText={t('profile.deleteAccount') || 'Xóa tài khoản'}
               danger
             />
 
@@ -1209,7 +1205,7 @@ function ProfilePage() {
           className="profile-cover-crop-overlay"
           role="dialog"
           aria-modal="true"
-          aria-label={lang === 'vi' ? 'Cắt ảnh bìa' : 'Crop cover image'}
+          aria-label={t('profile.cropCover') || 'Cắt ảnh bìa'}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeCoverCropModal()
           }}
@@ -1229,7 +1225,7 @@ function ProfilePage() {
             <button
               type="button"
               onClick={closeCoverCropModal}
-              aria-label={lang === 'vi' ? 'Đóng' : 'Close'}
+              aria-label={t('profile.close') || 'Đóng'}
               style={{
                 position: 'absolute', top: 14, right: 14, zIndex: 2,
                 width: 38, height: 38, display: 'grid', placeItems: 'center',
@@ -1285,18 +1281,18 @@ function ProfilePage() {
                   step={0.05}
                   value={coverZoom}
                   onChange={(e) => setCoverZoom(Number(e.target.value))}
-                  aria-label={lang === 'vi' ? 'Thu phóng ảnh' : 'Image zoom'}
+                  aria-label={t('profile.imageZoom') || 'Thu phóng ảnh'}
                   style={{ width: '100%', accentColor: 'var(--color-primary)' }}
                 />
               </div>
               <div className="profile-cover-crop-actions" style={{ display: 'flex', gap: 10 }}>
                 <Button variant="danger" onClick={removeCoverImageFromEdit} disabled={croppingCover}>
                   <Trash2 size={16} />
-                  {lang === 'vi' ? 'Xóa ảnh bìa' : 'Remove cover'}
+                  {t('profile.removeCover') || 'Xóa ảnh bìa'}
                 </Button>
                 <Button variant="primary" onClick={applyCoverCrop} isLoading={croppingCover}>
                   <Crop size={16} />
-                  {lang === 'vi' ? 'Áp dụng' : 'Apply'}
+                  {t('profile.apply') || 'Áp dụng'}
                 </Button>
               </div>
             </div>

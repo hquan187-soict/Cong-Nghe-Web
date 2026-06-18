@@ -2,7 +2,10 @@ import React from 'react';
 import { MessageSquare, UserMinus, UserPlus, Clock } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 
+import { useLang } from '../../context/LangContext';
+
 export default function ContactItem({ contact, isActive, onClick, isOnline, onMessage, onUnfriend, collapsed }) {
+  const { t } = useLang();
   if (collapsed) {
     return (
       <div
@@ -27,10 +30,10 @@ export default function ContactItem({ contact, isActive, onClick, isOnline, onMe
   const renderRelationshipBadge = () => {
     if (contact.isFriend) return null;
     if (contact.requestSent) {
-      return <span className="contact-item__badge contact-item__badge--pending"><Clock size={12} /> Đã gửi</span>;
+      return <span className="contact-item__badge contact-item__badge--pending"><Clock size={12} /> {t('contacts.sent') || 'Đã gửi'}</span>;
     }
     if (contact.hasReceivedRequest) {
-      return <span className="contact-item__badge contact-item__badge--received"><UserPlus size={12} /> Đã nhận lời mời</span>;
+      return <span className="contact-item__badge contact-item__badge--received"><UserPlus size={12} /> {t('contacts.receivedRequest') || 'Đã nhận lời mời'}</span>;
     }
     return null;
   };
@@ -60,7 +63,7 @@ export default function ContactItem({ contact, isActive, onClick, isOnline, onMe
           <>
             <button
               className="contact-item__btn"
-              title="Nhắn tin"
+              title={t('contacts.sendMessage') || "Nhắn tin"}
               onClick={(e) => {
                 e.stopPropagation();
                 if (onMessage) onMessage(contact);
@@ -70,7 +73,7 @@ export default function ContactItem({ contact, isActive, onClick, isOnline, onMe
             </button>
             <button
               className="contact-item__btn"
-              title="Hủy kết bạn"
+              title={t('contacts.unfriend') || "Hủy kết bạn"}
               onClick={(e) => {
                 e.stopPropagation();
                 if (onUnfriend) onUnfriend(contact);
@@ -83,7 +86,7 @@ export default function ContactItem({ contact, isActive, onClick, isOnline, onMe
         {!contact.isFriend && !contact.requestSent && !contact.hasReceivedRequest && (
           <button
             className="contact-item__btn"
-            title="Nhắn tin"
+            title={t('contacts.sendMessage') || "Nhắn tin"}
             onClick={(e) => {
               e.stopPropagation();
               if (onMessage) onMessage(contact);

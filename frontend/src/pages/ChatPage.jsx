@@ -613,7 +613,7 @@ function ChatPage() {
         handleSelectConversation(conv)
         setShowInfoPanel(false)
       } catch (err) {
-        toast.error('Không thể tạo cuộc trò chuyện', err)
+        toast.error(t('chat.createError') || 'Không thể tạo cuộc trò chuyện', err)
       }
     }
     createAndNavigate()
@@ -848,10 +848,10 @@ function ChatPage() {
           chatWindowRef.current.jumpToMessages(msgs, messageId)
           setJumpedToMessage(true)
         } else {
-          toast.info('Không thể tải tin nhắn.')
+          toast.info(t('chat.loadMessagesError') || 'Không thể tải tin nhắn.')
         }
       } catch {
-        toast.info('Không thể tải tin nhắn.')
+        toast.info(t('chat.loadMessagesError') || 'Không thể tải tin nhắn.')
       }
     }
   }, [handleSelectConversation, toast])
@@ -1091,10 +1091,10 @@ function ChatPage() {
         chatWindowRef.current.jumpToMessages(msgs, messageId)
         setJumpedToMessage(true)
       } else {
-        toast.info('Không thể tải tin nhắn.')
+        toast.info(t('chat.loadMessagesError') || 'Không thể tải tin nhắn.')
       }
     } catch {
-      toast.info('Không thể tải tin nhắn bình chọn.')
+      toast.info(t('chat.loadPollMessagesError') || 'Không thể tải tin nhắn bình chọn.')
     }
   }
 
@@ -1110,7 +1110,7 @@ function ChatPage() {
       await messageService.togglePinMessage(messageId)
       setPinnedPolls(prev => prev.filter(m => m._id !== messageId))
     } catch {
-      toast.error('Không thể bỏ ghim.')
+      toast.error(t('chat.unpinError') || 'Không thể bỏ ghim.')
     }
   }
 
@@ -1217,7 +1217,7 @@ function ChatPage() {
                   ? (isGroup
                     ? (selectedConversation.name || selectedConversation.groupName)
                     : isOtherDeleted
-                      ? 'Người dùng đã xóa tài khoản'
+                      ? (t('chat.deletedUser') || 'Người dùng đã xóa tài khoản')
                       : (selectedConversation.nicknames?.[otherMember?._id] || otherMember?.fullName || t('chat.title')))
                   : t('chat.title')}
               </h2>
@@ -1310,7 +1310,7 @@ function ChatPage() {
                 <button
                   className="chat-main__return-btn"
                   onClick={handleReturnToLatest}
-                  title="Quay về tin nhắn mới nhất"
+                  title={t('chat.backToLatest') || "Quay về tin nhắn mới nhất"}
                 >
                   <ChevronsDown size={20} />
                 </button>
@@ -1342,14 +1342,14 @@ function ChatPage() {
                 <button className="info-panel__close" onClick={() => setShowSearchPanel(false)}>
                   <ChevronDown size={20} style={{ transform: 'rotate(90deg)' }} />
                 </button>
-                <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>Tìm kiếm tin nhắn</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>{t('chat.searchMessagesTitle') || 'Tìm kiếm tin nhắn'}</h3>
               </div>
               <div style={{ padding: '16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
                 <div style={{ position: 'relative' }}>
                   <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
                   <input
                     type="text"
-                    placeholder="Nhập từ khóa..."
+                    placeholder={t('chat.searchMessagesPlaceholder') || "Nhập từ khóa..."}
                     value={searchQuery}
                     onChange={(e) => handleMessageSearch(e.target.value)}
                     autoFocus
@@ -1382,7 +1382,7 @@ function ChatPage() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
-                              {sender?.fullName || 'Người dùng'}
+                              {sender?.fullName || t('chat.unknownUser') || 'Người dùng'}
                             </span>
                             <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
                               {new Date(msg.createdAt).toLocaleDateString('vi-VN')}
@@ -1397,7 +1397,7 @@ function ChatPage() {
                   })
                 ) : searchQuery.trim() ? (
                   <div style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                    Không tìm thấy kết quả nào.
+                    {t('chat.noSearchResults') || 'Không tìm thấy kết quả nào.'}
                   </div>
                 ) : null}
               </div>
@@ -1454,7 +1454,7 @@ function ChatPage() {
                     outline: 'none'
                   }}
                   autoFocus
-                  placeholder="Nhập tên nhóm..."
+                  placeholder={t('chat.groupNamePlaceholder') || "Nhập tên nhóm..."}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveName();
                     if (e.key === 'Escape') setIsEditingName(false);
@@ -1479,7 +1479,7 @@ function ChatPage() {
                     disabled={isUpdatingName}
                   >
                     {isUpdatingName && <Loader2 className="animate-spin" size={12} />}
-                    Lưu
+                    {t('chat.save') || 'Lưu'}
                   </button>
                   <button
                     onClick={() => setIsEditingName(false)}
@@ -1494,7 +1494,7 @@ function ChatPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    Hủy
+                    {t('chat.cancel') || 'Hủy'}
                   </button>
                 </div>
               </div>
@@ -1510,18 +1510,18 @@ function ChatPage() {
                 <button
                   className="info-panel__edit-btn"
                   onClick={() => setIsEditingName(true)}
-                  title="Đổi tên nhóm"
+                  title={t('chat.changeGroupName') || "Đổi tên nhóm"}
                 >
                   <Palette size={14} />
-                  <span>Đổi tên nhóm</span>
+                  <span>{t('chat.changeGroupName') || 'Đổi tên nhóm'}</span>
                 </button>
                 <button
                   className="info-panel__edit-btn"
                   onClick={handleTriggerAvatarUpload}
-                  title="Đổi avatar nhóm"
+                  title={t('chat.changeGroupAvatar') || "Đổi avatar nhóm"}
                 >
                   <Camera size={14} />
-                  <span>Đổi avatar nhóm</span>
+                  <span>{t('chat.changeGroupAvatar') || 'Đổi avatar nhóm'}</span>
                 </button>
                 <input
                   type="file"
@@ -1542,14 +1542,14 @@ function ChatPage() {
               <div className="info-panel__quick-icon">
                 {isMuted ? <Bell size={20} /> : <BellOff size={20} />}
               </div>
-              <span>{isMuted ? 'Bật thông báo' : t('chat.muteNotifications')}</span>
+              <span>{isMuted ? (t('chat.unmuteNotifications') || 'Bật thông báo') : t('chat.muteNotifications')}</span>
             </button>
             <button
               className="info-panel__quick-btn"
               onClick={handleToggleArchive}
             >
               <div className="info-panel__quick-icon"><Archive size={20} /></div>
-              <span>{isArchived ? 'Bỏ lưu trữ' : 'Lưu trữ'}</span>
+              <span>{isArchived ? (t('chat.unarchive') || 'Bỏ lưu trữ') : (t('chat.archive') || 'Lưu trữ')}</span>
             </button>
           </div>
 
@@ -1560,7 +1560,7 @@ function ChatPage() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Pin size={14} />
-                <span>Tin nhắn đã ghim</span>
+                <span>{t('chat.pinnedMessages') || 'Tin nhắn đã ghim'}</span>
               </div>
               <ChevronDown size={16} className={infoPinnedOpen ? 'info-panel__chevron--open' : ''} />
             </button>
@@ -1572,7 +1572,7 @@ function ChatPage() {
                   </div>
                 ) : pinnedMessages.length === 0 ? (
                   <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '12px 8px', textAlign: 'center' }}>
-                    Chưa có tin nhắn nào được ghim
+                    {t('chat.noPinnedMessages') || 'Chưa có tin nhắn nào được ghim'}
                   </p>
                 ) : (
                   pinnedMessages.map((msg) => {
@@ -1608,20 +1608,20 @@ function ChatPage() {
                               chatWindowRef.current.jumpToMessages(msgs, msg._id)
                               setJumpedToMessage(true)
                             } else {
-                              toast.info('Không thể tải tin nhắn.')
+                              toast.info(t('chat.loadMessagesError') || 'Không thể tải tin nhắn.')
                             }
                           } catch {
-                            toast.info('Không thể tải tin nhắn.')
+                            toast.info(t('chat.loadMessagesError') || 'Không thể tải tin nhắn.')
                           }
                         }}
                       >
                         <Avatar src={sender?.avatar} alt={sender?.fullName || '?'} size="sm" />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
-                            {sender?.fullName || 'Người dùng'}
+                            {sender?.fullName || t('chat.unknownUser') || 'Người dùng'}
                           </div>
                           <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {msg.text || (msg.image ? 'Đã gửi một ảnh' : msg.file ? 'Đã gửi một tệp' : '')}
+                            {msg.text || (msg.image ? (t('chat.sentImage') || 'Đã gửi một ảnh') : msg.file ? (t('chat.sentFile') || 'Đã gửi một tệp') : '')}
                           </div>
                         </div>
                         <Pin size={12} style={{ flexShrink: 0, color: 'var(--color-primary)', marginTop: '2px' }} />
@@ -2045,14 +2045,14 @@ function ChatPage() {
                     onClick={() => setActiveMediaTab('photos')}
                     style={{ flex: 1, padding: '8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: activeMediaTab === 'photos' ? 'var(--color-primary)' : 'var(--color-text-muted)', borderBottom: activeMediaTab === 'photos' ? '2px solid var(--color-primary)' : '2px solid transparent', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s' }}
                   >
-                    <Image size={14} /> Ảnh
+                    <Image size={14} /> {t('chat.photos') || 'Ảnh'}
                   </button>
                   <button 
                     className={`info-panel__media-tab ${activeMediaTab === 'files' ? 'info-panel__media-tab--active' : ''}`}
                     onClick={() => setActiveMediaTab('files')}
                     style={{ flex: 1, padding: '8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: activeMediaTab === 'files' ? 'var(--color-primary)' : 'var(--color-text-muted)', borderBottom: activeMediaTab === 'files' ? '2px solid var(--color-primary)' : '2px solid transparent', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s' }}
                   >
-                    <FileText size={14} /> Tệp
+                    <FileText size={14} /> {t('chat.files') || 'Tệp'}
                   </button>
                 </div>
                 
@@ -2069,7 +2069,7 @@ function ChatPage() {
                           return (
                             <div className="info-panel__media-empty" style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--color-text-muted)' }}>
                               <Image size={32} style={{ opacity: 0.5, margin: '0 auto 8px' }} />
-                              <p style={{ fontSize: '13px' }}>Chưa có phương tiện</p>
+                              <p style={{ fontSize: '13px' }}>{t('chat.noMediaFound') || 'Chưa có phương tiện'}</p>
                             </div>
                           );
                         }
@@ -2109,7 +2109,7 @@ function ChatPage() {
                           return (
                             <div className="info-panel__media-empty" style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--color-text-muted)' }}>
                               <FileText size={32} style={{ opacity: 0.5, margin: '0 auto 8px' }} />
-                              <p style={{ fontSize: '13px' }}>Chưa có tệp nào</p>
+                              <p style={{ fontSize: '13px' }}>{t('chat.noFilesFound') || 'Chưa có tệp nào'}</p>
                             </div>
                           );
                         }
@@ -2133,7 +2133,7 @@ function ChatPage() {
                                   </div>
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                      {f.file?.name || 'Tài liệu'}
+                                      {f.file?.name || t('chat.document') || 'Tài liệu'}
                                     </div>
                                     <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                                       {sizeStr}
@@ -2173,7 +2173,7 @@ function ChatPage() {
                     style={{ opacity: isBlockingUser ? 0.6 : 1 }}
                   >
                     <ShieldCheck size={16} />
-                    <span>{isBlockingUser ? 'Đang xử lý...' : t('chat.unblockUser') || 'Bỏ chặn người dùng'}</span>
+                    <span>{isBlockingUser ? (t('chat.processing') || 'Đang xử lý...') : (t('chat.unblockUser') || 'Bỏ chặn người dùng')}</span>
                   </button>
                 ) : (
                   <button 
@@ -2183,7 +2183,7 @@ function ChatPage() {
                     style={{ opacity: isBlockingUser ? 0.6 : 1 }}
                   >
                     <ShieldBan size={16} />
-                    <span>{isBlockingUser ? 'Đang xử lý...' : t('chat.blockUser')}</span>
+                    <span>{isBlockingUser ? (t('chat.processing') || 'Đang xử lý...') : t('chat.blockUser')}</span>
                   </button>
                 )}
               </div>
@@ -2262,7 +2262,7 @@ function ChatPage() {
             maxWidth: '400px', width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
           }} onClick={e => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: 'var(--color-text)' }}>
-              Đặt biệt danh
+              {t('chat.setNickname') || 'Đặt biệt danh'}
             </h3>
             <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--color-text-muted)' }}>
               {nicknameTarget.fullName}
@@ -2271,7 +2271,7 @@ function ChatPage() {
               type="text"
               value={nicknameValue}
               onChange={(e) => setNicknameValue(e.target.value)}
-              placeholder="Nhập biệt danh..."
+              placeholder={t('chat.nicknamePlaceholder') || "Nhập biệt danh..."}
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleSaveNickname() }}
               style={{
@@ -2289,7 +2289,7 @@ function ChatPage() {
                   background: 'var(--color-hover-bg)', color: 'var(--color-text)', fontSize: '14px', fontWeight: 600
                 }}
               >
-                Hủy
+                {t('chat.cancel') || 'Hủy'}
               </button>
               <button
                 onClick={handleSaveNickname}
@@ -2301,7 +2301,7 @@ function ChatPage() {
                 }}
               >
                 {isUpdatingNickname && <Loader2 className="animate-spin" size={14} />}
-                Lưu
+                {t('chat.save') || 'Lưu'}
               </button>
             </div>
           </div>

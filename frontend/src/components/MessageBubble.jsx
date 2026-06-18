@@ -38,7 +38,7 @@ function formatTime(dateInput, t) {
     && date.getMonth() === now.getMonth()
     && date.getFullYear() === now.getFullYear()
 
-  if (isToday) return `${t('msg.today')} ${hh}:${mm}`
+  if (isToday) return `${t ? (t('msg.today') || 'Hôm nay') : 'Hôm nay'} ${hh}:${mm}`
 
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
@@ -46,9 +46,12 @@ function formatTime(dateInput, t) {
     && date.getMonth() === yesterday.getMonth()
     && date.getFullYear() === yesterday.getFullYear()
 
-  if (isYesterday) return `${t('msg.yesterday')} ${hh}:${mm}`
+  if (isYesterday) return `${t ? (t('msg.yesterday') || 'Hôm qua') : 'Hôm qua'} ${hh}:${mm}`
 
-  const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+  const days = t ? [
+    t('msg.sun') || 'CN', t('msg.mon') || 'T2', t('msg.tue') || 'T3', t('msg.wed') || 'T4',
+    t('msg.thu') || 'T5', t('msg.fri') || 'T6', t('msg.sat') || 'T7'
+  ] : ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
   return `${days[date.getDay()]} ${date.getDate()}/${date.getMonth() + 1} ${hh}:${mm}`
 }
 
@@ -64,7 +67,7 @@ function renderTextWithMentions(text, mentions, mentionAll, isOwn = false, t) {
   
   const names = mentions ? mentions.map(m => typeof m === 'object' ? m.fullName : null).filter(Boolean) : [];
   if (mentionAll) {
-    names.push(t ? t('msg.everyone') : 'Mọi người');
+    names.push(t ? (t('msg.everyone') || 'Mọi người') : 'Mọi người');
   }
   
   if (names.length === 0) return text;

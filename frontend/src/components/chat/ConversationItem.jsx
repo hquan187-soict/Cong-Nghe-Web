@@ -149,6 +149,17 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     }
   };
 
+  const getTranslatedLabel = (label) => {
+    switch(label) {
+      case 'Khách hàng': return t('chat2.labelCustomer') || 'Khách hàng';
+      case 'Gia đình': return t('chat2.labelFamily') || 'Gia đình';
+      case 'Công việc': return t('chat2.labelWork') || 'Công việc';
+      case 'Bạn bè': return t('chat2.labelFriends') || 'Bạn bè';
+      case 'Khác': return t('chat2.labelOther') || 'Khác';
+      default: return label;
+    }
+  };
+
   const renderAvatar = () => {
     const hasCustomAvatar = isGroup && !!(conversation.avatar || conversation.groupAvatar);
     if (isGroup && !hasCustomAvatar) {
@@ -217,7 +228,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
           <span className={`conversation-item__name ${hasUnread ? 'conversation-item__name--unread' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {conversation.isPinned && <Pin size={16} style={{ color: '#e6a817', flexShrink: 0 }} />}
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle}</span>
-            {currentLabel && <Tag size={14} color={getLabelColor(currentLabel)} style={{ flexShrink: 0, marginTop: '2px' }} title={currentLabel} />}
+            {currentLabel && <Tag size={14} color={getLabelColor(currentLabel)} style={{ flexShrink: 0, marginTop: '2px' }} title={getTranslatedLabel(currentLabel)} />}
           </span>
           <span className="conversation-item__time" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {conversation.isMuted && <BellOff size={10} />}

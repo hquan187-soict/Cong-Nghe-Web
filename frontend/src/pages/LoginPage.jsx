@@ -68,7 +68,7 @@ function LoginPage() {
       return
     }
     if (requiresCaptcha && !captchaToken) {
-      setServerError("Vui lòng xác minh bạn không phải là robot")
+      setServerError(t('login.captchaRequired') || "Vui lòng xác minh bạn không phải là robot")
       return
     }
 

@@ -925,7 +925,7 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
           padding: '16px', textAlign: 'center', borderTop: '1px solid var(--color-border-subtle)',
           color: 'var(--color-text-muted)', fontSize: '14px', background: 'var(--color-surface)'
         }}>
-          Bạn đã bị buộc rời khỏi nhóm. Bạn không thể thực hiện hành động nào.
+          {t('chat.forcedLeaveGroup') || 'Bạn đã bị buộc rời khỏi nhóm. Bạn không thể thực hiện hành động nào.'}
         </div>
       ) : isBlocked ? (
         <div style={{

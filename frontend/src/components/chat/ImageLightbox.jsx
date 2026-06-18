@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { X, Download } from 'lucide-react'
+import { useLang } from '../../context/LangContext';
 
 function ImageLightbox({ src, alt, onClose }) {
+  const { t } = useLang()
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -29,10 +31,10 @@ function ImageLightbox({ src, alt, onClose }) {
 
   return (
     <div className="lightbox-overlay" onClick={onClose}>
-      <button className="lightbox-close" onClick={onClose} title="Đóng">
+      <button className="lightbox-close" onClick={onClose} title={t('lightbox.close') || 'Đóng'}>
         <X size={24} />
       </button>
-      <button className="lightbox-download" onClick={handleDownload} title="Tải xuống">
+      <button className="lightbox-download" onClick={handleDownload} title={t('lightbox.download') || 'Tải xuống'}>
         <Download size={24} />
       </button>
       <img

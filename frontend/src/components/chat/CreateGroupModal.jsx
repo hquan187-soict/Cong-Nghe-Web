@@ -82,7 +82,7 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
       onClose();
     } catch (err) {
       console.error('Create group error:', err);
-      const message = err.response?.data?.message || 'Có lỗi xảy ra khi tạo nhóm.';
+      const message = err.response?.data?.message || t('chat.createError') || 'Có lỗi xảy ra khi tạo nhóm.';
       toast.error(message);
     } finally {
       setIsCreating(false);

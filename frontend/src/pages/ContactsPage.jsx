@@ -218,7 +218,7 @@ export default function ContactsPage() {
       setGroups(groupConvs);
     } catch (err) {
       console.error("Fetch friends error:", err);
-      toast.error("Không thể tải danh sách bạn bè");
+      toast.error(t('contacts.loadFriendsError') || "Không thể tải danh sách bạn bè");
     } finally {
       setIsLoading(false);
     }
@@ -245,7 +245,7 @@ export default function ContactsPage() {
       } catch (err) {
         console.error("Search users error:", err);
         if (!cancelled) {
-          toast.error("Không thể tìm kiếm người dùng");
+          toast.error(t('contacts.searchUserError') || "Không thể tìm kiếm người dùng");
         }
       } finally {
         if (!cancelled) setIsSearching(false);
@@ -266,7 +266,7 @@ export default function ContactsPage() {
       }
     } catch (err) {
       console.error("Error creating/fetching conversation:", err);
-      toast.error("Không thể mở cuộc trò chuyện");
+      toast.error(t('contacts.openConversationError') || "Không thể mở cuộc trò chuyện");
       navigate('/chat');
     }
   };
@@ -279,21 +279,21 @@ export default function ContactsPage() {
     try {
       const response = await userService.sendFriendRequest(contact._id);
       if (response?.autoAccepted) {
-        toast.success('Đã tự động kết bạn thành công!');
+        toast.success(t('contacts.autoFriendSuccess') || 'Đã tự động kết bạn thành công!');
         fetchFriendsAndRequests();
         setSearchResults(prev => prev.map(u => u._id === contact._id ? { ...u, isFriend: true, requestSent: false, hasReceivedRequest: false } : u));
         if (selectedContact?._id === contact._id) {
           setSelectedContact(prev => ({ ...prev, isFriend: true, requestSent: false, hasReceivedRequest: false }));
         }
       } else {
-        toast.success('Đã gửi lời mời kết bạn!');
+        toast.success(t('contacts.friendRequestSent') || 'Đã gửi lời mời kết bạn!');
         setSearchResults(prev => prev.map(u => u._id === contact._id ? { ...u, requestSent: true } : u));
         if (selectedContact?._id === contact._id) {
           setSelectedContact(prev => ({ ...prev, requestSent: true }));
         }
       }
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Không thể gửi lời mời kết bạn';
+      const msg = err?.response?.data?.message || t('contacts.sendRequestError') || 'Không thể gửi lời mời kết bạn';
       toast.error(msg);
     } finally {
       setFriendActionLoading(false);
@@ -305,14 +305,14 @@ export default function ContactsPage() {
     setFriendActionLoading(true);
     try {
       await userService.unfriend(contact._id);
-      toast.success('Đã hủy kết bạn!');
+      toast.success(t('contacts.unfriendSuccess') || 'Đã hủy kết bạn!');
       setFriends(prev => prev.filter(u => u._id !== contact._id));
       setSearchResults(prev => prev.map(u => u._id === contact._id ? { ...u, isFriend: false } : u));
       if (selectedContact?._id === contact._id) {
         setSelectedContact(prev => ({ ...prev, isFriend: false }));
       }
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Không thể hủy kết bạn';
+      const msg = err?.response?.data?.message || t('contacts.unfriendError') || 'Không thể hủy kết bạn';
       toast.error(msg);
     } finally {
       setFriendActionLoading(false);
@@ -850,7 +850,16 @@ export default function ContactsPage() {
                             default: return 'transparent';
                           }
                         })(), color: '#fff', fontWeight: '500' }}>
-                          {groupLabel}
+                          {(() => {
+                            switch(groupLabel) {
+                              case 'Khách hàng': return t('chat2.labelCustomer') || 'Khách hàng';
+                              case 'Gia đình': return t('chat2.labelFamily') || 'Gia đình';
+                              case 'Công việc': return t('chat2.labelWork') || 'Công việc';
+                              case 'Bạn bè': return t('chat2.labelFriends') || 'Bạn bè';
+                              case 'Khác': return t('chat2.labelOther') || 'Khác';
+                              default: return groupLabel;
+                            }
+                          })()}
                         </span>
                       );
                     })()}

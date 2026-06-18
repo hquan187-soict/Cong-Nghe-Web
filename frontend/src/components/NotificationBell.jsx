@@ -130,7 +130,7 @@ export default function NotificationBell({ onNotificationClick }) {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--color-text)' }}>
-              Thông báo nhắc tên
+              {t('notif.mention') || 'Thông báo nhắc tên'}
             </h4>
             {unreadCount > 0 && (
               <button
@@ -142,7 +142,7 @@ export default function NotificationBell({ onNotificationClick }) {
                 }}
               >
                 <CheckCheck size={14} />
-                Đánh dấu đã đọc
+                {t('notif.markAsRead') || 'Đánh dấu đã đọc'}
               </button>
             )}
           </div>
