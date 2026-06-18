@@ -3,6 +3,7 @@ import { Lock, Pin } from 'lucide-react'
 import PollDetailModal from './PollDetailModal'
 import Avatar from '../ui/Avatar'
 import { messageService } from '../../services/message.service'
+import { useLang } from '../../context/LangContext'
 
 function formatDeadline(deadline) {
   if (!deadline) return null
