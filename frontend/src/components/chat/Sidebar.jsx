@@ -106,12 +106,29 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
             ? {
                 ...conv,
                 lastMessage,
-                updatedAt: lastMessage.createdAt || new Date().toISOString(),
+                updatedAt: lastMessage ? (lastMessage.createdAt || new Date().toISOString()) : conv.updatedAt,
               }
             : conv
         )
         return updated
       })
+    },
+
+    updateMessageRecalled(conversationId, messageId) {
+      setConversations((prev) => {
+        return prev.map((conv) => {
+          if (conv._id === conversationId && conv.lastMessage?._id === messageId) {
+            return {
+              ...conv,
+              lastMessage: {
+                ...conv.lastMessage,
+                isRecalled: true
+              }
+            }
+          }
+          return conv;
+        });
+      });
     },
 
     clearUnread(conversationId) {

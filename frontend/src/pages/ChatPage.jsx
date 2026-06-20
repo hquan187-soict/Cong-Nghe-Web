@@ -947,6 +947,9 @@ function ChatPage() {
       if (conversationId === selectedConvIdRef.current) {
         setMediaItems(prev => prev.filter(m => m._id !== messageId));
       }
+      if (sidebarRef.current?.updateMessageRecalled) {
+        sidebarRef.current.updateMessageRecalled(conversationId, messageId)
+      }
     }
 
     socket.on('sendMessage', handleGlobalMessage)

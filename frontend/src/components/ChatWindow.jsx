@@ -890,7 +890,13 @@ const ChatWindow = forwardRef(function ChatWindow({ conversationId, otherMember,
                 onReply={(msg) => setReplyingTo(msg)}
                 scrollContainerRef={scrollContainerRef}
                 deleteMessage={(messageId) => {
-                  setMessages((prev) => prev.filter((m) => m._id !== messageId))
+                  const wasLast = messages.length > 0 && messages[messages.length - 1]._id === messageId;
+                  setMessages((prev) => prev.filter((m) => m._id !== messageId));
+                  if (wasLast && onMessageSent) {
+                    const filtered = messages.filter((m) => m._id !== messageId);
+                    const newLastMsg = filtered.length > 0 ? filtered[filtered.length - 1] : null;
+                    onMessageSent({ conversationId, lastMessage: newLastMsg });
+                  }
                 }}
                 onAvatarClick={onAvatarClick}
                 conversation={convProp}

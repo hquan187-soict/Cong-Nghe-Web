@@ -64,6 +64,10 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
 
     const prefixStr = senderName === t('chat2.you') || isGroup ? senderName + ': ' : ''
 
+    if (msg.isRecalled) {
+      return prefixStr + (t('chat.recalled') || 'Tin nhắn đã bị thu hồi')
+    }
+
     if (msg.messageType === 'system') {
       return translateSystemMessage(msg.text, t)
     }
@@ -214,6 +218,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   return (
     <div
       className={`conversation-item ${isActive ? 'conversation-item--active' : ''} ${hasUnread ? 'conversation-item--unread' : ''}`}
+      style={{ zIndex: showMenu ? 50 : undefined }}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -248,7 +253,12 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
       </div>
 
       {/* Hover option button */}
-      <div className="conversation-item__options" ref={menuRef}>
+      {/* Hover option button */}
+      <div 
+        className="conversation-item__options" 
+        ref={menuRef}
+        style={showMenu ? { opacity: 1, visibility: 'visible' } : {}}
+      >
         <button
           className="conversation-item__options-btn"
           onClick={(e) => {
@@ -260,7 +270,7 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
           <MoreHorizontal size={16} />
         </button>
         {showMenu && (
-          <div className="conversation-item__dropdown">
+          <div className="conversation-item__dropdown" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
             <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Pin')}>
               {conversation.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
               <span>{conversation.isPinned ? t('chat.unpinConversation') : t('chat.pinConversation')}</span>
@@ -275,28 +285,28 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
             </button>
             
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <button 
+              <div 
+                role="button"
                 className="conversation-item__dropdown-item" 
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '8px', width: '100%' }}
-                onClick={(e) => { e.stopPropagation(); setShowLabelSubmenu(!showLabelSubmenu) }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '8px', width: '100%', cursor: 'pointer' }}
+                onClick={(e) => { e.stopPropagation(); setShowLabelSubmenu((prev) => !prev) }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Tag size={14} />
                   <span>{t('chat2.labelTitle')}</span>
                 </div>
                 {showLabelSubmenu ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </button>
-              
+              </div>
               {showLabelSubmenu && (
                 <div style={{ background: 'var(--color-surface-hover)', borderRadius: '4px', margin: '4px 8px', overflow: 'hidden' }}>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khách hàng')}><Tag size={12} color="#ef4444" style={{marginRight: 8}}/> {t('chat2.labelCustomer')}</button>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Gia đình')}><Tag size={12} color="#22c55e" style={{marginRight: 8}}/> {t('chat2.labelFamily')}</button>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Công việc')}><Tag size={12} color="#f97316" style={{marginRight: 8}}/> {t('chat2.labelWork')}</button>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Bạn bè')}><Tag size={12} color="#a855f7" style={{marginRight: 8}}/> {t('chat2.labelFriends')}</button>
-                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khác')}><Tag size={12} color="#eab308" style={{marginRight: 8}}/> {t('chat2.labelOther')}</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khách hàng')}><Tag size={12} color="#ef4444" style={{marginRight: '8px'}}/> {t('chat2.labelCustomer')}</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Gia đình')}><Tag size={12} color="#22c55e" style={{marginRight: '8px'}}/> {t('chat2.labelFamily')}</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Công việc')}><Tag size={12} color="#f97316" style={{marginRight: '8px'}}/> {t('chat2.labelWork')}</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Bạn bè')}><Tag size={12} color="#a855f7" style={{marginRight: '8px'}}/> {t('chat2.labelFriends')}</button>
+                   <button className="conversation-item__dropdown-item" style={{ paddingLeft: '32px', fontSize: '13px' }} onClick={handleMenuAction('Label', 'Khác')}><Tag size={12} color="#eab308" style={{marginRight: '8px'}}/> {t('chat2.labelOther')}</button>
                    {currentLabel && (
                      <>
-                        <div className="conversation-item__dropdown-divider" style={{ margin: '4px 0', height: 1, backgroundColor: 'var(--color-border-subtle)' }} />
+                        <div className="conversation-item__dropdown-divider" style={{ margin: '4px 0', height: '1px', backgroundColor: 'var(--color-border-subtle)' }} />
                         <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Label', null)} style={{ color: '#ef4444', paddingLeft: '32px', fontSize: '13px' }}>{t('chat2.removeLabel')}</button>
                      </>
                    )}
