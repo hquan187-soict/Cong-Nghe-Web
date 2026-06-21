@@ -24,7 +24,7 @@ async function getTurnServers() {
 
   try {
     const res = await fetch(
-      `https://hoangquan-20239673-soict.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`
+      `https://cong-nghe-web.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`
     );
     if (!res.ok) throw new Error(`Metered API returned ${res.status}`);
     cachedTurnServers = await res.json();
