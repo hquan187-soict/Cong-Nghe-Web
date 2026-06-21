@@ -6,23 +6,10 @@ import { useToast } from '../context/ToastContext'
 import { useLang } from '../context/LangContext'
 import { userService } from '../services/user.service'
 import { formatLastActive } from '../utils/timeUtils'
+import { useElementAspect } from '../hooks/useElementAspect'
+import { getCoverBackground, getCoverGradient, getImageSize } from '../utils/coverUtils'
 import Avatar from './ui/Avatar'
 import ReportModal from './ReportModal'
-
-const COVER_COLORS = {
-  '': 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-  blue: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
-  cyan: 'linear-gradient(135deg, #0891b2, #06b6d4)',
-  teal: 'linear-gradient(135deg, #0d9488, #14b8a6)',
-  green: 'linear-gradient(135deg, #16a34a, #22c55e)',
-  orange: 'linear-gradient(135deg, #ea580c, #f97316)',
-  red: 'linear-gradient(135deg, #dc2626, #ef4444)',
-  pink: 'linear-gradient(135deg, #db2777, #ec4899)',
-  purple: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-  slate: 'linear-gradient(135deg, #475569, #64748b)',
-  rose: 'linear-gradient(135deg, #e11d48, #f43f5e)',
-  amber: 'linear-gradient(135deg, #d97706, #f59e0b)',
-}
 
 function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
   const { user: currentUser, updateUser } = useAuth()
@@ -38,7 +25,10 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
   const [isBlocked, setIsBlocked] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
+  const [coverImageAspect, setCoverImageAspect] = useState(null)
   const fetchIdRef = useRef(0)
+  const bannerRef = useRef(null)
+  const coverBannerAspect = useElementAspect(bannerRef)
 
   useEffect(() => {
     if (!isOpen || !userId || userId === currentUser?._id) {
@@ -71,6 +61,38 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
   }, [isOpen, onClose])
+
+  const coverGradient = getCoverGradient(profileUser?.coverColor)
+  const activeCoverImage = profileUser?.coverOriginalImage || profileUser?.coverImage || ''
+  const activeCoverBackground = getCoverBackground(profileUser?.coverCropArea, coverImageAspect, coverBannerAspect || 11 / 3)
+  const bannerClassName = `profile-modal__banner ${activeCoverImage ? '' : 'profile-modal__banner--generated'}`
+  const bannerStyle = activeCoverImage
+    ? {
+        backgroundImage: `url("${activeCoverImage}")`,
+        backgroundSize: activeCoverBackground.size,
+        backgroundPosition: activeCoverBackground.position,
+        backgroundRepeat: 'no-repeat',
+      }
+    : { background: coverGradient }
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!activeCoverImage) {
+      setCoverImageAspect(null)
+      return undefined
+    }
+
+    getImageSize(activeCoverImage)
+      .then(({ width, height }) => {
+        if (!cancelled) setCoverImageAspect(width && height ? width / height : null)
+      })
+      .catch(() => {
+        if (!cancelled) setCoverImageAspect(null)
+      })
+
+    return () => { cancelled = true }
+  }, [activeCoverImage])
 
   if (!isOpen || !userId || userId === currentUser?._id) return null
 
@@ -145,18 +167,6 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
   function genderLabel(g) {
     return g === 'male' ? t('profile.genderMale') : g === 'female' ? t('profile.genderFemale') : g === 'other' ? t('profile.genderOther') : null
   }
-
-  const coverGradient = COVER_COLORS[profileUser?.coverColor] || COVER_COLORS['']
-  const activeCoverImage = profileUser?.coverImage || profileUser?.coverOriginalImage || ''
-  const bannerClassName = `profile-modal__banner ${activeCoverImage ? '' : 'profile-modal__banner--generated'}`
-  const bannerStyle = activeCoverImage
-    ? {
-        backgroundImage: `url("${activeCoverImage}")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center 42%',
-        backgroundRepeat: 'no-repeat',
-      }
-    : { background: coverGradient }
 
   const renderSkeleton = () => (
     <div className="user-profile-modal">
@@ -263,7 +273,7 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
           {/* Scrollable content */}
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {/* Banner with cover image or generated color */}
-            <div className={bannerClassName} style={bannerStyle}>
+            <div ref={bannerRef} className={bannerClassName} style={bannerStyle}>
               <div className="profile-modal__banner-pattern" />
             </div>
 

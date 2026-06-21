@@ -129,7 +129,7 @@ export const getUserById = async (req, res, next) => {
     }
 
     const user = await User.findById(id).select(
-      "fullName email avatar coverColor coverImage isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests status"
+      "fullName email avatar coverColor coverImage coverOriginalImage coverCropArea isOnline lastSeen showActiveStatus birthday gender phone address hometown hobbies occupation education bio profileVisibility friends friendRequests status"
     );
 
     if (!user) {

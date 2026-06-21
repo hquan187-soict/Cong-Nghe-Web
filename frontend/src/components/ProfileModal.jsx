@@ -10,6 +10,8 @@ import { useToast } from '../context/ToastContext'
 import { useLang } from '../context/LangContext'
 import { authService } from '../services/auth.service'
 import { userService } from '../services/user.service'
+import { useElementAspect } from '../hooks/useElementAspect'
+import { getCoverBackground, getCoverGradient, getImageSize } from '../utils/coverUtils'
 import Avatar from './ui/Avatar'
 import Button from './ui/Button'
 import ConfirmModal from './ui/ConfirmModal'
@@ -26,7 +28,10 @@ function ProfileModal({ isOpen, onClose }) {
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({ fullName: '', avatar: '' })
+  const [coverImageAspect, setCoverImageAspect] = useState(null)
   const fileInputRef = useRef(null)
+  const bannerRef = useRef(null)
+  const coverBannerAspect = useElementAspect(bannerRef)
   const [formErrors, setFormErrors] = useState({})
 
   const [showPasswordSection, setShowPasswordSection] = useState(false)
@@ -50,8 +55,6 @@ function ProfileModal({ isOpen, onClose }) {
     if (showAvatarMenu) document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [showAvatarMenu])
-
-  if (!isOpen) return null
 
   function startEditing() {
     setFormData({ fullName: user?.fullName || '', avatar: user?.avatar || '' })
@@ -224,6 +227,39 @@ function ProfileModal({ isOpen, onClose }) {
     return null
   }
 
+  const activeCoverImage = user?.coverOriginalImage || user?.coverImage || ''
+  const activeCoverBackground = getCoverBackground(user?.coverCropArea, coverImageAspect, coverBannerAspect || 11 / 3)
+  const bannerClassName = `profile-modal__banner ${activeCoverImage ? '' : 'profile-modal__banner--generated'}`
+  const bannerStyle = activeCoverImage
+    ? {
+        backgroundImage: `url("${activeCoverImage}")`,
+        backgroundSize: activeCoverBackground.size,
+        backgroundPosition: activeCoverBackground.position,
+        backgroundRepeat: 'no-repeat',
+      }
+    : { background: getCoverGradient(user?.coverColor) }
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!activeCoverImage) {
+      setCoverImageAspect(null)
+      return undefined
+    }
+
+    getImageSize(activeCoverImage)
+      .then(({ width, height }) => {
+        if (!cancelled) setCoverImageAspect(width && height ? width / height : null)
+      })
+      .catch(() => {
+        if (!cancelled) setCoverImageAspect(null)
+      })
+
+    return () => { cancelled = true }
+  }, [activeCoverImage])
+
+  if (!isOpen) return null
+
   const renderInfoItem = (icon, label, value, iconCls) => {
     if (!value) return null
     return (
@@ -244,7 +280,7 @@ function ProfileModal({ isOpen, onClose }) {
       <div className="profile-modal">
         <button className="profile-modal__close-btn" onClick={onClose}><X size={20} /></button>
 
-        <div className="profile-modal__banner profile-modal__banner--generated">
+        <div ref={bannerRef} className={bannerClassName} style={bannerStyle}>
           <div className="profile-modal__banner-pattern"></div>
           {!isEditing && (
             <button onClick={startEditing} className="profile-modal__edit-btn" title={t('profile.edit')}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, UserMinus, UserPlus, Clock, ShieldBan, ShieldCheck, Cake, MapPin, Heart, Briefcase, GraduationCap, Phone, Mail, User } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import { useLang } from '../../context/LangContext';
@@ -6,21 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { userService } from '../../services/user.service';
 import { formatLastActive } from '../../utils/timeUtils';
-
-const COVER_COLORS = {
-  '': 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-  blue: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
-  cyan: 'linear-gradient(135deg, #0891b2, #06b6d4)',
-  teal: 'linear-gradient(135deg, #0d9488, #14b8a6)',
-  green: 'linear-gradient(135deg, #16a34a, #22c55e)',
-  orange: 'linear-gradient(135deg, #ea580c, #f97316)',
-  red: 'linear-gradient(135deg, #dc2626, #ef4444)',
-  pink: 'linear-gradient(135deg, #db2777, #ec4899)',
-  purple: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-  slate: 'linear-gradient(135deg, #475569, #64748b)',
-  rose: 'linear-gradient(135deg, #e11d48, #f43f5e)',
-  amber: 'linear-gradient(135deg, #d97706, #f59e0b)',
-};
+import { useElementAspect } from '../../hooks/useElementAspect';
+import { getCoverBackground, getCoverGradient, getImageSize } from '../../utils/coverUtils';
 
 const ICON_STYLES = {
   indigo: { bg: 'var(--color-primary-light)', color: 'var(--color-primary)' },
@@ -35,6 +22,9 @@ export default function MiniProfile({ contact, isOnline, onSendMessage, onUnfrie
   const toast = useToast();
   const [blockLoading, setBlockLoading] = useState(false);
   const [fullProfile, setFullProfile] = useState(null);
+  const [coverImageAspect, setCoverImageAspect] = useState(null);
+  const bannerRef = useRef(null);
+  const coverBannerAspect = useElementAspect(bannerRef);
 
   useEffect(() => {
     if (!contact?._id) { setFullProfile(null); return; }
@@ -45,11 +35,41 @@ export default function MiniProfile({ contact, isOnline, onSendMessage, onUnfrie
     return () => { cancelled = true; };
   }, [contact?._id]);
 
-  if (!contact) return null;
+  const isBlocked = currentUser?.blockedUsers?.some(id => (id?._id || id)?.toString() === contact?._id);
+  const profile = fullProfile || contact || {};
+  const coverGradient = getCoverGradient(profile.coverColor);
+  const activeCoverImage = profile.coverOriginalImage || profile.coverImage || '';
+  const activeCoverBackground = getCoverBackground(profile.coverCropArea, coverImageAspect, coverBannerAspect || 16 / 5);
+  const bannerStyle = {
+    height: 180,
+    backgroundImage: activeCoverImage ? `url("${activeCoverImage}")` : coverGradient,
+    backgroundSize: activeCoverImage ? activeCoverBackground.size : undefined,
+    backgroundPosition: activeCoverImage ? activeCoverBackground.position : undefined,
+    backgroundRepeat: 'no-repeat',
+    position: 'relative',
+    overflow: 'hidden',
+  };
 
-  const isBlocked = currentUser?.blockedUsers?.some(id => (id?._id || id)?.toString() === contact._id);
-  const profile = fullProfile || contact;
-  const coverGradient = COVER_COLORS[fullProfile?.coverColor] || COVER_COLORS[''];
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!activeCoverImage) {
+      setCoverImageAspect(null);
+      return undefined;
+    }
+
+    getImageSize(activeCoverImage)
+      .then(({ width, height }) => {
+        if (!cancelled) setCoverImageAspect(width && height ? width / height : null);
+      })
+      .catch(() => {
+        if (!cancelled) setCoverImageAspect(null);
+      });
+
+    return () => { cancelled = true; };
+  }, [activeCoverImage]);
+
+  if (!contact) return null;
 
   const handleBlock = async () => {
     if (!window.confirm(t('userProfile.blockConfirm'))) return;
@@ -151,7 +171,7 @@ export default function MiniProfile({ contact, isOnline, onSendMessage, onUnfrie
   return (
     <div style={{ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--color-bg)' }}>
       {/* Banner */}
-      <div style={{ height: 180, background: coverGradient, position: 'relative', overflow: 'hidden' }}>
+      <div ref={bannerRef} style={bannerStyle}>
         <div style={{ position: 'absolute', inset: 0, opacity: 0.08, backgroundImage: 'repeating-linear-gradient(45deg,transparent,transparent 30px,rgba(255,255,255,0.1) 30px,rgba(255,255,255,0.1) 60px)' }} />
       </div>
 
