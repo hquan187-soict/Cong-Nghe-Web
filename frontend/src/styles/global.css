@@ -1072,6 +1072,28 @@ a:hover {
   z-index: 10;
 }
 
+.mention-dropdown {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.mention-dropdown::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mention-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mention-dropdown::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.mention-dropdown::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
 .message-input__preview {
   padding: 10px 16px 0;
 }
@@ -3391,6 +3413,10 @@ a:hover {
   .message-input__row {
     gap: 7px;
     padding: 9px 12px;
+  }
+
+  .message-input__textarea {
+    font-size: 16px;
   }
 
   .message-input__action-btn,

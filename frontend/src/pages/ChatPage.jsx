@@ -685,6 +685,9 @@ function ChatPage() {
   }, [socket, isConnected])
 
   const [showInfoPanel, setShowInfoPanel] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      return false
+    }
     try {
       const saved = localStorage.getItem('show_info_panel')
       return saved !== null ? saved === 'true' : true
@@ -804,8 +807,18 @@ function ChatPage() {
     selectedConvIdRef.current = selectedConversation?._id
   }, [selectedConversation])
 
+  useEffect(() => {
+    if (!isMobileSidebarLayout || !selectedConversation?._id) return
+    setShowInfoPanel(false)
+    setShowSearchPanel(false)
+  }, [isMobileSidebarLayout, selectedConversation?._id])
+
   const handleSelectConversation = useCallback((conv) => {
     setSelectedConversation(conv)
+    if (isMobileSidebarLayout) {
+      setShowInfoPanel(false)
+      setShowSearchPanel(false)
+    }
     if (conv) {
       localStorage.setItem('last_conversation', JSON.stringify(conv))
       navigate(`/chat/${conv._id}`, { replace: true })
@@ -813,7 +826,7 @@ function ChatPage() {
       localStorage.removeItem('last_conversation')
       navigate('/chat', { replace: true })
     }
-  }, [navigate])
+  }, [isMobileSidebarLayout, navigate])
 
   const chatWindowRef = useRef(null)
 

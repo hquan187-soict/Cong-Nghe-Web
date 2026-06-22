@@ -67,17 +67,18 @@ function renderTextWithMentions(text, mentions, mentionAll, isOwn = false, t) {
   
   const names = mentions ? mentions.map(m => typeof m === 'object' ? m.fullName : null).filter(Boolean) : [];
   if (mentionAll) {
-    names.push(t ? (t('msg.everyone') || 'Mọi người') : 'Mọi người');
+    names.push(t ? (t('msg.everyone') || 'Mọi người') : 'Mọi người', 'All', 'Everyone', 'Mọi người');
   }
+  const uniqueNames = [...new Set(names)];
   
-  if (names.length === 0) return text;
+  if (uniqueNames.length === 0) return text;
 
   const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(@(?:${names.map(escapeRegExp).join('|')}))`, 'g');
+  const regex = new RegExp(`(@(?:${uniqueNames.map(escapeRegExp).join('|')}))`, 'g');
 
   const parts = text.split(regex);
   return parts.map((part, i) => {
-    if (part.startsWith('@') && names.some(name => part === `@${name}`)) {
+    if (part.startsWith('@') && uniqueNames.some(name => part === `@${name}`)) {
       return (
         <span 
           key={i} 

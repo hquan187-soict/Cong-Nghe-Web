@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import {
   MoreHorizontal, BellOff, Bell, MailOpen, Phone, Video,
   Archive, Trash2, Pin, PinOff, LogOut, ShieldBan, ShieldCheck, ChevronRight, ChevronDown, Tag
@@ -17,6 +17,9 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   const [showMenu, setShowMenu] = useState(false)
   const [showLabelSubmenu, setShowLabelSubmenu] = useState(false)
   const menuRef = useRef(null)
+  const optionsBtnRef = useRef(null)
+  const dropdownRef = useRef(null)
+  const [dropdownStyle, setDropdownStyle] = useState({})
 
   const isGroup = conversation.isGroup;
   const isArchivedByMe = conversation.archivedBy?.some(
@@ -114,13 +117,53 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     function handleClickOutside(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowMenu(false)
+        setShowLabelSubmenu(false)
+      }
+    }
+    function handleEscape(e) {
+      if (e.key === 'Escape') {
+        setShowMenu(false)
+        setShowLabelSubmenu(false)
       }
     }
     if (showMenu) {
       document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleEscape)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+        document.removeEventListener('keydown', handleEscape)
+      }
     }
   }, [showMenu])
+
+  useLayoutEffect(() => {
+    if (!showMenu || !optionsBtnRef.current) return
+
+    const rect = optionsBtnRef.current.getBoundingClientRect()
+    const menuWidth = 200
+    const menuHeight = dropdownRef.current?.offsetHeight || 320
+    const viewportPadding = 8
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding
+    const spaceAbove = rect.top - viewportPadding
+    const shouldOpenUp = spaceBelow < menuHeight && spaceAbove > spaceBelow
+    const top = shouldOpenUp
+      ? Math.max(viewportPadding, rect.top - menuHeight - 4)
+      : Math.max(
+          viewportPadding,
+          Math.min(rect.bottom + 4, window.innerHeight - menuHeight - viewportPadding)
+        )
+    const left = Math.max(
+      viewportPadding,
+      Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - viewportPadding)
+    )
+
+    setDropdownStyle({
+      top,
+      left,
+      width: menuWidth,
+      maxHeight: Math.max(180, shouldOpenUp ? spaceAbove : spaceBelow),
+    })
+  }, [showMenu, showLabelSubmenu])
 
   const handleMenuAction = (action, payload) => (e) => {
     e.stopPropagation()
@@ -260,9 +303,11 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
         style={showMenu ? { opacity: 1, visibility: 'visible' } : {}}
       >
         <button
+          ref={optionsBtnRef}
           className="conversation-item__options-btn"
           onClick={(e) => {
             e.stopPropagation()
+            if (showMenu) setShowLabelSubmenu(false)
             setShowMenu((v) => !v)
           }}
           title={t('chat2.options')}
@@ -270,7 +315,13 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
           <MoreHorizontal size={16} />
         </button>
         {showMenu && (
-          <div className="conversation-item__dropdown" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <div
+            ref={dropdownRef}
+            className="conversation-item__dropdown"
+            style={dropdownStyle}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
             <button className="conversation-item__dropdown-item" onClick={handleMenuAction('Pin')}>
               {conversation.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
               <span>{conversation.isPinned ? t('chat.unpinConversation') : t('chat.pinConversation')}</span>

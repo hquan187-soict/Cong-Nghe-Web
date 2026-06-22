@@ -18,10 +18,6 @@ function WarningPopup() {
   useEffect(() => {
     function checkWarning() {
       const expiresAt = localStorage.getItem(WARNING_EXPIRES_KEY)
-      if (expiresAt && new Date() < new Date(expiresAt)) {
-        setShow(true)
-        return
-      }
       if (expiresAt && new Date() >= new Date(expiresAt)) {
         localStorage.removeItem(WARNING_EXPIRES_KEY)
         localStorage.removeItem(STORAGE_KEY)

@@ -81,6 +81,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
   const [muteMap, setMuteMap] = useState({})
   const [activeFilter, setActiveFilter] = useState('all') // 'all' | 'unread' | 'archived' | 'label:...'
   const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  const filterDropdownRef = useRef(null)
+  const filterMenuRef = useRef(null)
+  const [filterMenuStyle, setFilterMenuStyle] = useState({})
 
   useImperativeHandle(ref, () => ({
     updateLastMessage(conversationId, lastMessage) {
@@ -209,37 +212,47 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
 
     async function fetchConversations() {
       setIsLoading(true)
-      try {
-        const data = await conversationService.getConversations()
-        if (!cancelled) {
-          const list = Array.isArray(data) ? data : []
-          setConversations(list)
-          
-          const uMap = {}
-          const pMap = {}
-          const mMap = {}
-          
-          list.forEach((conv) => {
-            const isMarkedUnread = conv.markedUnreadBy?.includes(user?._id?.toString() || user?._id);
-            if ((conv.unreadCount && conv.unreadCount > 0) || isMarkedUnread) {
-              uMap[conv._id] = conv.unreadCount || 1
-            }
-            if (conv.isPinned) pMap[conv._id] = true
-            if (conv.isMuted) mMap[conv._id] = true
-          })
-          
-          setUnreadMap(uMap)
-          setPinMap(pMap)
-          setMuteMap(mMap)
-        }
-      } catch (err) {
-        console.error('Fetch conversations error:', err)
-        if (!cancelled) {
+      const maxAttempts = 3
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const data = await conversationService.getConversations()
+          if (!cancelled) {
+            const list = Array.isArray(data) ? data : []
+            setConversations(list)
+
+            const uMap = {}
+            const pMap = {}
+            const mMap = {}
+
+            list.forEach((conv) => {
+              const isMarkedUnread = conv.markedUnreadBy?.includes(user?._id?.toString() || user?._id);
+              if ((conv.unreadCount && conv.unreadCount > 0) || isMarkedUnread) {
+                uMap[conv._id] = conv.unreadCount || 1
+              }
+              if (conv.isPinned) pMap[conv._id] = true
+              if (conv.isMuted) mMap[conv._id] = true
+            })
+
+            setUnreadMap(uMap)
+            setPinMap(pMap)
+            setMuteMap(mMap)
+            setIsLoading(false)
+          }
+          return
+        } catch (err) {
+          console.error('Fetch conversations error:', err)
+          if (cancelled) return
+          if (attempt < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, attempt * 350))
+            if (cancelled) return
+            continue
+          }
           toast.error(t('chat.loadError'))
         }
-      } finally {
-        if (!cancelled) setIsLoading(false)
       }
+
+      if (!cancelled) setIsLoading(false)
     }
 
     fetchConversations()
@@ -648,6 +661,50 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
     })
   }, [showNotifications, collapseDisabled])
 
+  useLayoutEffect(() => {
+    if (!showFilterDropdown || !filterDropdownRef.current) return
+
+    const rect = filterDropdownRef.current.getBoundingClientRect()
+    const menuWidth = 150
+    const viewportPadding = 12
+    const left = Math.max(
+      viewportPadding,
+      Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - viewportPadding)
+    )
+
+    setFilterMenuStyle({
+      top: rect.bottom + 4,
+      left,
+      width: menuWidth,
+      maxHeight: Math.max(160, window.innerHeight - rect.bottom - 16),
+    })
+  }, [showFilterDropdown])
+
+  useEffect(() => {
+    if (!showFilterDropdown) return
+
+    function handleFilterOutside(e) {
+      const clickedInButton = filterDropdownRef.current?.contains(e.target)
+      const clickedInMenu = filterMenuRef.current?.contains(e.target)
+      if (!clickedInButton && !clickedInMenu) {
+        setShowFilterDropdown(false)
+      }
+    }
+
+    function handleFilterEscape(e) {
+      if (e.key === 'Escape') {
+        setShowFilterDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleFilterOutside)
+    document.addEventListener('keydown', handleFilterEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleFilterOutside)
+      document.removeEventListener('keydown', handleFilterEscape)
+    }
+  }, [showFilterDropdown])
+
   const handleSearchBarClick = () => {
     setShowSearchModal(true)
   }
@@ -832,8 +889,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                   </div>
                 </div>
               </div>
-              <div className="sidebar-filter" style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
+              <div className="sidebar-filter">
                 <button
+                  className="sidebar-filter__btn"
                   onClick={() => setActiveFilter('all')}
                   style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                     background: activeFilter === 'all' ? 'var(--color-primary-light)' : 'transparent',
@@ -843,6 +901,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                   {t('chat.filterAll')}
                 </button>
                 <button
+                  className="sidebar-filter__btn"
                   onClick={() => setActiveFilter('unread')}
                   style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                     background: activeFilter === 'unread' ? 'var(--color-primary-light)' : 'transparent',
@@ -851,8 +910,9 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                 >
                   {t('chat.filterUnread')}
                 </button>
-                <div style={{ position: 'relative' }}>
+                <div className="sidebar-filter__dropdown" ref={filterDropdownRef}>
                   <button
+                    className="sidebar-filter__btn"
                     onClick={() => setShowFilterDropdown(!showFilterDropdown)}
                     style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                       background: activeFilter.startsWith('label:') ? 'var(--color-primary-light)' : 'transparent',
@@ -863,7 +923,22 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                     {t('chat2.labelTitle')} <ChevronRight size={14} style={{ transform: showFilterDropdown ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
                   </button>
                   {showFilterDropdown && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '4px', minWidth: '150px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '4px 0', zIndex: 100 }}>
+                    <div
+                      ref={filterMenuRef}
+                      className="sidebar-filter__menu"
+                      style={{
+                        position: 'fixed',
+                        ...filterMenuStyle,
+                        minWidth: '150px',
+                        background: 'var(--color-surface)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        padding: '4px 0',
+                        zIndex: 1000,
+                        overflowY: 'auto',
+                      }}
+                    >
                       {[
                         { label: t('chat2.labelCustomer'), color: '#ef4444', key: 'Khách hàng' },
                         { label: t('chat2.labelFamily'), color: '#22c55e', key: 'Gia đình' },
@@ -889,6 +964,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                 </div>
                 {archivedCount > 0 && (
                   <button
+                    className="sidebar-filter__btn"
                     onClick={() => setActiveFilter(activeFilter === 'archived' ? 'all' : 'archived')}
                     style={{ padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                       background: activeFilter === 'archived' ? 'var(--color-primary-light)' : 'transparent',

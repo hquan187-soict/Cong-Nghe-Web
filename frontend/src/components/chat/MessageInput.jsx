@@ -107,7 +107,7 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
     if (showMentionList && isGroup && members.length > 0) {
       const search = removeAccents(mentionSearch);
       
-      const ALL_MEMBER_TAG = { _id: 'all', fullName: 'Mọi người', isAll: true };
+      const ALL_MEMBER_TAG = { _id: 'all', fullName: t('msg.everyone') || 'Mọi người', isAll: true };
       const validMembers = members.filter(m => m._id !== currentUserId);
       const combinedMembers = [ALL_MEMBER_TAG, ...validMembers];
       
@@ -116,7 +116,7 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
       setFilteredMembers(filtered);
       setMentionIndex(0);
     }
-  }, [mentionSearch, showMentionList, isGroup, members, currentUserId]);
+  }, [mentionSearch, showMentionList, isGroup, members, currentUserId, t]);
 
   // Click outside mention list
   useEffect(() => {
