@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { adminService } from '../services/admin.service'
@@ -6,14 +6,15 @@ import { useNavigate } from 'react-router-dom'
 import {
   Users, FileText, Shield, Search, ChevronLeft, ChevronRight,
   Loader2, AlertTriangle, Eye, LogOut, MessageSquare, Trash2,
-  ArrowUpDown, ArrowUp, ArrowDown, UserX
+  ArrowUpDown, ArrowUp, ArrowDown, UserX, Settings, Moon, Sun, Languages
 } from 'lucide-react'
 import Avatar from '../components/ui/Avatar'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { useLang } from '../context/LangContext'
+import { useTheme } from '../context/ThemeContext'
 
 const BAN_ACTIONS = [
-  { value: '', label: '-- Chọn hành động --' },
+  { value: '', label: 'Chọn hành động' },
   { value: 'warning', label: 'Cảnh cáo' },
   { value: 'ban_3_days', label: 'Cấm 3 ngày' },
   { value: 'ban_7_days', label: 'Cấm 7 ngày' },
@@ -52,6 +53,75 @@ function ReportStatusBadge({ status }) {
   }
   const s = map[status] || map.pending
   return <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{s.label}</span>
+}
+
+// ─── Settings Dropdown ─────────────────────────────
+function SettingsDropdown() {
+  const { t, lang, toggleLang } = useLang()
+  const { theme, toggleTheme } = useTheme()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(p => !p)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
+          borderRadius: 8, border: '1px solid var(--color-border)',
+          background: 'var(--color-surface)', color: 'var(--color-text-muted)',
+          fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}
+      >
+        <Settings size={16} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, marginTop: 6,
+          background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+          borderRadius: 12, padding: 8, minWidth: 200, zIndex: 100,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+        }}>
+          <button
+            onClick={() => { toggleTheme(); setOpen(false) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '10px 12px', borderRadius: 8, border: 'none',
+              background: 'transparent', cursor: 'pointer', fontSize: 14,
+              color: 'var(--color-text)', fontWeight: 500,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--color-hover-bg)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+            {theme === 'light' ? (t('settings.darkMode') || 'Chế độ tối') : (t('settings.lightMode') || 'Chế độ sáng')}
+          </button>
+          <button
+            onClick={() => { toggleLang(); setOpen(false) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '10px 12px', borderRadius: 8, border: 'none',
+              background: 'transparent', cursor: 'pointer', fontSize: 14,
+              color: 'var(--color-text)', fontWeight: 500,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--color-hover-bg)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <Languages size={16} />
+            {lang === 'vi' ? 'English' : 'Tiếng Việt'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Users Tab ─────────────────────────────────────
@@ -152,7 +222,7 @@ function UsersTab() {
     <div>
       <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <div style={{ position: 'relative', flex: 1 }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
           <input
             type="text"
             value={searchInput}
@@ -160,8 +230,8 @@ function UsersTab() {
             placeholder={t('admin.searchPlaceholder') || "Tìm theo tên hoặc email..."}
             style={{
               width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10,
-              border: '1px solid #e2e8f0', fontSize: 14, outline: 'none',
-              boxSizing: 'border-box',
+              border: '1px solid var(--color-border)', fontSize: 14, outline: 'none',
+              boxSizing: 'border-box', background: 'var(--color-input-bg)', color: 'var(--color-text)',
             }}
           />
         </div>
@@ -178,49 +248,49 @@ function UsersTab() {
           <Loader2 size={32} className="animate-spin" style={{ color: '#4f46e5', margin: '0 auto' }} />
         </div>
       ) : users.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>{t('admin.noUsersFound') || 'Không tìm thấy người dùng nào.'}</div>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-secondary)' }}>{t('admin.noUsersFound') || 'Không tìm thấy người dùng nào.'}</div>
       ) : (
         <>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
                   <th
                     onClick={() => handleSort('fullName')}
-                    style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}
+                    style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', cursor: 'pointer', userSelect: 'none' }}
                   >
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{t('admin.user') || 'Người dùng'} <SortIcon field="fullName" /></span>
                   </th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Email</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)' }}>Email</th>
                   <th
                     onClick={() => handleSort('banStatus')}
-                    style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}
+                    style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: 'var(--color-text-muted)', cursor: 'pointer', userSelect: 'none' }}
                   >
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{t('admin.status') || 'Trạng thái'} <SortIcon field="banStatus" /></span>
                   </th>
                   <th
                     onClick={() => handleSort('createdAt')}
-                    style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}
+                    style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: 'var(--color-text-muted)', cursor: 'pointer', userSelect: 'none' }}
                   >
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{t('admin.createdAt') || 'Ngày tạo'} <SortIcon field="createdAt" /></span>
                   </th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b' }}>{t('admin.action') || 'Hành động'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: 'var(--color-text-muted)' }}>{t('admin.action') || 'Hành động'}</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedUsers.map(u => (
-                  <tr key={u._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={u._id} style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
                     <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Avatar src={u.avatar} alt={u.fullName} size="sm" />
-                        <span style={{ fontWeight: 500 }}>{u.fullName}</span>
+                        <span style={{ fontWeight: 500, color: 'var(--color-text)' }}>{u.fullName}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#64748b' }}>{u.email}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--color-text-muted)' }}>{u.email}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       <BanStatusBadge banStatus={u.banStatus} banExpiresAt={u.banExpiresAt} />
                     </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', color: '#64748b' }}>{formatDate(u.createdAt)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--color-text-muted)' }}>{formatDate(u.createdAt)}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       {actionLoading === u._id ? (
                         <Loader2 size={18} className="animate-spin" style={{ color: '#4f46e5', margin: '0 auto' }} />
@@ -230,11 +300,12 @@ function UsersTab() {
                             defaultValue=""
                             onChange={e => { handleBanAction(u._id, e.target.value); e.target.value = '' }}
                             style={{
-                              padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0',
-                              fontSize: 13, cursor: 'pointer', background: '#fff',
+                              padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)',
+                              fontSize: 13, cursor: 'pointer', background: 'var(--color-input-bg)',
+                              color: 'var(--color-text)',
                             }}
                           >
-                            {BAN_ACTIONS.map(a => (
+                            {BAN_ACTIONS.filter(a => a.value !== 'unban' || u.banStatus !== 'none').map(a => (
                               <option key={a.value} value={a.value}>{t(`admin.action_${a.value || 'none'}`) || a.label}</option>
                             ))}
                           </select>
@@ -262,13 +333,13 @@ function UsersTab() {
             </table>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, fontSize: 14, color: '#64748b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, fontSize: 14, color: 'var(--color-text-muted)' }}>
             <span>{(t('admin.total') || 'Tổng:') + ' ' + pagination.total + ' ' + (t('admin.users_lc') || 'người dùng')}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 onClick={() => fetchUsers(pagination.page - 1, search)}
                 disabled={pagination.page <= 1}
-                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer', opacity: pagination.page <= 1 ? 0.4 : 1 }}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)', cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer', opacity: pagination.page <= 1 ? 0.4 : 1, color: 'var(--color-text)' }}
               >
                 <ChevronLeft size={16} />
               </button>
@@ -276,7 +347,7 @@ function UsersTab() {
               <button
                 onClick={() => fetchUsers(pagination.page + 1, search)}
                 disabled={pagination.page >= pagination.totalPages}
-                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: pagination.page >= pagination.totalPages ? 'not-allowed' : 'pointer', opacity: pagination.page >= pagination.totalPages ? 0.4 : 1 }}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)', cursor: pagination.page >= pagination.totalPages ? 'not-allowed' : 'pointer', opacity: pagination.page >= pagination.totalPages ? 0.4 : 1, color: 'var(--color-text)' }}
               >
                 <ChevronRight size={16} />
               </button>
@@ -333,7 +404,7 @@ function DeletedUsersTab() {
     <div>
       <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <div style={{ position: 'relative', flex: 1 }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
           <input
             type="text"
             value={searchInput}
@@ -341,8 +412,8 @@ function DeletedUsersTab() {
             placeholder={t('admin.searchPlaceholder') || "Tìm theo tên hoặc email..."}
             style={{
               width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10,
-              border: '1px solid #e2e8f0', fontSize: 14, outline: 'none',
-              boxSizing: 'border-box',
+              border: '1px solid var(--color-border)', fontSize: 14, outline: 'none',
+              boxSizing: 'border-box', background: 'var(--color-input-bg)', color: 'var(--color-text)',
             }}
           />
         </div>
@@ -359,40 +430,40 @@ function DeletedUsersTab() {
           <Loader2 size={32} className="animate-spin" style={{ color: '#4f46e5', margin: '0 auto' }} />
         </div>
       ) : users.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>{t('admin.noDeletedUsers') || 'Không có tài khoản nào đã bị xóa.'}</div>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-secondary)' }}>{t('admin.noDeletedUsers') || 'Không có tài khoản nào đã bị xóa.'}</div>
       ) : (
         <>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>{t('admin.user') || 'Người dùng'}</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>{t('admin.emailAnonymized') || 'Email (đã ẩn danh)'}</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b' }}>{t('admin.status') || 'Trạng thái'}</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#64748b' }}>{t('admin.createdAt') || 'Ngày tạo'}</th>
+                <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)' }}>{t('admin.user') || 'Người dùng'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)' }}>{t('admin.emailAnonymized') || 'Email (đã ẩn danh)'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: 'var(--color-text-muted)' }}>{t('admin.status') || 'Trạng thái'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: 'var(--color-text-muted)' }}>{t('admin.createdAt') || 'Ngày tạo'}</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u._id} style={{ borderBottom: '1px solid #f1f5f9', opacity: 0.7 }}>
+                  <tr key={u._id} style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
                     <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Avatar src="" alt={u.fullName} size="sm" />
-                        <span style={{ fontWeight: 500, color: '#94a3b8', fontStyle: 'italic' }}>{u.fullName}</span>
+                        <span style={{ fontWeight: 500, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>{u.fullName}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{u.email}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--color-text-muted)', fontSize: 12 }}>{u.email}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       <span style={{ ...badgeBase, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>{t('admin.statusDeleted') || 'Đã xóa'}</span>
                     </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', color: '#94a3b8' }}>{formatDate(u.createdAt)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--color-text-muted)' }}>{formatDate(u.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, fontSize: 14, color: '#64748b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, fontSize: 14, color: 'var(--color-text-muted)' }}>
             <span>{(t('admin.total') || 'Tổng:') + ' ' + users.length + ' ' + (t('admin.deletedUsers_lc') || 'tài khoản đã xóa')}</span>
           </div>
         </>
@@ -441,6 +512,33 @@ function ReportsTab() {
     }
   }
 
+  async function handleBanAction(reportId, reportedUserId, action) {
+    if (!action || !reportedUserId) return
+    setActionLoading('ban_' + reportedUserId)
+    try {
+      const data = await adminService.updateUserBan(reportedUserId, action)
+      toast.success(data.message)
+      setReports(prev => prev.map(r => {
+        if (r.reportedUserId && r.reportedUserId._id === reportedUserId) {
+          r = { ...r, reportedUserId: { ...r.reportedUserId, banStatus: data.user.banStatus, banExpiresAt: data.user.banExpiresAt } }
+        }
+        if (r._id === reportId && r.status === 'pending') {
+          r = { ...r, status: 'resolved' }
+        }
+        return r
+      }))
+      if (reportId) {
+        try {
+          await adminService.updateReportStatus(reportId, 'resolved')
+        } catch {}
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('admin.actionFailed') || 'Thao tác thất bại.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   async function handleViewContext(reportId) {
     setContextLoading(true)
     try {
@@ -462,8 +560,8 @@ function ReportsTab() {
             onClick={() => setStatusFilter(s)}
             style={{
               padding: '8px 16px', borderRadius: 10, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              background: statusFilter === s ? '#4f46e5' : '#f1f5f9',
-              color: statusFilter === s ? '#fff' : '#64748b',
+              background: statusFilter === s ? '#4f46e5' : 'var(--color-surface-alt)',
+              color: statusFilter === s ? '#fff' : 'var(--color-text-muted)',
             }}
           >
             {s === '' ? (t('admin.filterAll') || 'Tất cả') : s === 'pending' ? (t('admin.statusPending') || 'Chờ xử lý') : s === 'resolved' ? (t('admin.statusResolved') || 'Đã xử lý') : (t('admin.statusDismissed') || 'Bác bỏ')}
@@ -476,41 +574,41 @@ function ReportsTab() {
           <Loader2 size={32} className="animate-spin" style={{ color: '#4f46e5', margin: '0 auto' }} />
         </div>
       ) : reports.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>{t('admin.noReports') || 'Không có báo cáo nào.'}</div>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-secondary)' }}>{t('admin.noReports') || 'Không có báo cáo nào.'}</div>
       ) : (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {reports.map(r => (
               <div key={r._id} style={{
-                padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff',
+                padding: 16, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-surface)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                       <AlertTriangle size={16} style={{ color: '#ef4444' }} />
-                      <span style={{ fontWeight: 600, fontSize: 14 }}>{r.reason}</span>
+                      <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--color-text)' }}>{r.reason}</span>
                       <ReportStatusBadge status={r.status} />
                     </div>
-                    <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 4 }}>
                       <span style={{ fontWeight: 500 }}>{t('admin.reporter') || 'Người báo cáo:'}</span> {r.reporterId?.fullName || '—'} ({r.reporterId?.email || '—'})
                     </div>
-                    <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 4 }}>
                       <span style={{ fontWeight: 500 }}>{t('admin.reportedUser') || 'Bị báo cáo:'}</span> {r.reportedUserId?.fullName || '—'} ({r.reportedUserId?.email || '—'})
                       {r.reportedUserId && <span style={{ marginLeft: 8 }}><BanStatusBadge banStatus={r.reportedUserId.banStatus} banExpiresAt={r.reportedUserId.banExpiresAt} /></span>}
                     </div>
-                    {r.description && <p style={{ fontSize: 13, color: '#334155', margin: '6px 0 0', lineHeight: 1.5 }}>{r.description}</p>}
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>{formatDate(r.createdAt)}</div>
+                    {r.description && <p style={{ fontSize: 13, color: 'var(--color-text)', margin: '6px 0 0', lineHeight: 1.5 }}>{r.description}</p>}
+                    <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>{formatDate(r.createdAt)}</div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   {r.messageId && (
                     <button
                       onClick={() => handleViewContext(r._id)}
                       disabled={contextLoading}
                       style={{
-                        padding: '6px 14px', borderRadius: 8, border: '1px solid #e2e8f0',
-                        background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        padding: '6px 14px', borderRadius: 8, border: '1px solid var(--color-border)',
+                        background: 'var(--color-surface)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 4, color: '#4f46e5',
                       }}
                     >
@@ -519,7 +617,7 @@ function ReportsTab() {
                   )}
                   {r.status === 'pending' && (
                     <>
-                      {actionLoading === r._id ? (
+                      {actionLoading === r._id || actionLoading === 'ban_' + r.reportedUserId?._id ? (
                         <Loader2 size={18} className="animate-spin" style={{ color: '#4f46e5' }} />
                       ) : (
                         <>
@@ -541,6 +639,21 @@ function ReportsTab() {
                           >
                             {t('admin.statusDismissed') || 'Bác bỏ'}
                           </button>
+                          {r.reportedUserId && (
+                            <select
+                              defaultValue=""
+                              onChange={e => { handleBanAction(r._id, r.reportedUserId._id, e.target.value); e.target.value = '' }}
+                              style={{
+                                padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)',
+                                fontSize: 13, cursor: 'pointer', background: 'var(--color-input-bg)',
+                                color: 'var(--color-text)',
+                              }}
+                            >
+                              {BAN_ACTIONS.filter(a => a.value !== 'unban' || r.reportedUserId.banStatus !== 'none').map(a => (
+                                <option key={a.value} value={a.value}>{t(`admin.action_${a.value || 'none'}`) || a.label}</option>
+                              ))}
+                            </select>
+                          )}
                         </>
                       )}
                     </>
@@ -550,13 +663,13 @@ function ReportsTab() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, fontSize: 14, color: '#64748b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, fontSize: 14, color: 'var(--color-text-muted)' }}>
             <span>{(t('admin.total') || 'Tổng:') + ' ' + pagination.total + ' ' + (t('admin.reports_lc') || 'báo cáo')}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 onClick={() => fetchReports(pagination.page - 1, statusFilter)}
                 disabled={pagination.page <= 1}
-                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer', opacity: pagination.page <= 1 ? 0.4 : 1 }}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)', cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer', opacity: pagination.page <= 1 ? 0.4 : 1, color: 'var(--color-text)' }}
               >
                 <ChevronLeft size={16} />
               </button>
@@ -564,7 +677,7 @@ function ReportsTab() {
               <button
                 onClick={() => fetchReports(pagination.page + 1, statusFilter)}
                 disabled={pagination.page >= pagination.totalPages}
-                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: pagination.page >= pagination.totalPages ? 'not-allowed' : 'pointer', opacity: pagination.page >= pagination.totalPages ? 0.4 : 1 }}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)', cursor: pagination.page >= pagination.totalPages ? 'not-allowed' : 'pointer', opacity: pagination.page >= pagination.totalPages ? 0.4 : 1, color: 'var(--color-text)' }}
               >
                 <ChevronRight size={16} />
               </button>
@@ -584,18 +697,18 @@ function ReportsTab() {
           }}
         >
           <div style={{
-            background: '#fff', borderRadius: 16, maxWidth: 600, width: '100%',
+            background: 'var(--color-surface)', borderRadius: 16, maxWidth: 600, width: '100%',
             maxHeight: '80vh', overflow: 'auto', padding: 24,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{t('admin.msgContextTitle') || 'Ngữ cảnh tin nhắn'}</h3>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--color-text)' }}>{t('admin.msgContextTitle') || 'Ngữ cảnh tin nhắn'}</h3>
               <button onClick={() => setContextModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-                <span style={{ fontSize: 20, color: '#64748b' }}>&times;</span>
+                <span style={{ fontSize: 20, color: 'var(--color-text-muted)' }}>&times;</span>
               </button>
             </div>
 
             {contextModal.contextMessages.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-secondary)' }}>
                 {contextModal.reportedMessage
                   ? (t('admin.msgContextDeleted') || 'Tin nhắn bị báo cáo đã bị thu hồi hoặc xóa. Không có ngữ cảnh để hiển thị.')
                   : (t('admin.msgNotFound') || 'Tin nhắn không còn tồn tại.')}
@@ -607,21 +720,21 @@ function ReportsTab() {
                     key={msg._id || idx}
                     style={{
                       padding: '10px 14px', borderRadius: 10, fontSize: 14,
-                      background: msg.isReportedMessage ? '#fef2f2' : '#f8fafc',
-                      border: msg.isReportedMessage ? '2px solid #ef4444' : '1px solid #e2e8f0',
+                      background: msg.isReportedMessage ? '#fef2f2' : 'var(--color-surface-alt)',
+                      border: msg.isReportedMessage ? '2px solid #ef4444' : '1px solid var(--color-border)',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontWeight: 600, fontSize: 13, color: msg.isReportedMessage ? '#dc2626' : '#334155' }}>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: msg.isReportedMessage ? '#dc2626' : 'var(--color-text)' }}>
                         {msg.senderId?.fullName || (t('admin.user') || 'Người dùng')}
                       </span>
-                      <span style={{ fontSize: 11, color: '#94a3b8' }}>{formatDate(msg.createdAt)}</span>
+                      <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>{formatDate(msg.createdAt)}</span>
                       {msg.isReportedMessage && (
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', marginLeft: 4 }}>{t('admin.reported') || 'BỊ BÁO CÁO'}</span>
                       )}
                     </div>
-                    <p style={{ margin: 0, color: '#334155', lineHeight: 1.5, wordBreak: 'break-word' }}>
-                      {msg.isRecalled ? <em style={{ color: '#94a3b8' }}>{t('admin.recalledMsg') || 'Tin nhắn đã bị thu hồi'}</em> : msg.text || (msg.image ? (t('admin.imageMsg') || '[Hình ảnh]') : msg.file ? `[${t('admin.fileMsg') || 'Tệp'}: ${msg.file.name}]` : (t('admin.unknownMsg') || '[Nội dung không xác định]'))}
+                    <p style={{ margin: 0, color: 'var(--color-text)', lineHeight: 1.5, wordBreak: 'break-word' }}>
+                      {msg.isRecalled ? <em style={{ color: 'var(--color-text-secondary)' }}>{t('admin.recalledMsg') || 'Tin nhắn đã bị thu hồi'}</em> : msg.text || (msg.image ? (t('admin.imageMsg') || '[Hình ảnh]') : msg.file ? `[${t('admin.fileMsg') || 'Tệp'}: ${msg.file.name}]` : (t('admin.unknownMsg') || '[Nội dung không xác định]'))}
                     </p>
                   </div>
                 ))}
@@ -648,28 +761,29 @@ function AdminPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
       {/* Header */}
       <div style={{
-        background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '12px 24px',
+        background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', padding: '12px 24px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Shield size={24} style={{ color: '#4f46e5' }} />
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1e293b' }}>Admin Panel</h1>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--color-text)' }}>Admin Panel</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <SettingsDropdown />
           <button
             onClick={() => navigate('/chat')}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-              borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff',
+              borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)',
               fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#4f46e5',
             }}
           >
             <MessageSquare size={16} /> {t('admin.chat') || 'Chat'}
           </button>
-          <span style={{ fontSize: 14, fontWeight: 500, color: '#64748b' }}>{user?.fullName}</span>
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-muted)' }}>{user?.fullName}</span>
           <button
             onClick={() => { logout(); navigate('/login') }}
             style={{
@@ -685,7 +799,7 @@ function AdminPage() {
 
       {/* Tabs */}
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
-        <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: '#f1f5f9', borderRadius: 12, padding: 4 }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'var(--color-surface-alt)', borderRadius: 12, padding: 4 }}>
           {tabs.map(tab => (
             <button
               key={tab.key}
@@ -693,8 +807,8 @@ function AdminPage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px',
                 borderRadius: 10, border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', flex: 1,
-                background: activeTab === tab.key ? '#fff' : 'transparent',
-                color: activeTab === tab.key ? '#4f46e5' : '#64748b',
+                background: activeTab === tab.key ? 'var(--color-surface)' : 'transparent',
+                color: activeTab === tab.key ? '#4f46e5' : 'var(--color-text-muted)',
                 boxShadow: activeTab === tab.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                 justifyContent: 'center',
               }}
@@ -704,7 +818,7 @@ function AdminPage() {
           ))}
         </div>
 
-        <div style={{ background: '#fff', borderRadius: 16, padding: 24, border: '1px solid #e2e8f0' }}>
+        <div style={{ background: 'var(--color-surface)', borderRadius: 16, padding: 24, border: '1px solid var(--color-border)' }}>
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'deleted' && <DeletedUsersTab />}
           {activeTab === 'reports' && <ReportsTab />}

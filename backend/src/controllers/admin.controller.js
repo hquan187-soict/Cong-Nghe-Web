@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import Report from "../models/Report.js";
 import Message from "../models/Message.js";
 import { performAccountDeletion } from "./user.controller.js";
+import { io, getReceiverSocketIds } from "../lib/socket.js";
 
 export const getUsers = async (req, res, next) => {
   try {
@@ -71,30 +72,64 @@ export const updateUserBan = async (req, res, next) => {
       case "warning":
         user.banStatus = "warning";
         user.banExpiresAt = null;
+        user.warningExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
         break;
       case "ban_3_days":
         user.banStatus = "banned";
         user.banExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        user.warningExpiresAt = null;
         break;
       case "ban_7_days":
         user.banStatus = "banned";
         user.banExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        user.warningExpiresAt = null;
         break;
       case "ban_1_month":
         user.banStatus = "banned";
         user.banExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        user.warningExpiresAt = null;
         break;
       case "ban_permanent":
         user.banStatus = "banned";
         user.banExpiresAt = null;
+        user.warningExpiresAt = null;
         break;
       case "unban":
         user.banStatus = "none";
         user.banExpiresAt = null;
+        user.warningExpiresAt = null;
         break;
     }
 
     await user.save();
+
+    const userIdStr = user._id.toString();
+    const socketIds = getReceiverSocketIds(userIdStr);
+
+    if (action === "warning") {
+      if (socketIds.length > 0) {
+        socketIds.forEach((sid) => {
+          io.to(sid).emit("account_warned", {
+            warningExpiresAt: user.warningExpiresAt.toISOString(),
+          });
+        });
+      }
+    } else if (action.startsWith("ban")) {
+      if (socketIds.length > 0) {
+        const reason = user.banExpiresAt
+          ? `Tài khoản của bạn đã bị cấm đến ${user.banExpiresAt.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}.`
+          : "Tài khoản của bạn đã bị cấm vĩnh viễn.";
+        socketIds.forEach((sid) => {
+          io.to(sid).emit("account_banned", { reason });
+        });
+        setTimeout(() => {
+          socketIds.forEach((sid) => {
+            const s = io.sockets.sockets.get(sid);
+            if (s) s.disconnect(true);
+          });
+        }, 500);
+      }
+    }
 
     res.status(200).json({
       message: "Cập nhật trạng thái người dùng thành công.",

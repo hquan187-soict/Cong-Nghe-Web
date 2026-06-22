@@ -142,6 +142,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    warningExpiresAt: {
+      type: Date,
+      default: null,
+    },
     status: {
       type: String,
       enum: ["active", "deleted"],

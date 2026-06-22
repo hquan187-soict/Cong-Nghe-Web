@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react'
 import { useLang } from '../context/LangContext'
 
 const STORAGE_KEY = 'show_warning_popup'
+const WARNING_EXPIRES_KEY = 'warning_expires_at'
 
-export function triggerWarningPopup() {
+export function triggerWarningPopup(warningExpiresAt) {
   localStorage.setItem(STORAGE_KEY, 'true')
+  if (warningExpiresAt) {
+    localStorage.setItem(WARNING_EXPIRES_KEY, warningExpiresAt)
+  }
 }
 
 function WarningPopup() {
@@ -12,10 +16,30 @@ function WarningPopup() {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
-    if (localStorage.getItem(STORAGE_KEY) === 'true') {
-      setShow(true)
-      localStorage.removeItem(STORAGE_KEY)
+    function checkWarning() {
+      const expiresAt = localStorage.getItem(WARNING_EXPIRES_KEY)
+      if (expiresAt && new Date() < new Date(expiresAt)) {
+        setShow(true)
+        return
+      }
+      if (expiresAt && new Date() >= new Date(expiresAt)) {
+        localStorage.removeItem(WARNING_EXPIRES_KEY)
+        localStorage.removeItem(STORAGE_KEY)
+        return
+      }
+      if (localStorage.getItem(STORAGE_KEY) === 'true') {
+        setShow(true)
+        localStorage.removeItem(STORAGE_KEY)
+      }
     }
+
+    checkWarning()
+
+    function onTrigger() {
+      checkWarning()
+    }
+    window.addEventListener('warning_popup_trigger', onTrigger)
+    return () => window.removeEventListener('warning_popup_trigger', onTrigger)
   }, [])
 
   if (!show) return null

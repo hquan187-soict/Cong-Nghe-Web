@@ -51,6 +51,24 @@ export const protect = async (req, res, next) => {
       return next(error);
     }
 
+    if (user.banStatus === "banned") {
+      if (user.banExpiresAt && new Date() >= user.banExpiresAt) {
+        user.banStatus = "none";
+        user.banExpiresAt = null;
+        await user.save();
+      } else {
+        const error = new Error("Tài khoản của bạn đã bị cấm.");
+        error.statusCode = 403;
+        return next(error);
+      }
+    }
+
+    if (user.banStatus === "warning" && user.warningExpiresAt && new Date() >= user.warningExpiresAt) {
+      user.banStatus = "none";
+      user.warningExpiresAt = null;
+      await user.save();
+    }
+
     req.user = user;
     next();
 

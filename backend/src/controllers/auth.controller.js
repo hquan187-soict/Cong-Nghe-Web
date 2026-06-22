@@ -32,7 +32,16 @@ const checkBanStatus = async (user) => {
     error.statusCode = 403;
     throw error;
   }
-  return { allowed: true, hasWarning: user.banStatus === "warning" };
+  if (user.banStatus === "warning") {
+    if (user.warningExpiresAt && new Date() >= user.warningExpiresAt) {
+      user.banStatus = "none";
+      user.warningExpiresAt = null;
+      await user.save();
+      return { allowed: true, hasWarning: false };
+    }
+    return { allowed: true, hasWarning: true, warningExpiresAt: user.warningExpiresAt };
+  }
+  return { allowed: true, hasWarning: false };
 };
 
 export const signup = async (req, res, next) => {
@@ -186,7 +195,7 @@ export const login = async (req, res, next) => {
     user.failedLoginAttempts = 0;
     await user.save();
 
-    const { hasWarning } = await checkBanStatus(user);
+    const { hasWarning, warningExpiresAt } = await checkBanStatus(user);
 
     const token = generateToken(user._id, res);
 
@@ -198,6 +207,7 @@ export const login = async (req, res, next) => {
       role: user.role,
       token,
       hasWarning,
+      warningExpiresAt: warningExpiresAt || null,
     });
   } catch (error) {
     return next(error);
@@ -432,10 +442,10 @@ export const googleLogin = async (req, res, next) => {
       }
     }
 
-    const { hasWarning } = await checkBanStatus(user);
+    const { hasWarning, warningExpiresAt } = await checkBanStatus(user);
 
     const token = generateToken(user._id, res);
-    res.status(200).json({ _id: user._id, fullName: user.fullName, email: user.email, avatar: user.avatar, role: user.role, token, hasWarning });
+    res.status(200).json({ _id: user._id, fullName: user.fullName, email: user.email, avatar: user.avatar, role: user.role, token, hasWarning, warningExpiresAt: warningExpiresAt || null });
 
   } catch (error) {
     console.error("Lỗi Google Login Backend:", error);

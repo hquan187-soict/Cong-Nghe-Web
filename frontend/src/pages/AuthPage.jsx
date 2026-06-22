@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Navigate, useNavigate, useLocation } from 'react-router-dom'
 import ReCAPTCHA from 'react-google-recaptcha'
 import { Lock, Eye, EyeOff, Mail, ShieldCheck, ArrowLeft, Shield, Gauge } from 'lucide-react'
@@ -57,6 +57,19 @@ function LoginForm({ onNavigate }) {
   const [captchaToken, setCaptchaToken] = useState('')
   const recaptchaRef = useRef(null)
 
+  useEffect(() => {
+    const bannedMsg = localStorage.getItem('account_banned_msg')
+    if (bannedMsg) {
+      localStorage.removeItem('account_banned_msg')
+      setServerError(bannedMsg)
+    }
+    const purgedMsg = localStorage.getItem('account_purged_msg')
+    if (purgedMsg) {
+      localStorage.removeItem('account_purged_msg')
+      setServerError(purgedMsg)
+    }
+  }, [])
+
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
@@ -80,10 +93,10 @@ function LoginForm({ onNavigate }) {
     setLoading(true)
     try {
       const data = await authService.login({ ...formData, captchaToken })
-      const { token: receivedToken, hasWarning, ...userInfo } = data
+      const { token: receivedToken, hasWarning, warningExpiresAt, ...userInfo } = data
       login(userInfo, receivedToken)
       if (hasWarning) {
-        triggerWarningPopup()
+        triggerWarningPopup(warningExpiresAt)
       } else {
         toast.success(t('login.success'))
       }
@@ -162,7 +175,7 @@ function LoginForm({ onNavigate }) {
               try {
                 const data = await loginWithGoogle(credentialResponse.credential);
                 if (data?.hasWarning) {
-                  triggerWarningPopup();
+                  triggerWarningPopup(data?.warningExpiresAt);
                 } else {
                   toast.success(t('login.success') || 'Đăng nhập thành công');
                 }
@@ -417,7 +430,7 @@ function RegisterForm({ onNavigate }) {
               try {
                 const data = await loginWithGoogle(credentialResponse.credential);
                 if (data?.hasWarning) {
-                  triggerWarningPopup();
+                  triggerWarningPopup(data?.warningExpiresAt);
                 } else {
                   toast.success(t('login.success') || 'Đăng nhập thành công');
                 }

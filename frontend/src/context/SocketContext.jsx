@@ -66,6 +66,23 @@ export function SocketProvider({ children }) {
         window.location.href = '/login'
       })
 
+      socket.on('account_banned', ({ reason }) => {
+        socket.disconnect()
+        socketRef.current = null
+        setSocketInstance(null)
+        setIsConnected(false)
+        setOnlineUsers([])
+        logout()
+        localStorage.setItem('account_banned_msg', reason || 'Tài khoản của bạn đã bị cấm.')
+        window.location.href = '/login'
+      })
+
+      socket.on('account_warned', ({ warningExpiresAt }) => {
+        localStorage.setItem('warning_expires_at', warningExpiresAt)
+        localStorage.setItem('show_warning_popup', 'true')
+        window.dispatchEvent(new Event('warning_popup_trigger'))
+      })
+
       setSocketInstance(socket)
       socket.connect()
     }
