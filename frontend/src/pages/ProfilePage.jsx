@@ -691,7 +691,7 @@ function ProfilePage() {
   const hasExtendedInfo = user?.birthday || user?.gender || user?.phone || user?.address || user?.hometown || user?.hobbies || user?.occupation || user?.education
 
   return (
-    <div style={s.page}>
+    <div className="app-scrollbar" style={s.page}>
       {/* Banner */}
       <div
         ref={bannerRef}

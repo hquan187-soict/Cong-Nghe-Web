@@ -696,7 +696,7 @@ function ReportsTab() {
             zIndex: 1200, padding: 20,
           }}
         >
-          <div style={{
+          <div className="app-scrollbar" style={{
             background: 'var(--color-surface)', borderRadius: 16, maxWidth: 600, width: '100%',
             maxHeight: '80vh', overflow: 'auto', padding: 24,
           }}>

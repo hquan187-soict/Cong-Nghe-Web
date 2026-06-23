@@ -136,7 +136,7 @@ function AuthDemo() {
       </p>
 
       {/* Log panel */}
-      <div style={styles.logPanel}>
+    <div className="app-scrollbar" style={styles.logPanel}>
         <h3 style={styles.subtitle}>📜 Log</h3>
         {logMessages.length === 0 ? (
           <p style={styles.logEmpty}>Chưa có log — bấm các nút ở trên để test</p>

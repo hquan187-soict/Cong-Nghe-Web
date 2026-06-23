@@ -148,6 +148,7 @@ export default function NotificationBell({ onNotificationClick }) {
           </div>
 
           <div
+            className="app-scrollbar"
             ref={listRef}
             onScroll={handleScroll}
             style={{ flex: 1, overflowY: 'auto', maxHeight: '400px' }}

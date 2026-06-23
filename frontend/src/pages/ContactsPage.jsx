@@ -816,7 +816,7 @@ export default function ContactsPage() {
         </div>
 
         {selectedGroup ? (
-          <div style={{ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--color-bg)' }}>
+          <div className="app-scrollbar" style={{ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--color-bg)' }}>
             {/* Group banner */}
             <div style={{ height: 180, background: 'linear-gradient(135deg, var(--color-primary), #7c3aed)', position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', inset: 0, opacity: 0.08, backgroundImage: 'repeating-linear-gradient(45deg,transparent,transparent 30px,rgba(255,255,255,0.1) 30px,rgba(255,255,255,0.1) 60px)' }} />

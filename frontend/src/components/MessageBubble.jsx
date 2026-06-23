@@ -157,7 +157,7 @@ function ReactionDetailModal({ reactions, onClose, onRemoveReaction, isKicked, t
             </button>
           ))}
         </div>
-        <div style={{ padding: '8px 16px', maxHeight: '300px', overflowY: 'auto' }}>
+        <div className="app-scrollbar" style={{ padding: '8px 16px', maxHeight: '300px', overflowY: 'auto' }}>
           {displayReactions.map((r, i) => {
             const userName = typeof r.userId === 'object' ? r.userId?.fullName : null
             const userAvatar = typeof r.userId === 'object' ? r.userId?.avatar : null

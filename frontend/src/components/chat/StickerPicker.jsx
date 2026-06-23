@@ -63,7 +63,7 @@ const StickerPicker = ({ onSelectSticker, onClose }) => {
           </button>
         ))}
       </div>
-      <div style={{
+      <div className="app-scrollbar" style={{
         padding: '12px',
         height: '250px',
         overflowY: 'auto',

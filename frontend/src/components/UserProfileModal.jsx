@@ -271,7 +271,7 @@ function UserProfileModal({ isOpen, onClose, userId, onSendMessage }) {
           <button className="profile-modal__close-btn" onClick={onClose}><X size={20} /></button>
 
           {/* Scrollable content */}
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          <div className="app-scrollbar" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {/* Banner with cover image or generated color */}
             <div ref={bannerRef} className={bannerClassName} style={bannerStyle}>
               <div className="profile-modal__banner-pattern" />

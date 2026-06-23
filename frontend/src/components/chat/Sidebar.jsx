@@ -925,7 +925,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
                   {showFilterDropdown && (
                     <div
                       ref={filterMenuRef}
-                      className="sidebar-filter__menu"
+                      className="sidebar-filter__menu app-scrollbar"
                       style={{
                         position: 'fixed',
                         ...filterMenuStyle,
@@ -1140,7 +1140,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
 
       {/* Accessibility sub-panel */}
       {showAccessibility && showSettings && (
-        <div className="sidebar__a11y-panel" ref={a11yPanelRef} style={a11yPanelStyle}>
+        <div className="sidebar__a11y-panel app-scrollbar" ref={a11yPanelRef} style={a11yPanelStyle}>
           <div className="sidebar__settings-header">
             <button className="sidebar__a11y-back" onClick={() => setShowAccessibility(false)}>
               <ChevronLeft size={16} />
@@ -1192,7 +1192,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
 
       {/* Active Status sub-panel */}
       {showActiveStatus && showSettings && (
-        <div className="sidebar__active-status-panel" ref={activeStatusPanelRef} style={activeStatusPanelStyle}>
+        <div className="sidebar__active-status-panel app-scrollbar" ref={activeStatusPanelRef} style={activeStatusPanelStyle}>
           <div className="sidebar__settings-header">
             <button className="sidebar__a11y-back" onClick={() => setShowActiveStatus(false)}>
               <ChevronLeft size={16} />
@@ -1218,7 +1218,7 @@ const Sidebar = forwardRef(function Sidebar({ selectedConversation, onSelectConv
 
       {/* Notifications sub-panel */}
       {showNotifications && showSettings && (
-        <div className="sidebar__a11y-panel" ref={notifPanelRef} style={notifPanelStyle}>
+        <div className="sidebar__a11y-panel app-scrollbar" ref={notifPanelRef} style={notifPanelStyle}>
           <div className="sidebar__settings-header">
             <button className="sidebar__a11y-back" onClick={() => setShowNotifications(false)}>
               <ChevronLeft size={16} />

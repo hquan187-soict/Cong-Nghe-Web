@@ -169,7 +169,7 @@ export default function MiniProfile({ contact, isOnline, onSendMessage, onUnfrie
   const hasExtended = profile.birthday || gl || profile.phone || profile.address || profile.hometown || profile.occupation || profile.education || profile.hobbies;
 
   return (
-    <div style={{ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--color-bg)' }}>
+    <div className="app-scrollbar" style={{ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--color-bg)' }}>
       {/* Banner */}
       <div ref={bannerRef} style={bannerStyle}>
         <div style={{ position: 'absolute', inset: 0, opacity: 0.08, backgroundImage: 'repeating-linear-gradient(45deg,transparent,transparent 30px,rgba(255,255,255,0.1) 30px,rgba(255,255,255,0.1) 60px)' }} />

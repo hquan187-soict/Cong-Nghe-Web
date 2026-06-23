@@ -13,6 +13,25 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.call-history__list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.call-history__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.call-history__list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.call-history__list::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 /* Item */

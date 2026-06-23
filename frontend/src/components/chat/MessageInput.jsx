@@ -317,7 +317,7 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onSendLike, onSe
   return (
     <div className="message-input" style={{ position: 'relative' }}>
       {showMentionList && filteredMembers.length > 0 && (
-        <div ref={mentionListRef} className="mention-dropdown" style={{
+        <div ref={mentionListRef} className="mention-dropdown app-scrollbar" style={{
           position: 'absolute',
           bottom: '100%',
           left: 0,

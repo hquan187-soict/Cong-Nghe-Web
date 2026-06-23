@@ -1377,7 +1377,7 @@ function ChatPage() {
                   />
                 </div>
               </div>
-              <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
+              <div className="app-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
                 {isSearchingMessage ? (
                   <div style={{ padding: '24px', textAlign: 'center' }}>
                     <Loader2 className="animate-spin" size={24} color="var(--color-primary)" />

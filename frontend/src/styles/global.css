@@ -132,6 +132,29 @@ body.chat-viewport-locked #root {
   overflow: hidden;
 }
 
+.app-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.app-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.app-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
 a {
   color: var(--color-secondary);
   font-weight: 500;
@@ -4278,4 +4301,73 @@ a:hover {
   .chat-empty-state__subtitle {
     font-size: 13px;
   }
+}
+
+/* Shared thin scrollbar for scrollable app surfaces */
+:where(
+  .chat-messages,
+  .chat-window__messages,
+  .message-input__textarea,
+  .poll-creator__options-scroll,
+  .poll-detail-modal__body,
+  .info-panel,
+  .profile-modal,
+  .user-profile-modal
+) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+:where(
+  .chat-messages,
+  .chat-window__messages,
+  .message-input__textarea,
+  .poll-creator__options-scroll,
+  .poll-detail-modal__body,
+  .info-panel,
+  .profile-modal,
+  .user-profile-modal
+)::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+:where(
+  .chat-messages,
+  .chat-window__messages,
+  .message-input__textarea,
+  .poll-creator__options-scroll,
+  .poll-detail-modal__body,
+  .info-panel,
+  .profile-modal,
+  .user-profile-modal
+)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:where(
+  .chat-messages,
+  .chat-window__messages,
+  .message-input__textarea,
+  .poll-creator__options-scroll,
+  .poll-detail-modal__body,
+  .info-panel,
+  .profile-modal,
+  .user-profile-modal
+)::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+:where(
+  .chat-messages,
+  .chat-window__messages,
+  .message-input__textarea,
+  .poll-creator__options-scroll,
+  .poll-detail-modal__body,
+  .info-panel,
+  .profile-modal,
+  .user-profile-modal
+)::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }

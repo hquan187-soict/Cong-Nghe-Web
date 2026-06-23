@@ -155,7 +155,7 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
         </div>
 
         {/* Contact List */}
-        <div className="search-modal__results" style={{ flex: 1, padding: '8px 0', overflowY: 'auto' }}>
+        <div className="search-modal__results app-scrollbar" style={{ flex: 1, padding: '8px 0', overflowY: 'auto' }}>
           {isSearching ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '120px', color: 'var(--color-text-muted)' }}>
               <Loader2 className="animate-spin" size={24} style={{ marginBottom: '8px' }} />
