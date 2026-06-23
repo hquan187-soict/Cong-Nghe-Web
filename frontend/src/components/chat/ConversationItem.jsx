@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
   MoreHorizontal, BellOff, Bell, MailOpen, Phone, Video,
   Archive, Trash2, Pin, PinOff, LogOut, ShieldBan, ShieldCheck, ChevronRight, ChevronDown, Tag
@@ -10,6 +11,10 @@ import { useLang } from '../../context/LangContext'
 import { useSocket } from '../../context/SocketContext'
 import { translateSystemMessage } from '../../utils/systemMessageTranslator'
 
+const CONVERSATION_MENU_WIDTH = 200
+const ESTIMATED_CONVERSATION_MENU_HEIGHT = 320
+const VIEWPORT_PADDING = 8
+
 function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, collapsed = false, onlineUsers = [], onPin, onMute, onLeaveGroup, onArchive, onBlock, onUnblock, onMarkRead, onMarkUnread, onDeleteChat, onUpdateLabel }) {
   const { user } = useAuth()
   const { t, lang } = useLang()
@@ -19,7 +24,8 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
   const menuRef = useRef(null)
   const optionsBtnRef = useRef(null)
   const dropdownRef = useRef(null)
-  const [dropdownStyle, setDropdownStyle] = useState({})
+  const [dropdownStyle, setDropdownStyle] = useState(null)
+  const [isDropdownMeasured, setIsDropdownMeasured] = useState(false)
 
   const isGroup = conversation.isGroup;
   const isArchivedByMe = conversation.archivedBy?.some(
@@ -115,15 +121,21 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+      const clickedInMenuButton = menuRef.current?.contains(e.target)
+      const clickedInDropdown = dropdownRef.current?.contains(e.target)
+      if (!clickedInMenuButton && !clickedInDropdown) {
         setShowMenu(false)
         setShowLabelSubmenu(false)
+        setDropdownStyle(null)
+        setIsDropdownMeasured(false)
       }
     }
     function handleEscape(e) {
       if (e.key === 'Escape') {
         setShowMenu(false)
         setShowLabelSubmenu(false)
+        setDropdownStyle(null)
+        setIsDropdownMeasured(false)
       }
     }
     if (showMenu) {
@@ -136,39 +148,44 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
     }
   }, [showMenu])
 
+  const getDropdownStyle = useCallback((rect, menuHeight = ESTIMATED_CONVERSATION_MENU_HEIGHT) => {
+    const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_PADDING
+    const spaceAbove = rect.top - VIEWPORT_PADDING
+    const shouldOpenUp = spaceBelow < menuHeight && spaceAbove > spaceBelow
+    const top = shouldOpenUp
+      ? Math.max(VIEWPORT_PADDING, rect.top - menuHeight - 4)
+      : Math.max(
+          VIEWPORT_PADDING,
+          Math.min(rect.bottom + 4, window.innerHeight - menuHeight - VIEWPORT_PADDING)
+        )
+    const left = Math.max(
+      VIEWPORT_PADDING,
+      Math.min(rect.right - CONVERSATION_MENU_WIDTH, window.innerWidth - CONVERSATION_MENU_WIDTH - VIEWPORT_PADDING)
+    )
+
+    return {
+      top,
+      left,
+      width: CONVERSATION_MENU_WIDTH,
+      maxHeight: Math.max(180, shouldOpenUp ? spaceAbove : spaceBelow),
+    }
+  }, [])
+
   useLayoutEffect(() => {
     if (!showMenu || !optionsBtnRef.current) return
 
     const rect = optionsBtnRef.current.getBoundingClientRect()
-    const menuWidth = 200
-    const menuHeight = dropdownRef.current?.offsetHeight || 320
-    const viewportPadding = 8
-    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding
-    const spaceAbove = rect.top - viewportPadding
-    const shouldOpenUp = spaceBelow < menuHeight && spaceAbove > spaceBelow
-    const top = shouldOpenUp
-      ? Math.max(viewportPadding, rect.top - menuHeight - 4)
-      : Math.max(
-          viewportPadding,
-          Math.min(rect.bottom + 4, window.innerHeight - menuHeight - viewportPadding)
-        )
-    const left = Math.max(
-      viewportPadding,
-      Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - viewportPadding)
-    )
-
-    setDropdownStyle({
-      top,
-      left,
-      width: menuWidth,
-      maxHeight: Math.max(180, shouldOpenUp ? spaceAbove : spaceBelow),
-    })
-  }, [showMenu, showLabelSubmenu])
+    const menuHeight = dropdownRef.current?.scrollHeight || ESTIMATED_CONVERSATION_MENU_HEIGHT
+    setDropdownStyle(getDropdownStyle(rect, menuHeight))
+    setIsDropdownMeasured(true)
+  }, [showMenu, showLabelSubmenu, getDropdownStyle])
 
   const handleMenuAction = (action, payload) => (e) => {
     e.stopPropagation()
     setShowMenu(false)
     setShowLabelSubmenu(false)
+    setDropdownStyle(null)
+    setIsDropdownMeasured(false)
     if (action === 'Pin' && onPin) onPin(conversation._id)
     if (action === 'Mute' && onMute) onMute(conversation._id)
     if (action === 'Archive' && onArchive) onArchive(conversation._id)
@@ -307,18 +324,34 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
           className="conversation-item__options-btn"
           onClick={(e) => {
             e.stopPropagation()
-            if (showMenu) setShowLabelSubmenu(false)
-            setShowMenu((v) => !v)
+            setShowLabelSubmenu(false)
+            if (showMenu) {
+              setShowMenu(false)
+              setDropdownStyle(null)
+              setIsDropdownMeasured(false)
+              return
+            }
+            const rect = optionsBtnRef.current?.getBoundingClientRect()
+            if (rect) {
+              setDropdownStyle(getDropdownStyle(rect))
+            } else {
+              setDropdownStyle(null)
+            }
+            setIsDropdownMeasured(false)
+            setShowMenu(true)
           }}
           title={t('chat2.options')}
         >
           <MoreHorizontal size={16} />
         </button>
-        {showMenu && (
+        {showMenu && dropdownStyle && createPortal(
           <div
             ref={dropdownRef}
             className="conversation-item__dropdown"
-            style={dropdownStyle}
+            style={{
+              ...dropdownStyle,
+              visibility: isDropdownMeasured ? 'visible' : 'hidden',
+            }}
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
           >
@@ -404,7 +437,8 @@ function ConversationItem({ conversation, isActive, onClick, unreadCount = 0, co
               <Trash2 size={14} />
               <span>{t('chat2.deleteChat')}</span>
             </button>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </div>

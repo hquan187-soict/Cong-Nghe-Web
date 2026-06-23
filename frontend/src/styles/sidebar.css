@@ -618,6 +618,25 @@
   padding: 4px 0;
   overflow-y: auto;
   animation: conv-dropdown-in 0.15s ease-out;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.conversation-item__dropdown::-webkit-scrollbar {
+  width: 4px;
+}
+
+.conversation-item__dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conversation-item__dropdown::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.conversation-item__dropdown::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 @keyframes conv-dropdown-in {
